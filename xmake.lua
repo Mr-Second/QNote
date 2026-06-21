@@ -15,11 +15,10 @@ option("qml_debug")
 option_end()
 
 add_requires("sqlitecpp")
--- xapian-core 通过 conan 安装：强制 settings compiler.version=192（VS 2019）
--- 这样能匹配 conan center 上唯一可用的 Windows msvc192 预编译包，
--- 避免在 CI（VS 2026 = compiler.version 195）上从源码编译（15+ 分钟）。
--- msvc 192/193/195 的 C++ ABI 互相兼容，二进制可直接复用。
--- zlib（xapian 依赖）会从源码编译，但用 host 编译器（v143）而非 v142。
+-- xapian-core 通过 conan 安装：强制 settings compiler.version=194（VS 17.4+，MSVC 19.4x）
+-- conan center 上 xapian-core 1.4.24 有 msvc 192/193/194 的 Windows 二进制，
+-- zlib 1.3.2 有 msvc 194 的 Windows 二进制。用 194 让两者都能直接下载 binary，
+-- 避免 CI（VS 2026=195）和本地（193）从源码编译。
 add_requires("conan::xapian-core/1.4.24", {alias = "xapian",
     configs = {
         -- 锁定 compiler.version=194（VS 17.4+，MSVC 19.4x）
