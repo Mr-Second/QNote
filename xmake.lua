@@ -182,15 +182,16 @@ target("QNotePack")
         local excludes = json.loadfile(path.join(os.projectdir(), "pack-excludes.json"))
         local deploy_args = {}
 
+        -- windeployqt 只支持有限的 --no-* 选项（--no-translations, --no-opengl-sw, --no-ffmpeg 等）
+        -- excludeLibraries 里的模块名（quick3d/3dcore 等）不是 windeployqt 选项，
+        -- 传给 windeployqt 会报 "Unknown options"。改为 windeployqt 后手动删除对应 DLL。
+        -- 这里只把 excludeFlags（translations/opengl-sw/ffmpeg 等）传给 windeployqt。
         if excludes.skipPluginTypes and #excludes.skipPluginTypes > 0 then
             table.insert(deploy_args, "--skip-plugin-types " .. table.concat(excludes.skipPluginTypes, ","))
         end
 
-        if excludes.excludeLibraries then
-            for _, lib in ipairs(excludes.excludeLibraries) do
-                table.insert(deploy_args, "--no-" .. lib)
-            end
-        end
+        -- excludeLibraries 不传给 windeployqt（避免 Unknown options 错误）
+        -- 对应的 DLL 会在 windeployqt 后通过 libPatterns 删除
 
         if excludes.excludeFlags then
             for _, flag in ipairs(excludes.excludeFlags) do
@@ -211,6 +212,25 @@ target("QNotePack")
         if excludes.cleanPatterns then
             for _, pattern in ipairs(excludes.cleanPatterns) do
                 os.rm(path.join(outdir, pattern))
+            end
+        end
+
+        -- excludeLibraries 对应的 DLL 在 windeployqt 后删除（windeployqt 不支持 --no-<lib>）
+        -- 把模块名转成 DLL glob：quick3d → Qt6Quick3D*.dll, 3dcore → Qt63DCore*.dll 等
+        if excludes.excludeLibraries then
+            for _, lib in ipairs(excludes.excludeLibraries) do
+                -- Qt DLL 命名规则：Qt6<LibName>.dll（首字母大写，去掉数字前缀的 3d → 3D）
+                -- 例：quick3d → Qt6Quick3D*.dll, 3dcore → Qt63DCore*.dll, svg → Qt6Svg*.dll
+                local dllName = lib:gsub("^%d", function(c) return c end):gsub("^(.)", function(c) return c:upper() end)
+                -- 特殊处理 3d* 前缀（3dcore → 3DCore，不是 3dcore → 3DCore）
+                dllName = lib:gsub("^3d", "3D"):gsub("^quick3d", "Quick3D")
+                -- 首字母大写（除 3d 已处理）
+                if not dllName:match("^3D") then
+                    dllName = dllName:gsub("^(.)", function(c) return c:upper() end)
+                end
+                -- 尝试多种命名变体删除
+                os.rm(path.join(outdir, "Qt6" .. dllName .. "*.dll"))
+                os.rm(path.join(outdir, "Qt6" .. dllName .. "*.pdb"))
             end
         end
 
