@@ -15,7 +15,18 @@ option("qml_debug")
 option_end()
 
 add_requires("sqlitecpp")
-add_requires("conan::xapian-core/1.4.24", {alias = "xapian"})
+-- xapian-core 通过 conan 安装：强制 settings compiler.version=192（VS 2019）
+-- 这样能匹配 conan center 上唯一可用的 Windows msvc192 预编译包，
+-- 避免在 CI（VS 2026 = compiler.version 195）上从源码编译（15+ 分钟）。
+-- msvc 192/193/195 的 C++ ABI 互相兼容，二进制可直接复用。
+-- zlib（xapian 依赖）会从源码编译，但用 host 编译器（v143）而非 v142。
+add_requires("conan::xapian-core/1.4.24", {alias = "xapian",
+    configs = {
+        settings = {"compiler=msvc", "compiler.version=192", "compiler.cppstd=14"},
+        -- zlib 编译时强制用 VS 2022 generator + v143 工具集（避免找 VS 2019 失败）
+        conf = "tools.cmake.cmaketoolchain:generator=Visual Studio 17 2022\n"
+             .. "tools.cmake.cmaketoolchain:extra_variables={\"CMAKE_GENERATOR_TOOLSET\":\"v143\"}"
+    }})
 
 local QT_DIR = "D:/Qt/6.9.3/msvc2022_64"
 local QT_BIN = QT_DIR .. "/bin"
