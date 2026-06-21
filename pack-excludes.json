@@ -1,0 +1,34 @@
+{
+  "skipPluginTypes": [
+    "qmltooling", "generic", "assetimporters", "canbus", "renderers",
+    "geometryloaders", "designer", "scxmldatamodel", "help", "position",
+    "sensors", "sqldrivers", "texttospeech", "webview", "platforminputcontexts",
+    "multimedia", "networkinformation", "iconengines"
+  ],
+  "excludeLibraries": [
+    "quick3d", "quick3dassetimport", "quick3dhelpers", "quick3dhelpersimpl",
+    "quick3druntimerender", "quick3dutils", "3dcore", "3drender", "3dinput",
+    "3dlogic", "3dextras", "3danimation", "3dquick", "3dquickextras",
+    "3dquickinput", "3dquicklogic", "3dquickrender", "3dquickscene2d",
+    "3dquickscene3d", "location", "multimedia", "serialport", "virtualkeyboard",
+    "virtualkeyboardqml", "virtualkeyboardsettings", "shadertools", "test",
+    "svg", "svgwidgets", "sensors", "sensorsquick", "websockets", "webchannel",
+    "webchannelquick", "webview", "webviewquick", "serialbus", "bluetooth",
+    "nfc", "graphs", "datavisualization", "datavisualizationqml", "charts",
+    "chartsqml", "printsupport", "spatialaudio", "texttospeech", "scxml",
+    "scxmlqml", "remoteobjects", "remoteobjectsqml", "xml", "quicktimeline",
+    "quicktimelineblendtrees", "quickparticlesInternal",
+    "quickcontrols2fluentwinui3styleimpl", "labsanimation",
+    "labsfolderlistmodel", "labsplatform", "labssharedimage", "labswavefrontmesh",
+    "quicktest", "quickwidgets", "httpserver", "grpc", "protobuf", "protobufquick",
+    "bodymovinInternal", "activeqt", "qthelp", "linguist", "openglwidgets",
+    "concurrent", "dbus", "networkauth"
+  ],
+  "excludeFlags": [
+    "translations", "opengl-sw", "ffmpeg", "system-d3d-compiler",
+    "system-dxc-compiler"
+  ],
+  "cleanPatterns": [
+    "**/*.lib", "**/*.exp", "**/*.qrc", "**/designer", "**/Release", "**/imports"
+  ]
+}

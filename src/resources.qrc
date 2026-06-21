@@ -1,0 +1,20 @@
+<RCC>
+    <qresource prefix="/">
+        <file>qml/Main.qml</file>
+        <file>qml/theme/AppTheme.qml</file>
+        <file>qml/components/CategoryTabBar.qml</file>
+        <file>qml/components/CategoryTabButton.qml</file>
+        <file>qml/components/NoteListPanel.qml</file>
+        <file>qml/components/NoteListDelegate.qml</file>
+        <file>qml/components/NoteEditor.qml</file>
+        <file>qml/components/StickyNoteBackground.qml</file>
+        <file>qml/components/EditorToolbar.qml</file>
+        <file>qml/components/SettingsDialog.qml</file>
+        <file>qml/components/BackupDialog.qml</file>
+        <file>qml/components/RestoreDialog.qml</file>
+        <file>assets/note.svg</file>
+        <file>assets/note-mini.svg</file>
+        <file>assets/note.ico</file>
+        <file>assets/colors.json</file>
+    </qresource>
+</RCC>

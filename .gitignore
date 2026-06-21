@@ -1,0 +1,25 @@
+# 构建产物
+build/
+.xmake/
+.vscode/
+
+# AI 协作目录（仅本地，不进版本控制）
+.trellis/
+.opencode/
+.agents/
+.codex/
+.claude/
+.cursor/
+.cursorrules
+AGENTS.md
+CLAUDE.md
+
+# 编译产物
+*.exe
+*.obj
+*.pdb
+*.ilk
+*.lib
+*.moc
+**/moc_*.cpp
+

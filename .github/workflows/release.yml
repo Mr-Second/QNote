@@ -1,0 +1,81 @@
+name: Release
+
+# 触发条件：push 匹配 v* 的 tag（v0.1.0、v0.2.0-beta 等）
+on:
+  push:
+    tags:
+      - 'v*'
+
+# 避免 Concurrent 同一 tag 多次 push 时并行 build
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+# Release 上传需要 write 权限
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Release (Windows x64)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+          build-cache: true
+          build-cache-key: windows-x64-release
+
+      - name: Setup Qt 6.9.3 (msvc2022_64)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.9.3'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2022_64'
+          cache: 'false'
+
+      - name: Configure (xmake f)
+        shell: pwsh
+        run: |
+          xmake f -p windows -a x64 -m release -y
+
+      - name: Build QNotePack
+        shell: pwsh
+        run: |
+          xmake build QNotePack -y
+
+      - name: Package (nsis + zip)
+        shell: pwsh
+        run: |
+          xmake pack QNote
+
+      - name: Collect artifacts
+        id: collect
+        shell: pwsh
+        run: |
+          $pkgDir = "build\xpack\QNote"
+          if (-not (Test-Path $pkgDir)) {
+            Write-Error "xpack output dir not found: $pkgDir"
+            exit 1
+          }
+          $files = Get-ChildItem $pkgDir -File | Select-Object -ExpandProperty FullName
+          Write-Host "Artifacts to upload:"
+          $files | ForEach-Object { Write-Host "  $_" }
+          # 输出多行文件列表给后续 step 用（用 GITHUB_ENV 或直接在下一个 step glob）
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/xpack/QNote/QNote-Setup-*.exe
+            build/xpack/QNote/QNote-Portable-*.zip
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
