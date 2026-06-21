@@ -64,10 +64,12 @@ jobs:
           restore-keys: |
             conan-windows-x64-msvc193-
 
-      - name: Configure (xmake f)
+      - name: Configure (xmake f, verbose)
         shell: pwsh
+        timeout-minutes: 10
         run: |
-          xmake f -p windows -a x64 -m release -y
+          # -v verbose：打印 conan/xrepo 拉包详细日志，便于诊断卡住原因
+          xmake f -p windows -a x64 -m release -y -v
 
       - name: Build QNotePack
         shell: pwsh
