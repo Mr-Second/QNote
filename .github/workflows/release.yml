@@ -40,6 +40,24 @@ jobs:
           arch: 'win64_msvc2022_64'
           cache: 'false'
 
+      - name: Install HuskarUI v0.6.1-beta
+        shell: pwsh
+        run: |
+          # HuskarUI 是 Qt 之外的第三方 QML 组件库，需要单独安装到 Qt 目录
+          # 下载官方预编译包（win64_msvc2022_64 + Qt 6.9.3）
+          $qtDir = $env:QT_ROOT_DIR
+          if (-not $qtDir) { $qtDir = "D:\a\QNote\Qt\6.9.3\msvc2022_64" }
+          $url = "https://github.com/mengps/HuskarUI/releases/download/v0.6.1-beta/HuskarUI_v0.6.1-beta_win64_msvc2022_64_Qt6.9.3.zip"
+          $zip = "$env:TEMP\huskarui.zip"
+          Write-Host "Downloading HuskarUI v0.6.1-beta from $url"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Write-Host "Extracting to $qtDir"
+          Expand-Archive -Path $zip -DestinationPath $qtDir -Force
+          Write-Host "HuskarUI installed:"
+          Get-ChildItem "$qtDir\lib\HuskarUIBasic.lib" -ErrorAction SilentlyContinue
+          Get-ChildItem "$qtDir\bin\HuskarUIBasic.dll" -ErrorAction SilentlyContinue
+          Get-ChildItem "$qtDir\qml\HuskarUI" -ErrorAction SilentlyContinue | Select-Object -First 3
+
       - name: Install conan (for xapian-core package)
         shell: pwsh
         run: |
