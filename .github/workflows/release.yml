@@ -40,6 +40,13 @@ jobs:
           arch: 'win64_msvc2022_64'
           cache: 'false'
 
+      - name: Cache HuskarUI package
+        id: cache-huskarui
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/huskarui.zip
+          key: huskarui-v0.6.1-beta-msvc2022-qt6.9.3
+
       - name: Install HuskarUI v0.6.1-beta
         shell: pwsh
         run: |
@@ -48,40 +55,38 @@ jobs:
           # 需要把 HuskarUI/ 内部内容合并到 Qt 目录（D:\a\QNote\Qt\6.9.3\msvc2022_64\）
           $qtDir = $env:QT_ROOT_DIR
           if (-not $qtDir) { $qtDir = "D:\a\QNote\Qt\6.9.3\msvc2022_64" }
-          $url = "https://github.com/mengps/HuskarUI/releases/download/v0.6.1-beta/HuskarUI_v0.6.1-beta_win64_msvc2022_64_Qt6.9.3.zip"
-          $zip = "$env:TEMP\huskarui.zip"
+          $zip = "${{ runner.temp }}/huskarui.zip"
           $extractTmp = "$env:TEMP\huskarui-extract"
-          Write-Host "Downloading HuskarUI v0.6.1-beta from $url"
-          Invoke-WebRequest -Uri $url -OutFile $zip
+          if (-not (Test-Path $zip)) {
+            $url = "https://github.com/mengps/HuskarUI/releases/download/v0.6.1-beta/HuskarUI_v0.6.1-beta_win64_msvc2022_64_Qt6.9.3.zip"
+            Write-Host "Downloading HuskarUI v0.6.1-beta from $url"
+            Invoke-WebRequest -Uri $url -OutFile $zip
+          } else {
+            Write-Host "Using cached HuskarUI zip"
+          }
           Write-Host "Extracting to temp dir: $extractTmp"
           if (Test-Path $extractTmp) { Remove-Item $extractTmp -Recurse -Force }
           Expand-Archive -Path $zip -DestinationPath $extractTmp -Force
-          # 包内是 HuskarUI/ 目录，把其内容合并到 Qt 目录
           $huskRoot = Join-Path $extractTmp "HuskarUI"
-          if (-not (Test-Path $huskRoot)) {
-            # 某些包可能不带顶层 HuskarUI/ 目录
-            $huskRoot = $extractTmp
-          }
+          if (-not (Test-Path $huskRoot)) { $huskRoot = $extractTmp }
           Write-Host "Merging HuskarUI files into Qt dir: $qtDir"
           Copy-Item -Path "$huskRoot\*" -Destination $qtDir -Recurse -Force
           Write-Host "HuskarUI installed. Verifying:"
           Get-ChildItem "$qtDir\lib\HuskarUIBasic.lib" -ErrorAction SilentlyContinue | ForEach-Object { "  lib: $($_.FullName)" }
           Get-ChildItem "$qtDir\bin\HuskarUIBasic.dll" -ErrorAction SilentlyContinue | ForEach-Object { "  dll: $($_.FullName)" }
-          Get-ChildItem "$qtDir\include\HuskarUI" -ErrorAction SilentlyContinue | Select-Object -First 1 | ForEach-Object { "  include: $($_.FullName)" }
-          Get-ChildItem "$qtDir\qml\HuskarUI" -ErrorAction SilentlyContinue | Select-Object -First 1 | ForEach-Object { "  qml: $($_.FullName)" }
 
       - name: Install conan (for xapian-core package)
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
           pip install conan
-          # 锁定 conan profile 为 msvc/193（VS 2022）以匹配 conancenter 预编译包
-          # conan center 上 xapian-core 1.4.24 只有 compiler.version=192 的 Windows 二进制，
-          # 但 conan 2.x binary 兼容性回退能匹配 193。
-          # CI runner 上的 VS 可能被检测为其他版本号（如 2026），导致找不到 binary 而从源码编译。
+          # 锁定 conan profile compiler.version=192（VS 2019）以精确匹配 conancenter 预编译包
+          # conan center 上 xapian-core 1.4.24 Windows 只有 compiler.version=192 的二进制，
+          # 用 193 会导致 conan 从源码编译 xapian（耗时 15+ 分钟）。
+          # profile 与实际 compiler 不一致 conan 不强制校验，二进制 ABI 兼容（msvc 192/193 C++ ABI 兼容）。
           conan profile detect --force
           $profilePath = "$env:USERPROFILE\.conan2\profiles\default"
-          (Get-Content $profilePath) -replace 'compiler.version=.*', 'compiler.version=193' | Set-Content $profilePath
+          (Get-Content $profilePath) -replace 'compiler.version=.*', 'compiler.version=192' | Set-Content $profilePath
           Write-Host "--- conan profile ---"
           Get-Content $profilePath
 
@@ -90,9 +95,17 @@ jobs:
         with:
           path: |
             ~/.conan2/p
-          key: conan-windows-x64-msvc193-${{ hashFiles('xmake.lua') }}
+          key: conan-windows-x64-msvc192-${{ hashFiles('xmake.lua') }}
           restore-keys: |
-            conan-windows-x64-msvc193-
+            conan-windows-x64-msvc192-
+
+      - name: Cache xmake packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.xmake/cache/packages
+          key: xmake-pkgs-windows-x64-${{ hashFiles('xmake.lua') }}
+          restore-keys: |
+            xmake-pkgs-windows-x64-
 
       - name: Configure (xmake f, verbose)
         shell: pwsh
