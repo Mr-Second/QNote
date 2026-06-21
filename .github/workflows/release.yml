@@ -68,8 +68,8 @@ jobs:
         shell: pwsh
         timeout-minutes: 10
         run: |
-          # -v verbose：打印 conan/xrepo 拉包详细日志，便于诊断卡住原因
-          xmake f -p windows -a x64 -m release -y -v
+          # -v verbose 放子命令前；-y 确认拉取包
+          xmake f -v -y -p windows -a x64 -m release
 
       - name: Build QNotePack
         shell: pwsh
