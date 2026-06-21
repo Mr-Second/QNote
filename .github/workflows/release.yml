@@ -68,18 +68,19 @@ jobs:
         shell: pwsh
         timeout-minutes: 10
         run: |
-          # -v verbose 放子命令前；-y 确认拉取包
+          # xmake 语法：xmake [task] [options] [target]
+          # 通用选项（-v -y）必须在 task 之后、target 之前
           xmake f -v -y -p windows -a x64 -m release
 
       - name: Build QNotePack
         shell: pwsh
         run: |
-          xmake build QNotePack -y
+          xmake build -y QNotePack
 
       - name: Package (nsis + zip)
         shell: pwsh
         run: |
-          xmake pack QNote
+          xmake pack -y QNote
 
       - name: Collect artifacts
         id: collect
