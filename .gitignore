@@ -23,3 +23,6 @@ CLAUDE.md
 *.moc
 **/moc_*.cpp
 
+# 例外：7za.exe 是备份功能依赖的第三方工具，必须 track
+!src/tools/7za.exe
+
