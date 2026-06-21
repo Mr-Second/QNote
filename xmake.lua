@@ -22,10 +22,12 @@ add_requires("sqlitecpp")
 -- zlib（xapian 依赖）会从源码编译，但用 host 编译器（v143）而非 v142。
 add_requires("conan::xapian-core/1.4.24", {alias = "xapian",
     configs = {
-        settings = {"compiler=msvc", "compiler.version=192", "compiler.cppstd=14"},
-        -- zlib 编译时强制用 VS 2022 generator + v143 工具集（避免找 VS 2019 失败）
-        conf = "tools.cmake.cmaketoolchain:generator=Visual Studio 17 2022\n"
-             .. "tools.cmake.cmaketoolchain:extra_variables={\"CMAKE_GENERATOR_TOOLSET\":\"v143\"}"
+        -- 锁定 compiler.version=194（VS 17.4+，MSVC 19.4x）
+        -- conan center 上 xapian-core 1.4.24 有 msvc 192/193/194 的 Windows 二进制，
+        -- zlib 1.3.2 有 msvc 194 的 Windows 二进制。
+        -- 用 194 让两者都能直接下载 binary，避免从源码编译。
+        -- CI 的 VS 2026 (MSVC 19.5x=195) 与 194 ABI 兼容。
+        settings = {"compiler=msvc", "compiler.version=194", "compiler.cppstd=14"}
     }})
 
 local QT_DIR = "D:/Qt/6.9.3/msvc2022_64"
