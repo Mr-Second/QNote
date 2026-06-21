@@ -29,7 +29,8 @@ add_requires("conan::xapian-core/1.4.24", {alias = "xapian",
         settings = {"compiler=msvc", "compiler.version=194", "compiler.cppstd=14"}
     }})
 
-local QT_DIR = "D:/Qt/6.9.3/msvc2022_64"
+-- Qt 路径：环境变量 QT_ROOT_DIR 优先（CI 用 install-qt-action 设置），否则用本地固定路径
+local QT_DIR = os.getenv("QT_ROOT_DIR") or "D:/Qt/6.9.3/msvc2022_64"
 local QT_BIN = QT_DIR .. "/bin"
 local QT_QML = QT_DIR .. "/qml"
 local QT_PLUGINS = QT_DIR .. "/plugins"
