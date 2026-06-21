@@ -80,15 +80,28 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install conan
-          # 锁定 conan profile compiler.version=192（VS 2019）以精确匹配 conancenter 预编译包
-          # conan center 上 xapian-core 1.4.24 Windows 只有 compiler.version=192 的二进制，
-          # 用 193 会导致 conan 从源码编译 xapian（耗时 15+ 分钟）。
-          # profile 与实际 compiler 不一致 conan 不强制校验，二进制 ABI 兼容（msvc 192/193 C++ ABI 兼容）。
+          # conan center 上 xapian-core 1.4.24 Windows 只有 compiler.version=192 的二进制
+          # CI runner VS 17.5+ 被 conan detect 为 195，找不到 binary → 从源码编译（15+ 分钟）
+          # 直接用 conan config edit 锁定 profile（避免 sed/正则的编码问题）
           conan profile detect --force
+          # 用临时文件替换，避免读写同一文件
           $profilePath = "$env:USERPROFILE\.conan2\profiles\default"
-          (Get-Content $profilePath) -replace 'compiler.version=.*', 'compiler.version=192' | Set-Content $profilePath
-          Write-Host "--- conan profile ---"
+          $tmpPath = "$env:TEMP\conan-profile.txt"
+          Get-Content $profilePath | ForEach-Object {
+            if ($_ -match '^compiler\.version=') { "compiler.version=192" }
+            elseif ($_ -match '^compiler\.cppstd=') { "compiler.cppstd=14" }
+            else { $_ }
+          } | Out-File -FilePath $tmpPath -Encoding ascii
+          Move-Item -Path $tmpPath -Destination $profilePath -Force
+          Write-Host "--- conan profile (after patch) ---"
           Get-Content $profilePath
+          # 强制校验
+          $content = Get-Content $profilePath -Raw
+          if ($content -notmatch 'compiler\.version=192') {
+            Write-Error "Failed to pin compiler.version=192 in conan profile"
+            exit 1
+          }
+          Write-Host "OK: compiler.version pinned to 192"
 
       - name: Cache conan packages
         uses: actions/cache@v4
