@@ -91,6 +91,7 @@ void SettingsManager::load()
     m_confirmBeforeDelete = getIntValue(Constants::Settings::confirmBeforeDelete, m_confirmBeforeDelete ? 1 : 0) != 0;
     m_launchAtStartup = getIntValue(Constants::Settings::launchAtStartup, m_launchAtStartup ? 1 : 0) != 0;
     m_language = getValue(Constants::Settings::language, m_language);
+    m_hideTaskbarIconOnEdgeHide = getIntValue(Constants::Settings::hideTaskbarIconOnEdgeHide, m_hideTaskbarIconOnEdgeHide ? 1 : 0) != 0;
 
     emit settingsChanged();
 }
@@ -121,6 +122,7 @@ void SettingsManager::save()
     setValue(Constants::Settings::confirmBeforeDelete, QString::number(m_confirmBeforeDelete ? 1 : 0));
     setValue(Constants::Settings::launchAtStartup, QString::number(m_launchAtStartup ? 1 : 0));
     setValue(Constants::Settings::language, m_language);
+    setValue(Constants::Settings::hideTaskbarIconOnEdgeHide, QString::number(m_hideTaskbarIconOnEdgeHide ? 1 : 0));
 }
 
 QString SettingsManager::uiFontFamily() const { return m_uiFontFamily; }
@@ -275,6 +277,13 @@ QString SettingsManager::language() const { return m_language; }
 void SettingsManager::setLanguage(const QString &language) {
     if (m_language == language) return;
     m_language = language;
+    emit settingsChanged();
+}
+
+bool SettingsManager::hideTaskbarIconOnEdgeHide() const { return m_hideTaskbarIconOnEdgeHide; }
+void SettingsManager::setHideTaskbarIconOnEdgeHide(bool enabled) {
+    if (m_hideTaskbarIconOnEdgeHide == enabled) return;
+    m_hideTaskbarIconOnEdgeHide = enabled;
     emit settingsChanged();
 }
 

@@ -28,6 +28,7 @@ class SettingsManager : public QObject {
     Q_PROPERTY(bool confirmBeforeDelete READ confirmBeforeDelete WRITE setConfirmBeforeDelete NOTIFY settingsChanged)
     Q_PROPERTY(bool launchAtStartup READ launchAtStartup WRITE setLaunchAtStartup NOTIFY settingsChanged)
     Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY settingsChanged)
+    Q_PROPERTY(bool hideTaskbarIconOnEdgeHide READ hideTaskbarIconOnEdgeHide WRITE setHideTaskbarIconOnEdgeHide NOTIFY settingsChanged)
 public:
     explicit SettingsManager(QObject *parent = nullptr);
 
@@ -87,6 +88,9 @@ public:
     QString language() const;
     void setLanguage(const QString &language);
 
+    bool hideTaskbarIconOnEdgeHide() const;
+    void setHideTaskbarIconOnEdgeHide(bool enabled);
+
     // 重启应用（字体改动等需重启生效的场景）。成功启动新进程后 exit(0)。
     Q_INVOKABLE bool restartApplication();
 
@@ -117,6 +121,7 @@ private:
     bool m_confirmBeforeDelete = true;
     bool m_launchAtStartup = false;
     QString m_language;
+    bool m_hideTaskbarIconOnEdgeHide = false;
 
     QString getValue(const QString &key, const QString &defaultValue = QString()) const;
     int getIntValue(const QString &key, int defaultValue = 0) const;

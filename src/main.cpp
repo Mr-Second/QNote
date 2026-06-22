@@ -22,6 +22,7 @@
 #include "managers/IconManager.h"
 #include "managers/BackupManager.h"
 #include "managers/TranslationManager.h"
+#include "platform/WindowsTaskbarHelper.h"
 
 #ifndef QNOTE_VERSION
 #define QNOTE_VERSION "unknown"
@@ -95,6 +96,7 @@ int main(int argc, char *argv[])
     ImageManager imageManager;
     IconManager iconManager;
     BackupManager backupManager;
+    WindowsTaskbarHelper windowsTaskbarHelper;
     backupManager.setNoteDatabase(&noteController.database());
     backupManager.setSettingsManager(&settingsManager);
     backupManager.setCategoryManager(&categoryManager);
@@ -146,6 +148,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("iconManager", &iconManager);
     engine.rootContext()->setContextProperty("backupManager", &backupManager);
     engine.rootContext()->setContextProperty("translationManager", &translationManager);
+    engine.rootContext()->setContextProperty("windowsTaskbarHelper", &windowsTaskbarHelper);
 
     QString exeDir = QCoreApplication::applicationDirPath();
     engine.addImportPath(exeDir);

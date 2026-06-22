@@ -68,12 +68,19 @@ HusWindow {
     // 统一 flags 应用：hidden 态必加 StaysOnTop（隐藏窄条需可见）；stickOnTop 时 normal 态也加
     function _applyWindowFlags(hidden) {
         root._isEdgeHidden = hidden
-        if (hidden)
+        if (hidden) {
             root.flags = Qt.Window | Qt.WindowStaysOnTopHint
-        else if (root.stickOnTop)
+        } else if (root.stickOnTop) {
             root.flags = Qt.Window | Qt.WindowStaysOnTopHint
-        else
+        } else {
             root.flags = Qt.Window
+        }
+
+        // 任务栏图标控制：通过 Windows API 而非改变窗口类型
+        if (windowsTaskbarHelper && settingsManager) {
+            var shouldHideTaskbar = hidden && settingsManager.hideTaskbarIconOnEdgeHide
+            windowsTaskbarHelper.setTaskbarIconVisible(root, !shouldHideTaskbar)
+        }
     }
 
     onClosing: function(close) {
@@ -121,6 +128,17 @@ HusWindow {
             showAnim.from = root.y
             showAnim.to = root.normalY > 10 ? 0 : root.normalY
             showAnim.start()
+        }
+    }
+
+    Connections {
+        target: settingsManager
+        function onSettingsChanged() {
+            // 任务栏图标开关改动立即生效：若当前处于贴边隐藏态，立即更新任务栏图标显隐
+            if (root._isEdgeHidden && windowsTaskbarHelper) {
+                var shouldHideTaskbar = settingsManager.hideTaskbarIconOnEdgeHide
+                windowsTaskbarHelper.setTaskbarIconVisible(root, !shouldHideTaskbar)
+            }
         }
     }
 

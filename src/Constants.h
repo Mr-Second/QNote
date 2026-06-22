@@ -50,6 +50,7 @@ inline constexpr QLatin1String noteSortOrder{"noteSortOrder"};
 inline constexpr QLatin1String confirmBeforeDelete{"confirmBeforeDelete"};
 inline constexpr QLatin1String launchAtStartup{"launchAtStartup"};
 inline constexpr QLatin1String language{"language"};
+inline constexpr QLatin1String hideTaskbarIconOnEdgeHide{"hideTaskbarIconOnEdgeHide"};
 
 }
 

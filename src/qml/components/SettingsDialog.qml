@@ -39,6 +39,7 @@ Popup {
     function _initControls() {
         if (!settingsManager) return
         edgeSwitch.checked = edgeHideController ? edgeHideController.edgeEnabled : true
+        hideTaskbarIconSwitch.checked = settingsManager.hideTaskbarIconOnEdgeHide
         minimizeSwitch.checked = settingsManager.startMinimized
         stickOnTopSwitch.checked = settingsManager.stickOnTopDefault
         rememberWindowSwitch.checked = settingsManager.rememberWindowGeometry
@@ -127,6 +128,7 @@ Popup {
             translationManager.setLanguage(languageRadio.currentCheckedValue)
         }
         settingsManager.language = languageRadio.currentCheckedValue
+        settingsManager.hideTaskbarIconOnEdgeHide = hideTaskbarIconSwitch.checked
         settingsManager.save()
         if (edgeHideController)
             edgeHideController.edgeEnabled = edgeSwitch.checked
@@ -241,6 +243,19 @@ Popup {
                         spacing: 12
                         Text { width: 180; anchors.verticalCenter: parent.verticalCenter; text: qsTr("贴边隐藏"); font.pixelSize: 12; color: root.themeTokens ? root.themeTokens.textSecondary : "#5F5F5F" }
                         HusSwitch { id: edgeSwitch }
+                    }
+
+                    Row {
+                        width: parent.width
+                        spacing: 12
+                        Text {
+                            width: 180
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: qsTr("贴边隐藏时隐藏任务栏图标")
+                            font.pixelSize: 12
+                            color: root.themeTokens ? root.themeTokens.textSecondary : "#5F5F5F"
+                        }
+                        HusSwitch { id: hideTaskbarIconSwitch }
                     }
 
                     Row {

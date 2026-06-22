@@ -67,7 +67,7 @@ target("QNote")
     add_links("HuskarUIBasic")
 
     if is_plat("windows") then
-        add_syslinks("user32", "shell32", "dbghelp", "psapi", "version")
+        add_syslinks("user32", "shell32", "dbghelp", "psapi", "version", "ole32")
     end
 
     after_build(function(target)
