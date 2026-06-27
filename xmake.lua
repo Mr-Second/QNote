@@ -1,5 +1,22 @@
 set_project("QNote")
-set_version("0.1.0")
+
+-- 版本号从 git tag 自动派生：打 tag 即发版，彻底消除手动维护版本字段导致的漏改风险。
+-- tag 格式约定 vX.Y.Z；git 不可用或无 tag 时回退 0.0.0-dev。
+-- 实现分两处（xmake v3.0.9 description 域 sandbox 禁用 os.iorun，必须在 on_load script 域取 git）：
+--   1. target("QNote").on_load → QNOTE_VERSION define
+--   2. xpack("QNote").on_load → package version（影响安装包 DisplayVersion/文件名）
+-- git_version 接收 script 域的 os（on_load 回调传入），因为顶层 description 域的 os 受 sandbox 限制无 iorun。
+local function git_version(os_module)
+    local out = os_module.iorun("git describe --tags --abbrev=0")
+    if out then
+        local tag = out:trim()
+        local ver = (tag:gsub("^v", ""))  -- v0.2.0 → 0.2.0
+        if ver ~= "" then return ver end
+    end
+    return "0.0.0-dev"
+end
+-- 项目级 set_version 仍需占位（xmake 要求顶层有，但实际版本由 xpack on_load 覆盖）
+set_version("0.0.0")
 set_languages("c++17")
 
 add_rules("mode.debug", "mode.release")
@@ -45,7 +62,12 @@ target("QNote")
         add_defines("QML_DEBUG")
     end
 
-    add_defines('QNOTE_VERSION="0.1.0"')
+    -- QNOTE_VERSION 从 git tag 派生（见顶层 git_version()），on_load 里注入 define
+    -- 注意：git_version 用全局 os，而 on_load script 域的 os 才有 iorun。
+    -- 将 on_load 的 os 显式注入 git_version，确保 script 域 os 可用。
+    on_load(function(target)
+        target:add("defines", 'QNOTE_VERSION="' .. git_version(os) .. '"')
+    end)
     -- QNOTE_BUILD_DATE 不通过 xmake 注入：源码 fallback 到 __DATE__ " " __TIME__
     -- （CrashHandler.cpp:32），避免 os.date 每次变化导致全量重编
 
@@ -343,7 +365,8 @@ xpack("QNote")
     set_title("QNote")
     set_description("QNote 桌面便签应用")
     set_author("QNote")
-    set_version("0.1.0")
+    -- 版本号不显式 set_version：从 git tag 动态派生（见顶层 git_version()）。
+    -- xpack 在 on_load 里覆盖 package version，影响 NSIS DisplayVersion/VIProductVersion 和包文件名。
     set_iconfile("src/assets/note.ico")
 
     -- 自定义 NSI specfile（基于 xpack 默认模板，追加 MUI_FINISHPAGE_RUN 完成页"运行"复选框）
@@ -353,8 +376,10 @@ xpack("QNote")
     --   nsis → QNote-Setup-<version>-x64.exe（PRD AC2）
     --   zip  → QNote-Portable-<version>-x64.zip（PRD AC2b）
     on_load(function (package)
+        -- git tag 派生版本（在 script 域 os.iorun 可用），覆盖项目占位版本
+        local ver = git_version(os)
+        package:set("version", ver)
         local format = package:format()
-        local ver = package:version()
         if format == "nsis" then
             package:set("basename", "QNote-Setup-" .. ver .. "-x64")
         elseif format == "zip" then

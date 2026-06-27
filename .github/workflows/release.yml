@@ -23,6 +23,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # 需要完整 git 历史 + tags，让 xmake.lua 的 git_version() 能 git describe 取到触发 tag
+          fetch-depth: 0
 
       - name: Setup xmake
         uses: xmake-io/github-action-setup-xmake@v1
@@ -119,6 +122,21 @@ jobs:
           key: xmake-pkgs-windows-x64-${{ hashFiles('xmake.lua') }}
           restore-keys: |
             xmake-pkgs-windows-x64-
+
+      - name: Verify version resolves from tag
+        shell: pwsh
+        run: |
+          # 版本号由 xmake.lua 的 git_version() 从 git tag 动态派生（打 tag 即发版，无需手动维护版本字段）。
+          # 本步骤校验 git describe 在 CI 环境能正确取到触发 tag，防止 fetch/shallow-clone 问题导致版本错乱。
+          $tagVer = "${{ github.ref_name }}" -replace '^v', ''
+          Write-Host "Triggered tag version: $tagVer"
+          $gitTag = (git describe --tags --abbrev=0) -replace '^v', ''
+          Write-Host "git describe output: $gitTag"
+          if ($gitTag -ne $tagVer) {
+            Write-Error "Version mismatch: git describe=$gitTag triggered tag=$tagVer. Check fetch-depth / tag placement."
+            exit 1
+          }
+          Write-Host "OK: version resolves to $tagVer from tag"
 
       - name: Configure (xmake f, verbose)
         shell: pwsh
