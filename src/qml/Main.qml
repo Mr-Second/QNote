@@ -88,6 +88,15 @@ HusWindow {
         root.hide()
     }
 
+    // 最小化拦截：转 hide() 触发 GPU 资源释放（setPersistentSceneGraph(false)）。
+    // 直接最小化不会触发 Qt 的 visibleChanged，资源不释放，内存居高。
+    onVisibilityChanged: {
+        if (visibility === Window.Minimized) {
+            root.hide()
+            visibility = Window.Windowed
+        }
+    }
+
     property int currentNoteId: -1
     property real normalY: y
 
