@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Semantic brand tokens. Views reference these (never raw hex). All three
+        theme keys are provided; HighContrast maps to SystemColor* so Windows
+        contrast themes work (theming-guidelines).
+    -->
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="BrandAccentBrush" Color="#1B6FE3" />
+            <SolidColorBrush x:Key="NoteSurfaceBrush" Color="#FFFDF7" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="BrandAccentBrush" Color="#4C93F0" />
+            <SolidColorBrush x:Key="NoteSurfaceBrush" Color="#2A2A2E" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="HighContrast">
+            <SolidColorBrush x:Key="BrandAccentBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="NoteSurfaceBrush" Color="{ThemeResource SystemColorWindowColor}" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

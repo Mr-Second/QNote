@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/QNote.Core/QNote.Core.csproj" />
+    <Project Path="src/QNote/QNote.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/QNote.Tests/QNote.Tests.csproj" />
+  </Folder>
+</Solution>

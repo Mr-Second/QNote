@@ -1,0 +1,10 @@
+# Normalize line endings — Git converts to the platform default on checkout,
+# stores LF in the repo. Keeps diffs clean across machines.
+* text=auto
+
+# Binary assets — never normalize.
+*.png  binary
+*.ico  binary
+*.jpg  binary
+*.pfx  binary
+*.cer  binary

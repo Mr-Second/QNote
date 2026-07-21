@@ -1,0 +1,52 @@
+# ============================================================
+# Local AI tooling & session records — NOT product code.
+# Excluded from version control at the project owner's request.
+# ============================================================
+.trellis/
+.opencode/
+.claude/
+AGENTS.md
+
+# ============================================================
+# .NET / WinUI 3 build output
+# ============================================================
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.rsuser
+
+# Build result dirs
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]64/
+[Bb]uild/
+[Oo]ut/
+msbuild.*.log
+
+# WinUI 3 / MSIX packaging & signing
+AppPackages/
+BundleArtifacts/
+Generated Files/
+*.appx
+*.appxbundle
+*.appxupload
+*.msix
+*.msixbundle
+*.pfx
+*.cer
+
+# NuGet
+*.nupkg
+*.snupkg
+project.lock.json
+
+# Editors / OS
+.idea/
+.vscode/
+Thumbs.db
+Desktop.ini
