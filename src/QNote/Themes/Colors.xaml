@@ -4,18 +4,29 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        Semantic brand tokens. Views reference these (never raw hex). All three
-        theme keys are provided; HighContrast maps to SystemColor* so Windows
-        contrast themes work (theming-guidelines).
+        Semantic brand tokens + a tech-blue accent override so the whole app (accent
+        buttons, list selection) reads in QNote's identity color regardless of the
+        user's system accent. Views reference these ThemeResource tokens, never raw
+        hex. All three theme keys are provided; HighContrast maps to SystemColor* and
+        deliberately does NOT override the accent (Windows contrast themes own it).
     -->
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Light">
-            <SolidColorBrush x:Key="BrandAccentBrush" Color="#1B6FE3" />
+            <SolidColorBrush x:Key="BrandAccentBrush" Color="#0078D4" />
             <SolidColorBrush x:Key="NoteSurfaceBrush" Color="#FFFDF7" />
+
+            <!-- Rebrand the Fluent accent to QNote tech-blue. -->
+            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#0078D4" />
+            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#1A85D8" />
+            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#3494DC" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
-            <SolidColorBrush x:Key="BrandAccentBrush" Color="#4C93F0" />
+            <SolidColorBrush x:Key="BrandAccentBrush" Color="#4A9EFF" />
             <SolidColorBrush x:Key="NoteSurfaceBrush" Color="#2A2A2E" />
+
+            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#4A9EFF" />
+            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#5DA8FF" />
+            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#73B4FF" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast">
             <SolidColorBrush x:Key="BrandAccentBrush" Color="{ThemeResource SystemColorHighlightColor}" />

@@ -84,7 +84,7 @@ public partial class App : Application
         services.AddSingleton<ILocalizationService, LocalizationService>();
 
         // ViewModels
-        services.AddTransient<MainViewModel>();
+        services.AddTransient<NotesPageViewModel>();
 
         return services.BuildServiceProvider();
     }
