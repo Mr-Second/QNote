@@ -19,6 +19,20 @@
             <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#0078D4" />
             <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#1A85D8" />
             <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#3494DC" />
+
+            <!-- Soft accent tints (Qt parity: new-note button, toolbar checked state). -->
+            <SolidColorBrush x:Key="BrandAccentSubtleFillBrush" Color="#1A0078D4" />
+            <SolidColorBrush x:Key="BrandAccentSubtleFillHoverBrush" Color="#260078D4" />
+            <SolidColorBrush x:Key="BrandAccentSubtleFillPressedBrush" Color="#330078D4" />
+            <SolidColorBrush x:Key="BrandAccentSubtleBorderBrush" Color="#400078D4" />
+
+            <!-- Warm danger tints (Qt parity: note-item hover delete badge). -->
+            <SolidColorBrush x:Key="DangerSubtleFillBrush" Color="#CCFFF8F1" />
+            <SolidColorBrush x:Key="DangerSubtleFillHoverBrush" Color="#FFF3E8" />
+            <SolidColorBrush x:Key="DangerSubtleBorderBrush" Color="#22B78C6E" />
+            <SolidColorBrush x:Key="DangerSubtleBorderHoverBrush" Color="#66C27E5D" />
+            <SolidColorBrush x:Key="DangerGlyphBrush" Color="#C27E5D" />
+            <SolidColorBrush x:Key="DangerGlyphHoverBrush" Color="#B86843" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
             <SolidColorBrush x:Key="BrandAccentBrush" Color="#4A9EFF" />
@@ -27,10 +41,34 @@
             <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#4A9EFF" />
             <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#5DA8FF" />
             <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#73B4FF" />
+
+            <SolidColorBrush x:Key="BrandAccentSubtleFillBrush" Color="#1A4A9EFF" />
+            <SolidColorBrush x:Key="BrandAccentSubtleFillHoverBrush" Color="#264A9EFF" />
+            <SolidColorBrush x:Key="BrandAccentSubtleFillPressedBrush" Color="#334A9EFF" />
+            <SolidColorBrush x:Key="BrandAccentSubtleBorderBrush" Color="#404A9EFF" />
+
+            <SolidColorBrush x:Key="DangerSubtleFillBrush" Color="#26C27E5D" />
+            <SolidColorBrush x:Key="DangerSubtleFillHoverBrush" Color="#40C27E5D" />
+            <SolidColorBrush x:Key="DangerSubtleBorderBrush" Color="#40B78C6E" />
+            <SolidColorBrush x:Key="DangerSubtleBorderHoverBrush" Color="#80C27E5D" />
+            <SolidColorBrush x:Key="DangerGlyphBrush" Color="#D9A187" />
+            <SolidColorBrush x:Key="DangerGlyphHoverBrush" Color="#EBBDA6" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast">
             <SolidColorBrush x:Key="BrandAccentBrush" Color="{ThemeResource SystemColorHighlightColor}" />
             <SolidColorBrush x:Key="NoteSurfaceBrush" Color="{ThemeResource SystemColorWindowColor}" />
+
+            <SolidColorBrush x:Key="BrandAccentSubtleFillBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="BrandAccentSubtleFillHoverBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="BrandAccentSubtleFillPressedBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="BrandAccentSubtleBorderBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+
+            <SolidColorBrush x:Key="DangerSubtleFillBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="DangerSubtleFillHoverBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="DangerSubtleBorderBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="DangerSubtleBorderHoverBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="DangerGlyphBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="DangerGlyphHoverBrush" Color="{ThemeResource SystemColorHighlightTextColor}" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

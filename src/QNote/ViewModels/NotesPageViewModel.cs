@@ -9,9 +9,13 @@ namespace QNote.ViewModels;
 
 /// <summary>
 /// The notes screen (three-pane) view-model. Owns the summary list, the current
-/// selection, and the editor fields. Editing folds in here for now — a dedicated
-/// EditorViewModel arrives with the RTF task. Save model: flush on navigate-away /
-/// close / Ctrl+S, surfaced by <see cref="IsDirty"/>.
+/// selection, and the editor data flow. The editor itself is a RichEditBox driven by
+/// a view-side controller (the VM never touches UI types — mvvm-guidelines), so RTF
+/// content crosses the boundary as plain strings: <see cref="EditingContentRtf"/>
+/// carries a freshly loaded note's RTF to the view (via <see cref="ContentReloadRequested"/>),
+/// and <see cref="EditorContentProvider"/> lets the VM pull current RTF/plain text from
+/// the view at flush time. Save model: flush on navigate-away / close / Ctrl+S,
+/// surfaced by <see cref="IsDirty"/>.
 /// </summary>
 public partial class NotesPageViewModel : ObservableObject
 {
@@ -37,6 +41,18 @@ public partial class NotesPageViewModel : ObservableObject
     /// <summary>Raised when a freshly created note wants keyboard focus in the title box.</summary>
     public event Action? FocusTitleRequested;
 
+    /// <summary>
+    /// Raised after the editor fields were (re)loaded — the view should push
+    /// <see cref="EditingContentRtf"/> into the RichEditBox.
+    /// </summary>
+    public event Action? ContentReloadRequested;
+
+    /// <summary>
+    /// Set by the view: returns the editor's current (RTF, plain text) so flushes
+    /// always persist what is on screen, no matter who triggered them.
+    /// </summary>
+    public Func<(string Rtf, string Plain)>? EditorContentProvider { get; set; }
+
     public ObservableCollection<NoteItemViewModel> Notes { get; } = new();
 
     [ObservableProperty]
@@ -47,8 +63,8 @@ public partial class NotesPageViewModel : ObservableObject
     [ObservableProperty]
     public partial string EditingTitle { get; set; } = string.Empty;
 
-    [ObservableProperty]
-    public partial string EditingContent { get; set; } = string.Empty;
+    /// <summary>RTF of the note currently loaded in the editor (set on load; read by the view).</summary>
+    public string EditingContentRtf { get; private set; } = string.Empty;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
@@ -62,6 +78,9 @@ public partial class NotesPageViewModel : ObservableObject
     public bool IsEmpty => Notes.Count == 0;
 
     public string CountText => Notes.Count > 0 ? $"共 {Notes.Count} 条" : "暂无便签";
+
+    /// <summary>Marks the note dirty — called by the view on editor text changes.</summary>
+    public void NotifyContentEdited() => IsDirty = true;
 
     /// <summary>Initial load of the summary list (called from the page's Loaded event).</summary>
     public async Task LoadAsync()
@@ -110,14 +129,33 @@ public partial class NotesPageViewModel : ObservableObject
 
         try
         {
-            var saved = await _notes.UpdateAsync(_loaded with { Title = EditingTitle, Content = EditingContent });
+            var (rtf, plain) = EditorContentProvider?.Invoke() ?? (EditingContentRtf, string.Empty);
+
+            // No-op guard: a dirty flag raised by editor noise (programmatic SetText,
+            // RTF normalization) must not bump UpdatedAt / reorder the list. Compare
+            // plain text + title — GetText(FormatRtf) can rewrite RTF byte-wise even
+            // with zero user edits. Trailing '\r' is the RichEditBox paragraph mark,
+            // not user content.
+            if (EditingTitle == _loaded.Title
+                && Normalize(plain) == Normalize(_loaded.PlainText))
+            {
+                IsDirty = false;
+                return;
+            }
+
+            var saved = await _notes.UpdateAsync(_loaded with
+            {
+                Title = EditingTitle,
+                Content = rtf,
+                PlainText = plain,
+            });
             _loaded = saved;
             IsDirty = false;
 
             var item = Notes.FirstOrDefault(n => n.Id == saved.Id);
             if (item is not null)
             {
-                item.Apply(saved.Title, MakePreview(saved.Content), saved.UpdatedAt);
+                item.Apply(saved.Title, MakePreview(saved.PlainText), saved.UpdatedAt);
                 OnPropertyChanged(nameof(SelectedTimeDisplay));
                 var index = Notes.IndexOf(item);
                 if (index > 0)
@@ -130,19 +168,22 @@ public partial class NotesPageViewModel : ObservableObject
         }
     }
 
-    /// <summary>Delete the selected note (the View confirms before calling this).</summary>
-    public async Task DeleteSelectedNoteAsync()
+    /// <summary>
+    /// Delete a specific note from its list-item badge (the View confirms first).
+    /// Selection is left untouched unless the deleted item was the selected one.
+    /// </summary>
+    public async Task DeleteNoteAsync(NoteItemViewModel item)
     {
-        var selected = SelectedNote;
-        if (selected is null)
-            return;
-
         try
         {
-            _loaded = null;   // don't let the follow-up selection change flush a deleted note
-            IsDirty = false;
-            await _notes.DeleteAsync(selected.Id);
-            Notes.Remove(selected); // removing the selected item clears selection → editor empty state
+            if (_loaded?.Id == item.Id)
+            {
+                _loaded = null;   // don't let the follow-up selection change flush a deleted note
+                IsDirty = false;
+            }
+
+            await _notes.DeleteAsync(item.Id);
+            Notes.Remove(item); // removing the selected item clears selection → editor empty state
         }
         catch (Exception ex)
         {
@@ -173,14 +214,15 @@ public partial class NotesPageViewModel : ObservableObject
 
     private bool CanSave() => IsDirty;
 
-    private void SetEditor(Note? loaded, string title, string content)
+    private void SetEditor(Note? loaded, string title, string contentRtf)
     {
         _loaded = loaded;
         _suppressDirty = true;
         EditingTitle = title;
-        EditingContent = content;
+        EditingContentRtf = contentRtf;
         _suppressDirty = false;
         IsDirty = false;
+        ContentReloadRequested?.Invoke();
     }
 
     partial void OnEditingTitleChanged(string value)
@@ -189,15 +231,11 @@ public partial class NotesPageViewModel : ObservableObject
             IsDirty = true;
     }
 
-    partial void OnEditingContentChanged(string value)
-    {
-        if (!_suppressDirty)
-            IsDirty = true;
-    }
+    private static string Normalize(string text) => text.TrimEnd('\r');
 
-    private static string MakePreview(string content)
+    private static string MakePreview(string plainText)
     {
-        var oneLine = content.ReplaceLineEndings(" ").Trim();
+        var oneLine = plainText.ReplaceLineEndings(" ").Trim();
         return oneLine.Length <= PreviewLength ? oneLine : oneLine[..PreviewLength];
     }
 }

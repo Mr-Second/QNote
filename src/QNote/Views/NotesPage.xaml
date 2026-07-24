@@ -3,6 +3,7 @@
     x:Class="QNote.Views.NotesPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:QNote.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:QNote.ViewModels"
@@ -146,9 +147,42 @@
                         AutomationProperties.Name="新建便签"
                         Command="{x:Bind ViewModel.NewNoteCommand}"
                         CornerRadius="17"
-                        Style="{StaticResource AccentButtonStyle}"
+                        Style="{StaticResource NewNoteButtonStyle}"
                         ToolTipService.ToolTip="新建便签">
-                        <FontIcon FontSize="15" Glyph="&#xE710;" />
+                        <!-- Per-state overrides ride the default Button template's theme
+                             resources; inline per-theme so runtime theme switches stay
+                             correct and no state shows a solid accent fill. -->
+                        <Button.Resources>
+                            <ResourceDictionary>
+                                <ResourceDictionary.ThemeDictionaries>
+                                    <ResourceDictionary x:Key="Light">
+                                        <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="BrandAccentSubtleFillHoverBrush" />
+                                        <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="BrandAccentSubtleFillPressedBrush" />
+                                        <StaticResource x:Key="ButtonBorderBrushPointerOver" ResourceKey="BrandAccentSubtleBorderBrush" />
+                                        <StaticResource x:Key="ButtonBorderBrushPressed" ResourceKey="BrandAccentSubtleBorderBrush" />
+                                        <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="BrandAccentBrush" />
+                                        <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="BrandAccentBrush" />
+                                    </ResourceDictionary>
+                                    <ResourceDictionary x:Key="Dark">
+                                        <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="BrandAccentSubtleFillHoverBrush" />
+                                        <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="BrandAccentSubtleFillPressedBrush" />
+                                        <StaticResource x:Key="ButtonBorderBrushPointerOver" ResourceKey="BrandAccentSubtleBorderBrush" />
+                                        <StaticResource x:Key="ButtonBorderBrushPressed" ResourceKey="BrandAccentSubtleBorderBrush" />
+                                        <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="BrandAccentBrush" />
+                                        <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="BrandAccentBrush" />
+                                    </ResourceDictionary>
+                                    <ResourceDictionary x:Key="HighContrast">
+                                        <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="BrandAccentSubtleFillHoverBrush" />
+                                        <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="BrandAccentSubtleFillPressedBrush" />
+                                        <StaticResource x:Key="ButtonBorderBrushPointerOver" ResourceKey="BrandAccentSubtleBorderBrush" />
+                                        <StaticResource x:Key="ButtonBorderBrushPressed" ResourceKey="BrandAccentSubtleBorderBrush" />
+                                        <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="BrandAccentBrush" />
+                                        <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="BrandAccentBrush" />
+                                    </ResourceDictionary>
+                                </ResourceDictionary.ThemeDictionaries>
+                            </ResourceDictionary>
+                        </Button.Resources>
+                        <TextBlock FontSize="18" FontWeight="Medium" Text="+" />
                     </Button>
                 </Grid>
 
@@ -170,23 +204,73 @@
                     </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="vm:NoteItemViewModel">
-                            <StackPanel Spacing="3">
-                                <TextBlock
-                                    FontSize="14"
-                                    Style="{StaticResource NoteTitleTextStyle}"
-                                    Text="{x:Bind DisplayTitle, Mode=OneWay}" />
-                                <TextBlock
-                                    FontSize="12"
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    MaxLines="1"
-                                    Text="{x:Bind Preview, Mode=OneWay}"
-                                    TextTrimming="CharacterEllipsis"
-                                    TextWrapping="NoWrap" />
-                                <TextBlock
-                                    FontSize="11"
-                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                    Text="{x:Bind TimeDisplay, Mode=OneWay}" />
-                            </StackPanel>
+                            <Grid PointerEntered="NoteItem_PointerEntered" PointerExited="NoteItem_PointerExited">
+                                <StackPanel Spacing="3">
+                                    <TextBlock
+                                        Margin="0,0,26,0"
+                                        FontSize="14"
+                                        Style="{StaticResource NoteTitleTextStyle}"
+                                        Text="{x:Bind DisplayTitle, Mode=OneWay}" />
+                                    <TextBlock
+                                        FontSize="12"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        MaxLines="1"
+                                        Text="{x:Bind Preview, Mode=OneWay}"
+                                        TextTrimming="CharacterEllipsis"
+                                        TextWrapping="NoWrap" />
+                                    <TextBlock
+                                        FontSize="11"
+                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                        Text="{x:Bind TimeDisplay, Mode=OneWay}" />
+                                </StackPanel>
+                                <!-- Hover-reveal delete badge (Qt parity: delete lives on the item, not the editor). -->
+                                <Button
+                                    x:Name="ItemDeleteButton"
+                                    Width="24"
+                                    Height="24"
+                                    Margin="4"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Top"
+                                    AutomationProperties.Name="删除便签"
+                                    Click="ItemDeleteButton_Click"
+                                    Style="{StaticResource NoteItemDeleteButtonStyle}"
+                                    ToolTipService.ToolTip="删除便签"
+                                    Visibility="Collapsed">
+                                    <!-- Warm-tinted hover/press states (default Button template
+                                         theme resources, per-theme for runtime theme switches). -->
+                                    <Button.Resources>
+                                        <ResourceDictionary>
+                                            <ResourceDictionary.ThemeDictionaries>
+                                                <ResourceDictionary x:Key="Light">
+                                                    <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="DangerSubtleFillHoverBrush" />
+                                                    <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="DangerSubtleFillHoverBrush" />
+                                                    <StaticResource x:Key="ButtonBorderBrushPointerOver" ResourceKey="DangerSubtleBorderHoverBrush" />
+                                                    <StaticResource x:Key="ButtonBorderBrushPressed" ResourceKey="DangerSubtleBorderHoverBrush" />
+                                                    <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="DangerGlyphHoverBrush" />
+                                                    <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="DangerGlyphHoverBrush" />
+                                                </ResourceDictionary>
+                                                <ResourceDictionary x:Key="Dark">
+                                                    <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="DangerSubtleFillHoverBrush" />
+                                                    <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="DangerSubtleFillHoverBrush" />
+                                                    <StaticResource x:Key="ButtonBorderBrushPointerOver" ResourceKey="DangerSubtleBorderHoverBrush" />
+                                                    <StaticResource x:Key="ButtonBorderBrushPressed" ResourceKey="DangerSubtleBorderHoverBrush" />
+                                                    <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="DangerGlyphHoverBrush" />
+                                                    <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="DangerGlyphHoverBrush" />
+                                                </ResourceDictionary>
+                                                <ResourceDictionary x:Key="HighContrast">
+                                                    <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="DangerSubtleFillHoverBrush" />
+                                                    <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="DangerSubtleFillHoverBrush" />
+                                                    <StaticResource x:Key="ButtonBorderBrushPointerOver" ResourceKey="DangerSubtleBorderHoverBrush" />
+                                                    <StaticResource x:Key="ButtonBorderBrushPressed" ResourceKey="DangerSubtleBorderHoverBrush" />
+                                                    <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="DangerGlyphHoverBrush" />
+                                                    <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="DangerGlyphHoverBrush" />
+                                                </ResourceDictionary>
+                                            </ResourceDictionary.ThemeDictionaries>
+                                        </ResourceDictionary>
+                                    </Button.Resources>
+                                    <FontIcon FontSize="12" Glyph="&#xE74D;" />
+                                </Button>
+                            </Grid>
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
@@ -240,6 +324,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
@@ -247,7 +332,6 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Ellipse
                             Grid.Column="0"
@@ -267,20 +351,20 @@
                             FontSize="18"
                             FontWeight="SemiBold"
                             PlaceholderText="无标题便签"
-                            Text="{x:Bind ViewModel.EditingTitle, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                        <Button
-                            x:Name="DeleteButton"
-                            Grid.Column="2"
-                            Width="34"
-                            Height="34"
-                            Padding="0"
-                            AutomationProperties.Name="删除便签"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Click="DeleteButton_Click"
-                            ToolTipService.ToolTip="删除便签">
-                            <FontIcon FontSize="15" Glyph="&#xE74D;" />
-                        </Button>
+                            Text="{x:Bind ViewModel.EditingTitle, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                            <!-- Kill default focus visuals in every state: paper surface stays borderless. -->
+                            <TextBox.Resources>
+                                <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
+                                <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                                <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                                <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="Transparent" />
+                                <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
+                                <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                                <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+                                <SolidColorBrush x:Key="TextControlBorderBrushDisabled" Color="Transparent" />
+                                <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+                            </TextBox.Resources>
+                        </TextBox>
                     </Grid>
 
                     <TextBlock
@@ -296,18 +380,243 @@
                         BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                         BorderThickness="0,1,0,0" />
 
-                    <TextBox
-                        x:Name="ContentBox"
+                    <!--  Formatting toolbar  -->
+                    <ScrollViewer
                         Grid.Row="3"
-                        Padding="0"
-                        AcceptsReturn="True"
-                        AutomationProperties.Name="便签内容"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        PlaceholderText="在这里输入便签内容..."
-                        ScrollViewer.VerticalScrollBarVisibility="Auto"
-                        Text="{x:Bind ViewModel.EditingContent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                        TextWrapping="Wrap" />
+                        HorizontalScrollBarVisibility="Hidden"
+                        HorizontalScrollMode="Auto"
+                        VerticalScrollBarVisibility="Disabled">
+                        <StackPanel Orientation="Horizontal" Spacing="2">
+                            <!-- Checked-state overrides for every toolbar ToggleButton:
+                                 soft accent tint + accent glyph, never a solid accent fill
+                                 (Qt parity). Lookup walks up from each button's template. -->
+                            <StackPanel.Resources>
+                                <ResourceDictionary>
+                                    <ResourceDictionary.ThemeDictionaries>
+                                        <ResourceDictionary x:Key="Light">
+                                            <StaticResource x:Key="ToggleButtonBackgroundChecked" ResourceKey="BrandAccentSubtleFillBrush" />
+                                            <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="BrandAccentSubtleFillHoverBrush" />
+                                            <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="BrandAccentSubtleFillPressedBrush" />
+                                            <StaticResource x:Key="ToggleButtonBackgroundCheckedDisabled" ResourceKey="BrandAccentSubtleFillBrush" />
+                                            <StaticResource x:Key="ToggleButtonForegroundChecked" ResourceKey="BrandAccentBrush" />
+                                            <StaticResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="BrandAccentBrush" />
+                                            <StaticResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="BrandAccentBrush" />
+                                            <StaticResource x:Key="ToggleButtonBorderBrushChecked" ResourceKey="BrandAccentSubtleBorderBrush" />
+                                            <StaticResource x:Key="ToggleButtonBorderBrushCheckedPointerOver" ResourceKey="BrandAccentSubtleBorderBrush" />
+                                            <StaticResource x:Key="ToggleButtonBorderBrushCheckedPressed" ResourceKey="BrandAccentSubtleBorderBrush" />
+                                        </ResourceDictionary>
+                                        <ResourceDictionary x:Key="Dark">
+                                            <StaticResource x:Key="ToggleButtonBackgroundChecked" ResourceKey="BrandAccentSubtleFillBrush" />
+                                            <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="BrandAccentSubtleFillHoverBrush" />
+                                            <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="BrandAccentSubtleFillPressedBrush" />
+                                            <StaticResource x:Key="ToggleButtonBackgroundCheckedDisabled" ResourceKey="BrandAccentSubtleFillBrush" />
+                                            <StaticResource x:Key="ToggleButtonForegroundChecked" ResourceKey="BrandAccentBrush" />
+                                            <StaticResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="BrandAccentBrush" />
+                                            <StaticResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="BrandAccentBrush" />
+                                            <StaticResource x:Key="ToggleButtonBorderBrushChecked" ResourceKey="BrandAccentSubtleBorderBrush" />
+                                            <StaticResource x:Key="ToggleButtonBorderBrushCheckedPointerOver" ResourceKey="BrandAccentSubtleBorderBrush" />
+                                            <StaticResource x:Key="ToggleButtonBorderBrushCheckedPressed" ResourceKey="BrandAccentSubtleBorderBrush" />
+                                        </ResourceDictionary>
+                                        <ResourceDictionary x:Key="HighContrast">
+                                            <StaticResource x:Key="ToggleButtonBackgroundChecked" ResourceKey="BrandAccentSubtleFillBrush" />
+                                            <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="BrandAccentSubtleFillHoverBrush" />
+                                            <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="BrandAccentSubtleFillPressedBrush" />
+                                            <StaticResource x:Key="ToggleButtonBackgroundCheckedDisabled" ResourceKey="BrandAccentSubtleFillBrush" />
+                                            <StaticResource x:Key="ToggleButtonForegroundChecked" ResourceKey="BrandAccentBrush" />
+                                            <StaticResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="BrandAccentBrush" />
+                                            <StaticResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="BrandAccentBrush" />
+                                            <StaticResource x:Key="ToggleButtonBorderBrushChecked" ResourceKey="BrandAccentSubtleBorderBrush" />
+                                            <StaticResource x:Key="ToggleButtonBorderBrushCheckedPointerOver" ResourceKey="BrandAccentSubtleBorderBrush" />
+                                            <StaticResource x:Key="ToggleButtonBorderBrushCheckedPressed" ResourceKey="BrandAccentSubtleBorderBrush" />
+                                        </ResourceDictionary>
+                                    </ResourceDictionary.ThemeDictionaries>
+                                </ResourceDictionary>
+                            </StackPanel.Resources>
+                            <ToggleButton
+                                x:Name="BoldButton"
+                                AutomationProperties.Name="粗体"
+                                IsThreeState="True"
+                                Click="BoldButton_Click"
+                                Style="{StaticResource EditorToolbarToggleButtonStyle}"
+                                ToolTipService.ToolTip="粗体">
+                                <TextBlock FontSize="13" FontWeight="Bold" Text="B" />
+                            </ToggleButton>
+                            <ToggleButton
+                                x:Name="ItalicButton"
+                                AutomationProperties.Name="斜体"
+                                IsThreeState="True"
+                                Click="ItalicButton_Click"
+                                Style="{StaticResource EditorToolbarToggleButtonStyle}"
+                                ToolTipService.ToolTip="斜体">
+                                <TextBlock FontSize="13" FontStyle="Italic" Text="I" />
+                            </ToggleButton>
+                            <ToggleButton
+                                x:Name="UnderlineButton"
+                                AutomationProperties.Name="下划线"
+                                IsThreeState="True"
+                                Click="UnderlineButton_Click"
+                                Style="{StaticResource EditorToolbarToggleButtonStyle}"
+                                ToolTipService.ToolTip="下划线">
+                                <TextBlock FontSize="13" Text="U" TextDecorations="Underline" />
+                            </ToggleButton>
+                            <ToggleButton
+                                x:Name="StrikethroughButton"
+                                AutomationProperties.Name="删除线"
+                                IsThreeState="True"
+                                Click="StrikethroughButton_Click"
+                                Style="{StaticResource EditorToolbarToggleButtonStyle}"
+                                ToolTipService.ToolTip="删除线">
+                                <TextBlock FontSize="13" Text="S" TextDecorations="Strikethrough" />
+                            </ToggleButton>
+
+                            <AppBarSeparator />
+
+                            <ComboBox
+                                x:Name="FontFamilyBox"
+                                Width="124"
+                                AutomationProperties.Name="字体"
+                                SelectionChanged="FontFamilyBox_SelectionChanged"
+                                ToolTipService.ToolTip="字体" />
+                            <ComboBox
+                                x:Name="FontSizeBox"
+                                Width="64"
+                                Margin="4,0,0,0"
+                                AutomationProperties.Name="字号"
+                                SelectionChanged="FontSizeBox_SelectionChanged"
+                                ToolTipService.ToolTip="字号" />
+
+                            <AppBarSeparator />
+
+                            <Button
+                                x:Name="ColorButton"
+                                AutomationProperties.Name="文字颜色"
+                                Style="{StaticResource EditorToolbarButtonStyle}"
+                                ToolTipService.ToolTip="文字颜色">
+                                <Grid Width="20" Height="20">
+                                    <FontIcon
+                                        VerticalAlignment="Top"
+                                        FontSize="14"
+                                        Glyph="&#xE8D3;" />
+                                    <Border
+                                        x:Name="ColorSwatch"
+                                        Height="3"
+                                        VerticalAlignment="Bottom"
+                                        Background="{ThemeResource TextFillColorPrimaryBrush}"
+                                        CornerRadius="1" />
+                                </Grid>
+                                <Button.Flyout>
+                                    <Flyout>
+                                        <ScrollViewer MaxHeight="330" VerticalScrollBarVisibility="Auto">
+                                            <GridView
+                                                x:Name="ColorGrid"
+                                                Width="288"
+                                                IsItemClickEnabled="True"
+                                                ItemClick="ColorGrid_ItemClick"
+                                                SelectionMode="None">
+                                                <GridView.ItemTemplate>
+                                                    <DataTemplate x:DataType="controls:PaletteColor">
+                                                        <Border
+                                                            Width="24"
+                                                            Height="24"
+                                                            Margin="2"
+                                                            AutomationProperties.Name="{x:Bind Name}"
+                                                            Background="{x:Bind Brush}"
+                                                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                                            BorderThickness="1"
+                                                            CornerRadius="4"
+                                                            ToolTipService.ToolTip="{x:Bind Name}" />
+                                                    </DataTemplate>
+                                                </GridView.ItemTemplate>
+                                            </GridView>
+                                        </ScrollViewer>
+                                    </Flyout>
+                                </Button.Flyout>
+                            </Button>
+
+                            <AppBarSeparator />
+
+                            <ToggleButton
+                                x:Name="AlignLeftButton"
+                                AutomationProperties.Name="左对齐"
+                                Click="AlignLeftButton_Click"
+                                Style="{StaticResource EditorToolbarToggleButtonStyle}"
+                                ToolTipService.ToolTip="左对齐">
+                                <FontIcon FontSize="14" Glyph="&#xE8E4;" />
+                            </ToggleButton>
+                            <ToggleButton
+                                x:Name="AlignCenterButton"
+                                AutomationProperties.Name="居中对齐"
+                                Click="AlignCenterButton_Click"
+                                Style="{StaticResource EditorToolbarToggleButtonStyle}"
+                                ToolTipService.ToolTip="居中对齐">
+                                <FontIcon FontSize="14" Glyph="&#xE8E3;" />
+                            </ToggleButton>
+                            <ToggleButton
+                                x:Name="AlignRightButton"
+                                AutomationProperties.Name="右对齐"
+                                Click="AlignRightButton_Click"
+                                Style="{StaticResource EditorToolbarToggleButtonStyle}"
+                                ToolTipService.ToolTip="右对齐">
+                                <FontIcon FontSize="14" Glyph="&#xE8E2;" />
+                            </ToggleButton>
+
+                            <AppBarSeparator />
+
+                            <ToggleButton
+                                x:Name="BulletListButton"
+                                AutomationProperties.Name="无序列表"
+                                IsThreeState="True"
+                                Click="BulletListButton_Click"
+                                Style="{StaticResource EditorToolbarToggleButtonStyle}"
+                                ToolTipService.ToolTip="无序列表">
+                                <FontIcon FontSize="14" Glyph="&#xE8FD;" />
+                            </ToggleButton>
+                            <ToggleButton
+                                x:Name="NumberListButton"
+                                AutomationProperties.Name="有序列表"
+                                IsThreeState="True"
+                                Click="NumberListButton_Click"
+                                Style="{StaticResource EditorToolbarToggleButtonStyle}"
+                                ToolTipService.ToolTip="有序列表">
+                                <FontIcon FontSize="14" Glyph="&#xE8FC;" />
+                            </ToggleButton>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <Border
+                        Grid.Row="4"
+                        Margin="0,10,0,0"
+                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                        BorderThickness="0,1,0,0">
+                        <Grid>
+                            <RichEditBox
+                                x:Name="ContentEditor"
+                                Padding="0,10,0,0"
+                                AutomationProperties.Name="便签内容"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <!-- Kill default focus visuals in every state: paper surface stays borderless. -->
+                                <RichEditBox.Resources>
+                                    <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
+                                    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                                    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                                    <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="Transparent" />
+                                    <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
+                                    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                                    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+                                    <SolidColorBrush x:Key="TextControlBorderBrushDisabled" Color="Transparent" />
+                                    <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+                                </RichEditBox.Resources>
+                            </RichEditBox>
+                            <TextBlock
+                                x:Name="ContentPlaceholder"
+                                Margin="0,10,0,0"
+                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                IsHitTestVisible="False"
+                                Text="在这里输入便签内容..." />
+                        </Grid>
+                    </Border>
                 </Grid>
             </Grid>
         </Border>

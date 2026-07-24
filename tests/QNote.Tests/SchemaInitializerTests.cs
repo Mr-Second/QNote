@@ -38,6 +38,61 @@ public sealed class SchemaInitializerTests
         }
     }
 
+    [Fact]
+    public void EnsureCreated_MigratesV1ToV2_AddingPlainTextColumn()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"qnote-test-{Guid.NewGuid():N}.db");
+        try
+        {
+            // Simulate a v1 database: notes table without PlainText, user_version = 1.
+            var factory = new DbConnectionFactory(dbPath);
+            using (var conn = factory.OpenWrite())
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = """
+                    CREATE TABLE notes (
+                        Id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                        Uuid      TEXT    NOT NULL UNIQUE,
+                        Title     TEXT    NOT NULL DEFAULT '',
+                        Content   TEXT    NOT NULL DEFAULT '',
+                        Category  TEXT    NOT NULL DEFAULT '',
+                        CreatedAt TEXT    NOT NULL,
+                        UpdatedAt TEXT    NOT NULL
+                    );
+                    PRAGMA user_version = 1;
+                    """;
+                cmd.ExecuteNonQuery();
+            }
+
+            new SchemaInitializer(factory).EnsureCreated();
+
+            using var check = factory.OpenRead();
+            Assert.Equal(SchemaInitializer.CurrentVersion, GetUserVersion(check));
+            Assert.True(ColumnExists(check, "notes", "PlainText"), "PlainText column missing after v2 migration");
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            TryDelete(dbPath);
+            TryDelete(dbPath + "-wal");
+            TryDelete(dbPath + "-shm");
+        }
+    }
+
+    private static bool ColumnExists(SqliteConnection conn, string table, string column)
+    {
+        using var cmd = conn.CreateCommand();
+        // PRAGMA table_info cannot be parameterized; names here are test constants.
+        cmd.CommandText = $"PRAGMA table_info({table});";
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            if (string.Equals(reader.GetString(1), column, StringComparison.Ordinal))
+                return true;
+        }
+        return false;
+    }
+
     private static long GetUserVersion(SqliteConnection conn)
     {
         using var cmd = conn.CreateCommand();

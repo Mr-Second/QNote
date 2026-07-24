@@ -11,7 +11,8 @@ public sealed class NoteRepositoryTests
         using var db = new TestDatabase();
         var repo = db.NewRepository();
 
-        var created = await repo.CreateAsync(NewNote(title: "标题", content: "正文内容", category: "工作"));
+        var created = await repo.CreateAsync(NewNote(title: "标题", content: "正文内容",
+            plainText: "正文内容", category: "工作"));
 
         Assert.True(created.Id > 0);
         var loaded = await repo.GetByIdAsync(created.Id);
@@ -19,6 +20,7 @@ public sealed class NoteRepositoryTests
         Assert.Equal(created.Uuid, loaded!.Uuid);
         Assert.Equal("标题", loaded.Title);
         Assert.Equal("正文内容", loaded.Content);
+        Assert.Equal("正文内容", loaded.PlainText);
         Assert.Equal("工作", loaded.Category);
     }
 
@@ -36,9 +38,9 @@ public sealed class NoteRepositoryTests
         var repo = db.NewRepository();
 
         var older = await repo.CreateAsync(NewNote(title: "旧", content: "旧内容",
-            created: DaysAgo(2), updated: DaysAgo(2)));
+            plainText: "旧内容", created: DaysAgo(2), updated: DaysAgo(2)));
         var newer = await repo.CreateAsync(NewNote(title: "新", content: new string('x', 500),
-            created: DaysAgo(1), updated: DaysAgo(1)));
+            plainText: new string('x', 500), created: DaysAgo(1), updated: DaysAgo(1)));
 
         var summaries = await repo.GetSummariesAsync();
 
@@ -50,17 +52,39 @@ public sealed class NoteRepositoryTests
     }
 
     [Fact]
+    public async Task GetSummariesAsync_PreviewUsesPlainText_NotRtfContent()
+    {
+        using var db = new TestDatabase();
+        var repo = db.NewRepository();
+
+        // RTF control words must never leak into the list preview.
+        await repo.CreateAsync(NewNote(content: @"{\rtf1\ansi\b 加粗正文}", plainText: "加粗正文"));
+
+        var summaries = await repo.GetSummariesAsync();
+
+        Assert.Single(summaries);
+        Assert.Equal("加粗正文", summaries[0].Preview);
+    }
+
+    [Fact]
     public async Task UpdateAsync_PersistsEdits()
     {
         using var db = new TestDatabase();
         var repo = db.NewRepository();
         var created = await repo.CreateAsync(NewNote(title: "原", content: "原文"));
 
-        await repo.UpdateAsync(created with { Title = "改", Content = "改文", UpdatedAt = DateTimeOffset.UtcNow });
+        await repo.UpdateAsync(created with
+        {
+            Title = "改",
+            Content = "改文",
+            PlainText = "改文",
+            UpdatedAt = DateTimeOffset.UtcNow,
+        });
 
         var loaded = await repo.GetByIdAsync(created.Id);
         Assert.Equal("改", loaded!.Title);
         Assert.Equal("改文", loaded.Content);
+        Assert.Equal("改文", loaded.PlainText);
     }
 
     [Fact]
@@ -93,6 +117,7 @@ public sealed class NoteRepositoryTests
     private static Note NewNote(
         string title = "",
         string content = "",
+        string plainText = "",
         string category = "",
         DateTimeOffset? created = null,
         DateTimeOffset? updated = null)
@@ -103,6 +128,7 @@ public sealed class NoteRepositoryTests
             Uuid = Guid.NewGuid().ToString("N"),
             Title = title,
             Content = content,
+            PlainText = plainText,
             Category = category,
             CreatedAt = created ?? now,
             UpdatedAt = updated ?? now,

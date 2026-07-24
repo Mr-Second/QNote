@@ -15,7 +15,7 @@ public sealed record NoteSummary
 
     public string Title { get; init; } = string.Empty;
 
-    /// <summary>Leading snippet of the content (plain text this slice; RTF later revisits extraction).</summary>
+    /// <summary>Leading snippet of the note's plain-text content (RTF control words never leak here).</summary>
     public string Preview { get; init; } = string.Empty;
 
     /// <summary>Category name-link (matches the Qt build; no FK).</summary>

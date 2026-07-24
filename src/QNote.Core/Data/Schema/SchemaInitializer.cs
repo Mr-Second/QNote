@@ -10,7 +10,7 @@ namespace QNote.Data.Schema;
 public sealed class SchemaInitializer
 {
     /// <summary>Current schema version. Bump when adding a migration step.</summary>
-    public const long CurrentVersion = 1;
+    public const long CurrentVersion = 2;
 
     private readonly DbConnectionFactory _factory;
 
@@ -30,6 +30,8 @@ public sealed class SchemaInitializer
         using var tx = conn.BeginTransaction();
         if (version < 1)
             CreateV1(conn);
+        if (version < 2)
+            MigrateV1ToV2(conn);
         SetUserVersion(conn, CurrentVersion);
         tx.Commit();
     }
@@ -76,6 +78,11 @@ public sealed class SchemaInitializer
             );
             """);
     }
+
+    // v2: notes gain a PlainText column — the editor's plain-text projection of the
+    // RTF Content, used for list previews and as the future FTS corpus.
+    private static void MigrateV1ToV2(SqliteConnection conn) =>
+        Execute(conn, "ALTER TABLE notes ADD COLUMN PlainText TEXT NOT NULL DEFAULT '';");
 
     private static void Execute(SqliteConnection conn, string sql)
     {

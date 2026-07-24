@@ -12,7 +12,7 @@ namespace QNote.Data;
 /// </summary>
 public sealed class NoteRepository : INoteRepository
 {
-    /// <summary>Max characters of Content projected into a list <see cref="NoteSummary.Preview"/>.</summary>
+    /// <summary>Max characters of PlainText projected into a list <see cref="NoteSummary.Preview"/>.</summary>
     private const int PreviewLength = 120;
 
     private const DateTimeStyles UtcStyles =
@@ -27,7 +27,7 @@ public sealed class NoteRepository : INoteRepository
         await using var conn = _factory.OpenRead();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "SELECT Id, Uuid, Title, Content, Category, CreatedAt, UpdatedAt FROM notes ORDER BY UpdatedAt DESC;";
+            "SELECT Id, Uuid, Title, Content, PlainText, Category, CreatedAt, UpdatedAt FROM notes ORDER BY UpdatedAt DESC;";
 
         var list = new List<Note>();
         await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -42,7 +42,7 @@ public sealed class NoteRepository : INoteRepository
         await using var conn = _factory.OpenRead();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "SELECT Id, Uuid, Title, substr(Content, 1, $len) AS Preview, Category, UpdatedAt " +
+            "SELECT Id, Uuid, Title, substr(PlainText, 1, $len) AS Preview, Category, UpdatedAt " +
             "FROM notes ORDER BY UpdatedAt DESC;";
         cmd.Parameters.AddWithValue("$len", PreviewLength);
 
@@ -69,7 +69,7 @@ public sealed class NoteRepository : INoteRepository
         await using var conn = _factory.OpenRead();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "SELECT Id, Uuid, Title, Content, Category, CreatedAt, UpdatedAt FROM notes WHERE Id = $id;";
+            "SELECT Id, Uuid, Title, Content, PlainText, Category, CreatedAt, UpdatedAt FROM notes WHERE Id = $id;";
         cmd.Parameters.AddWithValue("$id", id);
 
         await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -81,12 +81,13 @@ public sealed class NoteRepository : INoteRepository
         await using var conn = _factory.OpenWrite();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "INSERT INTO notes (Uuid, Title, Content, Category, CreatedAt, UpdatedAt) " +
-            "VALUES ($uuid, $title, $content, $category, $createdAt, $updatedAt) " +
+            "INSERT INTO notes (Uuid, Title, Content, PlainText, Category, CreatedAt, UpdatedAt) " +
+            "VALUES ($uuid, $title, $content, $plainText, $category, $createdAt, $updatedAt) " +
             "RETURNING Id;";
         cmd.Parameters.AddWithValue("$uuid", note.Uuid);
         cmd.Parameters.AddWithValue("$title", note.Title);
         cmd.Parameters.AddWithValue("$content", note.Content);
+        cmd.Parameters.AddWithValue("$plainText", note.PlainText);
         cmd.Parameters.AddWithValue("$category", note.Category);
         cmd.Parameters.AddWithValue("$createdAt", ToDbString(note.CreatedAt));
         cmd.Parameters.AddWithValue("$updatedAt", ToDbString(note.UpdatedAt));
@@ -101,10 +102,11 @@ public sealed class NoteRepository : INoteRepository
         await using var conn = _factory.OpenWrite();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "UPDATE notes SET Title = $title, Content = $content, Category = $category, UpdatedAt = $updatedAt " +
+            "UPDATE notes SET Title = $title, Content = $content, PlainText = $plainText, Category = $category, UpdatedAt = $updatedAt " +
             "WHERE Id = $id;";
         cmd.Parameters.AddWithValue("$title", note.Title);
         cmd.Parameters.AddWithValue("$content", note.Content);
+        cmd.Parameters.AddWithValue("$plainText", note.PlainText);
         cmd.Parameters.AddWithValue("$category", note.Category);
         cmd.Parameters.AddWithValue("$updatedAt", ToDbString(note.UpdatedAt));
         cmd.Parameters.AddWithValue("$id", note.Id);
@@ -149,9 +151,10 @@ public sealed class NoteRepository : INoteRepository
         Uuid = reader.GetString(1),
         Title = reader.GetString(2),
         Content = reader.GetString(3),
-        Category = reader.GetString(4),
-        CreatedAt = ParseUtc(reader.GetString(5)),
-        UpdatedAt = ParseUtc(reader.GetString(6)),
+        PlainText = reader.GetString(4),
+        Category = reader.GetString(5),
+        CreatedAt = ParseUtc(reader.GetString(6)),
+        UpdatedAt = ParseUtc(reader.GetString(7)),
     };
 
     private static DateTimeOffset ParseUtc(string value) =>

@@ -16,6 +16,12 @@ public sealed record Note
     /// <summary>RTF document text.</summary>
     public string Content { get; init; } = string.Empty;
 
+    /// <summary>
+    /// Plain-text projection of <see cref="Content"/>, filled on save. Source for
+    /// list previews and the FTS corpus (keeps RTF control words out of both).
+    /// </summary>
+    public string PlainText { get; init; } = string.Empty;
+
     /// <summary>Category name-link (matches the Qt build; no FK).</summary>
     public string Category { get; init; } = string.Empty;
 
