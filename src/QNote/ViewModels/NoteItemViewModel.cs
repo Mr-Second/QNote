@@ -36,6 +36,14 @@ public partial class NoteItemViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(TimeDisplay))]
     public partial DateTimeOffset UpdatedAt { get; set; }
 
+    /// <summary>
+    /// Current search keyword (whole-keyword, case-insensitive). The list item's
+    /// TextBlocks read this through the <c>TextBlockHighlighter</c> attached
+    /// property to paint hit runs. Empty when not searching.
+    /// </summary>
+    [ObservableProperty]
+    public partial string Keyword { get; set; } = string.Empty;
+
     /// <summary>Title with the empty-note fallback used by the Qt build.</summary>
     public string DisplayTitle => string.IsNullOrWhiteSpace(Title) ? "新便签" : Title;
 

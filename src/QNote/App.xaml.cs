@@ -50,6 +50,10 @@ public partial class App : Application
         Services.GetRequiredService<ILogger<App>>()
             .LogInformation("QNote starting. Data root: {Root}", paths.Root);
 
+        // Qt parity: count-only FTS reconcile on startup - notes vs FTS row count
+        // diverges (e.g. a crash mid-write, a restored backup) → background rebuild.
+        _ = ReconcileSearchIndexAsync(Services);
+
         Window = new MainWindow();
         DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         Window.Activate();
@@ -87,5 +91,23 @@ public partial class App : Application
         services.AddTransient<NotesPageViewModel>();
 
         return services.BuildServiceProvider();
+    }
+
+    /// <summary>
+    /// Fire-and-forget FTS reconcile on startup. Never crashes the app: any failure
+    /// is logged and swallowed (the index self-heals on the next launch or the next
+    /// successful write). Runs off the UI thread.
+    /// </summary>
+    private static async Task ReconcileSearchIndexAsync(IServiceProvider services)
+    {
+        try
+        {
+            await Task.Run(() => services.GetRequiredService<ISearchService>().ReconcileAsync());
+        }
+        catch (Exception ex)
+        {
+            services.GetRequiredService<ILogger<App>>()
+                .LogError(ex, "Startup FTS reconcile failed; index will rebuild next launch.");
+        }
     }
 }

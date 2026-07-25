@@ -35,6 +35,8 @@ public sealed partial class NotesPage : Page
 
         ViewModel.FocusTitleRequested += OnFocusTitleRequested;
         ViewModel.ContentReloadRequested += OnContentReloadRequested;
+        ViewModel.SearchCompleted += OnSearchCompleted;
+        ViewModel.SearchCleared += OnSearchCleared;
         _editor.ContentChanged += OnEditorContentChanged;
         _editor.SelectionChanged += UpdateToolbarState;
 
@@ -48,6 +50,38 @@ public sealed partial class NotesPage : Page
     private async void OnLoaded(object sender, RoutedEventArgs e) => await ViewModel.LoadAsync();
 
     private void OnFocusTitleRequested() => TitleBox.Focus(FocusState.Programmatic);
+
+    // VM raised a debounced search off-thread → marshal back to the UI thread and
+    // swap the note list there (ObservableCollection is UI-thread-affine).
+    private void OnSearchCompleted(IReadOnlyList<QNote.Models.NoteSummary> results, string keyword)
+    {
+        App.DispatcherQueue.TryEnqueue(() =>
+        {
+            var wasSelected = ViewModel.SelectedNote;
+            ViewModel.Notes.Clear();
+            foreach (var s in results)
+                ViewModel.Notes.Add(new NoteItemViewModel(s) { Keyword = keyword });
+
+            // Preserve selection if the same note is still in the results, else clear.
+            if (wasSelected is { } prev && ViewModel.Notes.FirstOrDefault(n => n.Id == prev.Id) is { } still)
+                ViewModel.SelectedNote = still;
+        });
+    }
+
+    // Search box cleared → restore the full summary list on the UI thread.
+    private void OnSearchCleared(IReadOnlyList<QNote.Models.NoteSummary> summaries)
+    {
+        App.DispatcherQueue.TryEnqueue(() =>
+        {
+            var wasSelected = ViewModel.SelectedNote;
+            ViewModel.Notes.Clear();
+            foreach (var s in summaries)
+                ViewModel.Notes.Add(new NoteItemViewModel(s));
+
+            if (wasSelected is { } prev && ViewModel.Notes.FirstOrDefault(n => n.Id == prev.Id) is { } still)
+                ViewModel.SelectedNote = still;
+        });
+    }
 
     // VM finished loading a note → push its RTF into the editor (suppressed inside
     // SetRtf, so this never marks the note dirty).

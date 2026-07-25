@@ -1,6 +1,8 @@
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging.Abstractions;
 using QNote.Data;
 using QNote.Data.Schema;
+using QNote.Services;
 
 namespace QNote.Tests;
 
@@ -23,6 +25,8 @@ internal sealed class TestDatabase : IDisposable
     public DbConnectionFactory Factory { get; }
 
     public NoteRepository NewRepository() => new(Factory);
+
+    public SearchService NewSearchService() => new(Factory, NewRepository(), NullLogger<SearchService>.Instance);
 
     public void Dispose()
     {

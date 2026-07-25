@@ -16,20 +16,30 @@ namespace QNote.ViewModels;
 /// and <see cref="EditorContentProvider"/> lets the VM pull current RTF/plain text from
 /// the view at flush time. Save model: flush on navigate-away / close / Ctrl+S,
 /// surfaced by <see cref="IsDirty"/>.
+///
+/// Search state lives here too: <see cref="SearchText"/> feeds a debounced query to
+/// <see cref="ISearchService"/>; while searching, <see cref="Notes"/> mirrors the
+/// ranked results (with <see cref="NoteItemViewModel.Keyword"/> set for highlight),
+/// and clearing the box restores the full summary list.
 /// </summary>
 public partial class NotesPageViewModel : ObservableObject
 {
     private const int PreviewLength = 120;
+    private static readonly TimeSpan SearchDebounce = TimeSpan.FromMilliseconds(300);
 
     private readonly INoteService _notes;
+    private readonly ISearchService _search;
     private readonly ILogger<NotesPageViewModel> _log;
 
     private Note? _loaded;        // full note currently shown in the editor
     private bool _suppressDirty;  // true while loading editor fields programmatically
 
-    public NotesPageViewModel(INoteService notes, ILogger<NotesPageViewModel> log)
+    private CancellationTokenSource? _searchCts;
+
+    public NotesPageViewModel(INoteService notes, ISearchService search, ILogger<NotesPageViewModel> log)
     {
         _notes = notes;
+        _search = search;
         _log = log;
         Notes.CollectionChanged += (_, _) =>
         {
@@ -46,6 +56,19 @@ public partial class NotesPageViewModel : ObservableObject
     /// <see cref="EditingContentRtf"/> into the RichEditBox.
     /// </summary>
     public event Action? ContentReloadRequested;
+
+    /// <summary>
+    /// Raised off the UI thread when a debounced search resolves. The view marshals
+    /// back to the UI thread and replaces the note list with the ranked results.
+    /// Carries the raw keyword (for highlight) and the summaries.
+    /// </summary>
+    public event Action<IReadOnlyList<NoteSummary>, string>? SearchCompleted;
+
+    /// <summary>
+    /// Raised off the UI thread when the search box is cleared. The view restores
+    /// the full summary list.
+    /// </summary>
+    public event Action<IReadOnlyList<NoteSummary>>? SearchCleared;
 
     /// <summary>
     /// Set by the view: returns the editor's current (RTF, plain text) so flushes
@@ -69,6 +92,10 @@ public partial class NotesPageViewModel : ObservableObject
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
     public partial bool IsDirty { get; set; }
+
+    /// <summary>Live search box content. Debounced ~300ms before querying FTS.</summary>
+    [ObservableProperty]
+    public partial string SearchText { get; set; } = string.Empty;
 
     public bool HasSelection => SelectedNote is not null;
 
@@ -213,6 +240,62 @@ public partial class NotesPageViewModel : ObservableObject
     private Task SaveAsync() => FlushAsync();
 
     private bool CanSave() => IsDirty;
+
+    /// <summary>
+    /// Debounced search: each keystroke cancels the previous pending query; after
+    /// ~300ms of quiet the query fires off-thread and raises <see cref="SearchCompleted"/>
+    /// / <see cref="SearchCleared"/> for the view to swap the note list (empty keyword
+    /// restores the full summary list - Qt parity: blank = no search, not "all match").
+    /// </summary>
+    partial void OnSearchTextChanged(string value)
+    {
+        _searchCts?.Cancel();
+        var cts = _searchCts = new CancellationTokenSource();
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            _ = RestoreFullListAsync(cts.Token);
+            return;
+        }
+
+        _ = DebouncedSearchAsync(value, cts.Token);
+    }
+
+    private async Task DebouncedSearchAsync(string query, CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(SearchDebounce, ct);
+            var results = await _search.SearchAsync(query, category: null, ct);
+            if (!ct.IsCancellationRequested)
+                SearchCompleted?.Invoke(results, query);
+        }
+        catch (OperationCanceledException)
+        {
+            // debouncer cancelled this query - expected, not an error
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "搜索失败");
+        }
+    }
+
+    private async Task RestoreFullListAsync(CancellationToken ct)
+    {
+        try
+        {
+            var summaries = await _notes.GetSummariesAsync(ct);
+            if (!ct.IsCancellationRequested)
+                SearchCleared?.Invoke(summaries);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "恢复便签列表失败");
+        }
+    }
 
     private void SetEditor(Note? loaded, string title, string contentRtf)
     {

@@ -30,6 +30,8 @@ msbuild.*.log
 
 # WinUI 3 / MSIX packaging & signing
 AppPackages/
+# AppX/ - winapp run loose-layout output
+AppX/
 BundleArtifacts/
 Generated Files/
 *.appx

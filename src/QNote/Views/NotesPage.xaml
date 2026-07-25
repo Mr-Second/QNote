@@ -118,6 +118,7 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
@@ -186,9 +187,19 @@
                     </Button>
                 </Grid>
 
+                <!--  Search box (as-you-type, debounced in the VM)  -->
+                <AutoSuggestBox
+                    Grid.Row="1"
+                    Margin="10,0,10,4"
+                    Padding="10,6"
+                    AutomationProperties.Name="搜索便签"
+                    PlaceholderText="搜索便签"
+                    QueryIcon="Find"
+                    Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
                 <ListView
                     x:Name="NotesList"
-                    Grid.Row="1"
+                    Grid.Row="2"
                     Padding="8,0,8,8"
                     ItemsSource="{x:Bind ViewModel.Notes, Mode=OneWay}"
                     SelectedItem="{x:Bind ViewModel.SelectedNote, Mode=TwoWay}"
@@ -207,15 +218,17 @@
                             <Grid PointerEntered="NoteItem_PointerEntered" PointerExited="NoteItem_PointerExited">
                                 <StackPanel Spacing="3">
                                     <TextBlock
+                                        controls:TextBlockHighlighter.Keyword="{x:Bind Keyword, Mode=OneWay}"
+                                        controls:TextBlockHighlighter.Text="{x:Bind DisplayTitle, Mode=OneWay}"
                                         Margin="0,0,26,0"
                                         FontSize="14"
-                                        Style="{StaticResource NoteTitleTextStyle}"
-                                        Text="{x:Bind DisplayTitle, Mode=OneWay}" />
+                                        Style="{StaticResource NoteTitleTextStyle}" />
                                     <TextBlock
+                                        controls:TextBlockHighlighter.Keyword="{x:Bind Keyword, Mode=OneWay}"
+                                        controls:TextBlockHighlighter.Text="{x:Bind Preview, Mode=OneWay}"
                                         FontSize="12"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                         MaxLines="1"
-                                        Text="{x:Bind Preview, Mode=OneWay}"
                                         TextTrimming="CharacterEllipsis"
                                         TextWrapping="NoWrap" />
                                     <TextBlock
@@ -276,7 +289,7 @@
                 </ListView>
 
                 <TextBlock
-                    Grid.Row="1"
+                    Grid.Row="2"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     Foreground="{ThemeResource TextFillColorTertiaryBrush}"
@@ -284,7 +297,7 @@
                     Visibility="{x:Bind ViewModel.IsEmpty, Converter={StaticResource BoolToVisibility}, Mode=OneWay}" />
 
                 <Border
-                    Grid.Row="2"
+                    Grid.Row="3"
                     Padding="14,6"
                     BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                     BorderThickness="0,1,0,0">

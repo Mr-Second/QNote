@@ -101,6 +101,36 @@ public sealed class NoteRepositoryTests
     }
 
     [Fact]
+    public async Task DeleteAsync_AlsoDropsFtsShadowRow()
+    {
+        using var db = new TestDatabase();
+        var repo = db.NewRepository();
+        var created = await repo.CreateAsync(NewNote(title: "fts-shadow", content: "x"));
+
+        await repo.DeleteAsync(created.Id);
+
+        await using var conn = db.Factory.OpenRead();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM notes_fts WHERE rowid = $id;";
+        cmd.Parameters.AddWithValue("$id", created.Id);
+        Assert.Equal(0L, (long)(await cmd.ExecuteScalarAsync())!);
+    }
+
+    [Fact]
+    public async Task GetAllForIndexAsync_ReturnsTitleAndPlainTextOnly()
+    {
+        using var db = new TestDatabase();
+        var repo = db.NewRepository();
+        await repo.CreateAsync(NewNote(title: "索引投影", content: "RTF原文", plainText: "纯文本投影"));
+
+        var entries = await repo.GetAllForIndexAsync();
+
+        var e = Assert.Single(entries);
+        Assert.Equal("索引投影", e.Title);
+        Assert.Equal("纯文本投影", e.PlainText);
+    }
+
+    [Fact]
     public async Task Timestamps_RoundTripAsUtc()
     {
         using var db = new TestDatabase();
