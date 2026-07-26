@@ -23,7 +23,9 @@ public partial class NoteItemViewModel : ObservableObject
 
     public string Uuid { get; }
 
-    public string Category { get; }
+    /// <summary>Linked category name; settable so moving a note between categories refreshes the item.</summary>
+    [ObservableProperty]
+    public partial string Category { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DisplayTitle))]

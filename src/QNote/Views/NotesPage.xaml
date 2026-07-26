@@ -49,45 +49,101 @@
                         Text="便签整理" />
                 </StackPanel>
 
-                <!--  Static "全部" entry with a selected look  -->
-                <Grid
-                    Grid.Row="1"
-                    Height="40"
-                    Margin="0,6,0,0"
-                    VerticalAlignment="Top"
-                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                    CornerRadius="6">
-                    <Border
-                        Width="3"
-                        Height="18"
-                        Margin="3,0,0,0"
-                        HorizontalAlignment="Left"
-                        Background="{ThemeResource BrandAccentBrush}"
-                        CornerRadius="2" />
-                    <StackPanel
-                        Margin="14,0,8,0"
-                        VerticalAlignment="Center"
-                        Orientation="Horizontal"
-                        Spacing="8">
-                        <FontIcon
-                            FontSize="15"
-                            Foreground="{ThemeResource BrandAccentBrush}"
-                            Glyph="&#xE8FD;" />
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            FontWeight="SemiBold"
-                            Text="全部" />
-                    </StackPanel>
+                <!--  Category list: synthetic "全部" pinned at index 0 (same control,
+                      same template as DB rows — visual parity by construction)  -->
+                <Grid Grid.Row="1" Margin="0,6,0,0">
+                    <ListView
+                        x:Name="CategoryList"
+                        AllowDrop="True"
+                        CanDragItems="True"
+                        CanReorderItems="True"
+                        DragItemsCompleted="CategoryList_DragItemsCompleted"
+                        DragItemsStarting="CategoryList_DragItemsStarting"
+                        ItemsSource="{x:Bind ViewModel.Categories, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedCategory, Mode=TwoWay}"
+                        SelectionMode="Single">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="Margin" Value="0,1" />
+                                <Setter Property="Padding" Value="6,6" />
+                                <Setter Property="MinHeight" Value="0" />
+                                <Setter Property="CornerRadius" Value="6" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CategoryItemViewModel">
+                                <Grid Height="28">
+                                    <Grid.ContextFlyout>
+                                        <MenuFlyout>
+                                            <MenuFlyoutItem
+                                                Click="RenameCategoryMenu_Click"
+                                                IsEnabled="{x:Bind CanEdit, Mode=OneWay}"
+                                                Tag="{x:Bind}"
+                                                Text="重命名">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon FontSize="12" Glyph="&#xE70F;" />
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                            <MenuFlyoutItem
+                                                Click="DeleteCategoryMenu_Click"
+                                                IsEnabled="{x:Bind CanEdit, Mode=OneWay}"
+                                                Tag="{x:Bind}"
+                                                Text="删除">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon FontSize="12" Glyph="&#xE74D;" />
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                        </MenuFlyout>
+                                    </Grid.ContextFlyout>
+                                    <Border
+                                        Width="3"
+                                        Height="16"
+                                        Margin="0,0,0,0"
+                                        HorizontalAlignment="Left"
+                                        Background="{x:Bind ColorHex, Converter={StaticResource HexToBrush}, Mode=OneWay}"
+                                        CornerRadius="2"
+                                        Visibility="{x:Bind IsSelected, Converter={StaticResource BoolToVisibility}, Mode=OneWay}" />
+                                    <Grid Margin="10,0,6,0" ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <FontIcon
+                                            Grid.Column="0"
+                                            VerticalAlignment="Center"
+                                            FontSize="13"
+                                            Foreground="{x:Bind ActiveColorHex, Converter={StaticResource HexToBrush}, Mode=OneWay}"
+                                            Glyph="{x:Bind IconGlyph, Mode=OneWay}" />
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            VerticalAlignment="Center"
+                                            Foreground="{x:Bind ActiveColorHex, Converter={StaticResource HexToBrush}, Mode=OneWay}"
+                                            Text="{x:Bind Name, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis" />
+                                        <TextBlock
+                                            Grid.Column="2"
+                                            VerticalAlignment="Center"
+                                            FontSize="11"
+                                            Foreground="{x:Bind ActiveColorHex, Converter={StaticResource HexToBrush}, Mode=OneWay}"
+                                            Text="{x:Bind CountText, Mode=OneWay}" />
+                                    </Grid>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
                 </Grid>
 
                 <StackPanel Grid.Row="2" Spacing="2">
                     <Button
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Left"
+                        AutomationProperties.Name="新建分类"
                         Background="Transparent"
                         BorderThickness="0"
-                        IsEnabled="False"
-                        ToolTipService.ToolTip="即将推出">
+                        Click="NewCategoryButton_Click"
+                        ToolTipService.ToolTip="新建分类">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon FontSize="14" Glyph="&#xE710;" />
                             <TextBlock Text="新建分类" />
@@ -96,10 +152,11 @@
                     <Button
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Left"
+                        AutomationProperties.Name="设置"
                         Background="Transparent"
                         BorderThickness="0"
-                        IsEnabled="False"
-                        ToolTipService.ToolTip="即将推出">
+                        Click="SettingsButton_Click"
+                        ToolTipService.ToolTip="设置">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon FontSize="14" Glyph="&#xE713;" />
                             <TextBlock Text="设置" />
@@ -132,7 +189,7 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Spacing="1">
-                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="全部" />
+                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind ViewModel.CurrentCategoryTitle, Mode=OneWay}" />
                         <TextBlock
                             FontSize="11"
                             Foreground="{ThemeResource TextFillColorTertiaryBrush}"
@@ -337,7 +394,6 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
@@ -380,22 +436,15 @@
                         </TextBox>
                     </Grid>
 
-                    <TextBlock
-                        Grid.Row="1"
-                        Margin="0,4,0,0"
-                        FontSize="11"
-                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                        Text="{x:Bind ViewModel.SelectedTimeDisplay, Mode=OneWay}" />
-
                     <Border
-                        Grid.Row="2"
+                        Grid.Row="1"
                         Margin="0,10"
                         BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                         BorderThickness="0,1,0,0" />
 
                     <!--  Formatting toolbar  -->
                     <ScrollViewer
-                        Grid.Row="3"
+                        Grid.Row="2"
                         HorizontalScrollBarVisibility="Hidden"
                         HorizontalScrollMode="Auto"
                         VerticalScrollBarVisibility="Disabled">
@@ -597,7 +646,7 @@
                     </ScrollViewer>
 
                     <Border
-                        Grid.Row="4"
+                        Grid.Row="3"
                         Margin="0,10,0,0"
                         BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                         BorderThickness="0,1,0,0">

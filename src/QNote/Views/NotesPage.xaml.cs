@@ -144,6 +144,98 @@ public sealed partial class NotesPage : Page
             await ViewModel.SaveCommand.ExecuteAsync(null);
     }
 
+    // ---------- Sidebar: categories ----------
+
+    private void CategoryList_DragItemsStarting(object sender, DragItemsStartingEventArgs e)
+    {
+        // The synthetic "全部" row is pinned — it cannot be dragged.
+        if (e.Items.OfType<CategoryItemViewModel>().Any(c => c.IsAll))
+            e.Cancel = true;
+    }
+
+    private async void CategoryList_DragItemsCompleted(ListViewBase sender, DragItemsCompletedEventArgs args) =>
+        await ViewModel.ReorderCategoriesAsync();
+
+    private async void NewCategoryButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new CategoryEditDialog("新建分类", string.Empty, "#3B82F6", QNote.Controls.IconCatalog.Options[0].Key)
+        {
+            XamlRoot = XamlRoot,
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            return;
+
+        var error = await ViewModel.CreateCategoryAsync(dialog.CategoryName, dialog.ColorHex, dialog.IconKey);
+        if (error is not null)
+            await ShowErrorDialogAsync("新建分类", error);
+    }
+
+    private async void RenameCategoryMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not CategoryItemViewModel item)
+            return;
+
+        var dialog = new CategoryEditDialog("编辑分类", item.Name, item.ColorHex, item.IconKey)
+        {
+            XamlRoot = XamlRoot,
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            return;
+
+        var error = await ViewModel.UpdateCategoryAsync(item, dialog.CategoryName, dialog.ColorHex, dialog.IconKey);
+        if (error is not null)
+            await ShowErrorDialogAsync("编辑分类", error);
+    }
+
+    private async void DeleteCategoryMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not CategoryItemViewModel item)
+            return;
+
+        var content = item.NoteCount > 0
+            ? $"将删除分类「{item.Name}」及其中的 {item.NoteCount} 条便签，此操作无法撤销。"
+            : $"确认删除分类「{item.Name}」？此操作无法撤销。";
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "删除分类",
+            Content = content,
+            PrimaryButtonText = "删除",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            return;
+
+        var error = await ViewModel.DeleteCategoryAsync(item);
+        if (error is not null)
+            await ShowErrorDialogAsync("删除分类", error);
+    }
+
+    private async void SettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "设置",
+            Content = "设置面板即将推出。",
+            CloseButtonText = "知道了",
+        };
+        await dialog.ShowAsync();
+    }
+
+    private async Task ShowErrorDialogAsync(string title, string message)
+    {
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = title,
+            Content = message,
+            CloseButtonText = "知道了",
+        };
+        await dialog.ShowAsync();
+    }
+
     // ---------- Toolbar ----------
 
     private void BoldButton_Click(object sender, RoutedEventArgs e) => ApplyFormat(_editor.ToggleBold);

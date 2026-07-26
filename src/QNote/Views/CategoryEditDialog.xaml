@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentDialog
+    x:Class="QNote.Views.CategoryEditDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:QNote.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    CloseButtonText="取消"
+    DefaultButton="Primary"
+    PrimaryButtonText="保存"
+    PrimaryButtonClick="OnPrimaryButtonClick"
+    mc:Ignorable="d">
+
+    <StackPanel MinWidth="320" Spacing="12">
+        <TextBox
+            x:Name="NameBox"
+            AutomationProperties.Name="分类名称"
+            Header="名称"
+            MaxLength="32"
+            PlaceholderText="分类名称" />
+
+        <StackPanel Spacing="6">
+            <TextBlock Text="颜色" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button
+                    x:Name="SwatchBlue"
+                    Width="28"
+                    Height="28"
+                    Padding="0"
+                    AutomationProperties.Name="蓝色"
+                    Background="#3B82F6"
+                    Click="Swatch_Click"
+                    CornerRadius="14"
+                    Tag="#3B82F6" />
+                <Button
+                    x:Name="SwatchGreen"
+                    Width="28"
+                    Height="28"
+                    Padding="0"
+                    AutomationProperties.Name="绿色"
+                    Background="#22C55E"
+                    Click="Swatch_Click"
+                    CornerRadius="14"
+                    Tag="#22C55E" />
+                <Button
+                    x:Name="SwatchRed"
+                    Width="28"
+                    Height="28"
+                    Padding="0"
+                    AutomationProperties.Name="红色"
+                    Background="#EF4444"
+                    Click="Swatch_Click"
+                    CornerRadius="14"
+                    Tag="#EF4444" />
+                <Button
+                    x:Name="SwatchAmber"
+                    Width="28"
+                    Height="28"
+                    Padding="0"
+                    AutomationProperties.Name="琥珀色"
+                    Background="#F59E0B"
+                    Click="Swatch_Click"
+                    CornerRadius="14"
+                    Tag="#F59E0B" />
+                <TextBox
+                    x:Name="HexBox"
+                    Width="96"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="自定义颜色"
+                    MaxLength="7"
+                    PlaceholderText="#RRGGBB"
+                    TextChanged="HexBox_TextChanged" />
+            </StackPanel>
+        </StackPanel>
+
+        <StackPanel Spacing="6">
+            <TextBlock Text="图标" />
+            <GridView
+                x:Name="GlyphGrid"
+                MaxHeight="112"
+                AutomationProperties.Name="分类图标"
+                ItemClick="GlyphGrid_ItemClick"
+                ItemsSource="{x:Bind controls:IconCatalog.Options, Mode=OneTime}"
+                SelectionMode="Single">
+                <GridView.ItemTemplate>
+                    <DataTemplate x:DataType="controls:GlyphOption">
+                        <Grid Width="40" Height="40">
+                            <FontIcon
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                FontSize="16"
+                                Glyph="{x:Bind Glyph, Mode=OneTime}" />
+                        </Grid>
+                    </DataTemplate>
+                </GridView.ItemTemplate>
+            </GridView>
+        </StackPanel>
+
+        <TextBlock
+            x:Name="ErrorText"
+            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+            TextWrapping="Wrap"
+            Visibility="Collapsed" />
+    </StackPanel>
+</ContentDialog>

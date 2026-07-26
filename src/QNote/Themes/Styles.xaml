@@ -5,6 +5,7 @@
     xmlns:conv="using:QNote.Converters">
 
     <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+    <conv:HexToBrushConverter x:Key="HexToBrush" />
 
     <!-- Shared, keyed styles. Reused across views, never copy-pasted per view. -->
     <Style x:Key="NoteTitleTextStyle" TargetType="TextBlock">

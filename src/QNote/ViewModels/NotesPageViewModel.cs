@@ -29,17 +29,20 @@ public partial class NotesPageViewModel : ObservableObject
 
     private readonly INoteService _notes;
     private readonly ISearchService _search;
+    private readonly ICategoryService _categories;
     private readonly ILogger<NotesPageViewModel> _log;
 
     private Note? _loaded;        // full note currently shown in the editor
     private bool _suppressDirty;  // true while loading editor fields programmatically
+    private bool _initializing;   // true during LoadAsync (category selection must not double-reload)
 
     private CancellationTokenSource? _searchCts;
 
-    public NotesPageViewModel(INoteService notes, ISearchService search, ILogger<NotesPageViewModel> log)
+    public NotesPageViewModel(INoteService notes, ISearchService search, ICategoryService categories, ILogger<NotesPageViewModel> log)
     {
         _notes = notes;
         _search = search;
+        _categories = categories;
         _log = log;
         Notes.CollectionChanged += (_, _) =>
         {
@@ -80,7 +83,6 @@ public partial class NotesPageViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSelection))]
-    [NotifyPropertyChangedFor(nameof(SelectedTimeDisplay))]
     public partial NoteItemViewModel? SelectedNote { get; set; }
 
     [ObservableProperty]
@@ -97,10 +99,23 @@ public partial class NotesPageViewModel : ObservableObject
     [ObservableProperty]
     public partial string SearchText { get; set; } = string.Empty;
 
-    public bool HasSelection => SelectedNote is not null;
+    // ---------- Categories ----------
 
-    /// <summary>The selected note's timestamp for the editor meta line (flat + null-safe).</summary>
-    public string SelectedTimeDisplay => SelectedNote?.TimeDisplay ?? string.Empty;
+    /// <summary>Sidebar categories: synthetic "全部" pinned at index 0, then DB rows.</summary>
+    public ObservableCollection<CategoryItemViewModel> Categories { get; } = new();
+
+    /// <summary>Selected sidebar category; the synthetic "全部" item = no filter.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CurrentCategoryTitle))]
+    public partial CategoryItemViewModel? SelectedCategory { get; set; }
+
+    /// <summary>Title of the middle column ("全部" or the category name).</summary>
+    public string CurrentCategoryTitle => SelectedCategory is { IsAll: false } c ? c.Name : "全部";
+
+    /// <summary>Current scope as a category name, or <c>null</c> for "全部" (no WHERE).</summary>
+    public string? CurrentCategoryName => SelectedCategory is { IsAll: false } c ? c.Name : null;
+
+    public bool HasSelection => SelectedNote is not null;
 
     public bool IsEmpty => Notes.Count == 0;
 
@@ -109,19 +124,40 @@ public partial class NotesPageViewModel : ObservableObject
     /// <summary>Marks the note dirty — called by the view on editor text changes.</summary>
     public void NotifyContentEdited() => IsDirty = true;
 
-    /// <summary>Initial load of the summary list (called from the page's Loaded event).</summary>
+    /// <summary>Initial load of categories + the summary list (called from the page's Loaded event).</summary>
     public async Task LoadAsync()
     {
         try
         {
-            var summaries = await _notes.GetSummariesAsync();
-            Notes.Clear();
-            foreach (var summary in summaries)
-                Notes.Add(new NoteItemViewModel(summary));
+            _initializing = true;
+            await RefreshCategoriesAsync(selectedId: null); // → SelectedCategory = null ("全部")
+            _initializing = false;
+            await ReloadListAsync();
         }
         catch (Exception ex)
         {
+            _initializing = false;
             _log.LogError(ex, "加载便签列表失败");
+        }
+    }
+
+    /// <summary>Reload the note list for the current scope (category filter, no search).</summary>
+    private async Task ReloadListAsync()
+    {
+        try
+        {
+            var summaries = await _notes.GetSummariesAsync(CurrentCategoryName);
+            var wasSelectedId = SelectedNote?.Id;
+            Notes.Clear();
+            foreach (var summary in summaries)
+                Notes.Add(new NoteItemViewModel(summary));
+
+            if (wasSelectedId is { } id && Notes.FirstOrDefault(n => n.Id == id) is { } still)
+                SelectedNote = still;
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "刷新便签列表失败");
         }
     }
 
@@ -183,7 +219,6 @@ public partial class NotesPageViewModel : ObservableObject
             if (item is not null)
             {
                 item.Apply(saved.Title, MakePreview(saved.PlainText), saved.UpdatedAt);
-                OnPropertyChanged(nameof(SelectedTimeDisplay));
                 var index = Notes.IndexOf(item);
                 if (index > 0)
                     Notes.Move(index, 0); // bumped UpdatedAt → newest → top of the list
@@ -211,6 +246,7 @@ public partial class NotesPageViewModel : ObservableObject
 
             await _notes.DeleteAsync(item.Id);
             Notes.Remove(item); // removing the selected item clears selection → editor empty state
+            await RefreshCategoryCountsAsync();
         }
         catch (Exception ex)
         {
@@ -224,10 +260,11 @@ public partial class NotesPageViewModel : ObservableObject
         try
         {
             await FlushAsync();
-            var created = await _notes.CreateAsync();
+            var created = await _notes.CreateAsync(CurrentCategoryName ?? string.Empty);
             var item = NoteItemViewModel.FromNote(created);
             Notes.Insert(0, item);
             SelectedNote = item; // → OnSelectionChangedAsync loads the blank note into the editor
+            await RefreshCategoryCountsAsync();
             FocusTitleRequested?.Invoke();
         }
         catch (Exception ex)
@@ -240,6 +277,173 @@ public partial class NotesPageViewModel : ObservableObject
     private Task SaveAsync() => FlushAsync();
 
     private bool CanSave() => IsDirty;
+
+    // ---------- Category CRUD (dialogs live in the view; these are the VM endpoints) ----------
+
+    /// <summary>Create a category; returns an error message on validation failure, else null.</summary>
+    public async Task<string?> CreateCategoryAsync(string name, string color, string iconKey)
+    {
+        try
+        {
+            var created = await _categories.CreateAsync(name, color, iconKey);
+            await RefreshCategoriesAsync(created.Id);
+            return null;
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return ex.Message;
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "新建分类失败");
+            return "新建分类失败，请查看日志";
+        }
+    }
+
+    /// <summary>Rename / restyle a category; returns an error message on failure, else null.</summary>
+    public async Task<string?> UpdateCategoryAsync(CategoryItemViewModel item, string name, string color, string iconKey)
+    {
+        try
+        {
+            await _categories.UpdateAsync(new Category
+            {
+                Id = item.Id,
+                Name = name,
+                Color = color,
+                IconKey = iconKey,
+            });
+            // The rename may have changed the current scope's name — rebuild and reload.
+            await RefreshCategoriesAsync(item.Id);
+            await ReloadListAsync();
+            if (_loaded is not null)
+                _loaded = await _notes.GetByIdAsync(_loaded.Id);
+            return null;
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return ex.Message;
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "更新分类失败");
+            return "更新分类失败，请查看日志";
+        }
+    }
+
+    /// <summary>Delete a category and all its notes (the view confirmed first).</summary>
+    public async Task<string?> DeleteCategoryAsync(CategoryItemViewModel item)
+    {
+        try
+        {
+            var wasSelected = SelectedCategory?.Id == item.Id;
+            var deletedLoaded = _loaded?.Category == item.Name;
+
+            await _categories.DeleteAsync(item.Id);
+
+            if (deletedLoaded)
+            {
+                _loaded = null;
+                IsDirty = false;
+                SelectedNote = null;
+                SetEditor(null, string.Empty, string.Empty);
+            }
+            if (wasSelected)
+                SelectedCategory = null; // falls back to "全部"
+
+            await RefreshCategoriesAsync(SelectedCategory?.Id);
+            await ReloadListAsync();
+            return null;
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return ex.Message;
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "删除分类失败");
+            return "删除分类失败，请查看日志";
+        }
+    }
+
+    /// <summary>Persist the current sidebar order (after a drag-reorder).</summary>
+    public async Task ReorderCategoriesAsync()
+    {
+        try
+        {
+            // The synthetic "全部" must stay pinned at the top even if the user
+            // drops another row above it; only DB rows persist their order.
+            if (Categories.Count > 0 && !Categories[0].IsAll)
+            {
+                var all = Categories.First(c => c.IsAll);
+                Categories.Move(Categories.IndexOf(all), 0);
+            }
+            await _categories.ReorderAsync(Categories.Where(c => !c.IsAll).Select(c => c.Id).ToArray());
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "分类重排失败");
+        }
+    }
+
+    // ---------- Category internals ----------
+
+    /// <summary>Rebuild the sidebar list from the DB, preserving / setting the selection by id.</summary>
+    private async Task RefreshCategoriesAsync(long? selectedId)
+    {
+        var categories = await _categories.GetAllAsync();
+        var counts = await _categories.CountNotesAsync();
+
+        Categories.Clear();
+        Categories.Add(CategoryItemViewModel.CreateAll(counts.Values.Sum()));
+        foreach (var c in categories)
+        {
+            counts.TryGetValue(c.Name, out var count);
+            Categories.Add(new CategoryItemViewModel(c, _categories.IsBuiltIn(c.Name), count));
+        }
+
+        SelectedCategory = selectedId is { } id
+            ? Categories.FirstOrDefault(c => c.Id == id)
+            : Categories[0]; // "全部"
+        SyncCategorySelection();
+    }
+
+    /// <summary>Update count badges in place (after note add/delete/move).</summary>
+    private async Task RefreshCategoryCountsAsync()
+    {
+        try
+        {
+            var counts = await _categories.CountNotesAsync();
+            foreach (var c in Categories)
+                c.NoteCount = c.IsAll ? counts.Values.Sum() : counts.TryGetValue(c.Name, out var n) ? n : 0;
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "刷新分类计数失败");
+        }
+    }
+
+    partial void OnSelectedCategoryChanged(CategoryItemViewModel? value)
+    {
+        SyncCategorySelection();
+        if (_initializing)
+            return;
+        _ = OnScopeChangedAsync();
+    }
+
+    private void SyncCategorySelection()
+    {
+        foreach (var c in Categories)
+            c.IsSelected = c == SelectedCategory;
+    }
+
+    /// <summary>Scope switched: re-run the active search within the new scope, else reload the list.</summary>
+    private async Task OnScopeChangedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(SearchText))
+            OnSearchTextChanged(SearchText); // re-debounce with the new category filter
+        else
+            await ReloadListAsync();
+    }
 
     /// <summary>
     /// Debounced search: each keystroke cancels the previous pending query; after
@@ -266,7 +470,7 @@ public partial class NotesPageViewModel : ObservableObject
         try
         {
             await Task.Delay(SearchDebounce, ct);
-            var results = await _search.SearchAsync(query, category: null, ct);
+            var results = await _search.SearchAsync(query, category: CurrentCategoryName, ct);
             if (!ct.IsCancellationRequested)
                 SearchCompleted?.Invoke(results, query);
         }
@@ -284,7 +488,7 @@ public partial class NotesPageViewModel : ObservableObject
     {
         try
         {
-            var summaries = await _notes.GetSummariesAsync(ct);
+            var summaries = await _notes.GetSummariesAsync(CurrentCategoryName, ct);
             if (!ct.IsCancellationRequested)
                 SearchCleared?.Invoke(summaries);
         }

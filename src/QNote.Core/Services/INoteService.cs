@@ -8,8 +8,11 @@ public interface INoteService
     /// <summary>All notes as full records (incl. Content), newest-updated first.</summary>
     Task<IReadOnlyList<Note>> GetAllAsync(CancellationToken ct = default);
 
-    /// <summary>Lightweight list projection for the note list (no full Content).</summary>
-    Task<IReadOnlyList<NoteSummary>> GetSummariesAsync(CancellationToken ct = default);
+    /// <summary>
+    /// Lightweight list projection for the note list (no full Content).
+    /// <paramref name="category"/> scopes the list SQL-side (<c>null</c> = "全部").
+    /// </summary>
+    Task<IReadOnlyList<NoteSummary>> GetSummariesAsync(string? category = null, CancellationToken ct = default);
 
     /// <summary>The full note (incl. Content) by id, or <c>null</c> if it does not exist.</summary>
     Task<Note?> GetByIdAsync(long id, CancellationToken ct = default);

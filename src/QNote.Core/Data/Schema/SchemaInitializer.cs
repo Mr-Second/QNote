@@ -10,7 +10,7 @@ namespace QNote.Data.Schema;
 public sealed class SchemaInitializer
 {
     /// <summary>Current schema version. Bump when adding a migration step.</summary>
-    public const long CurrentVersion = 3;
+    public const long CurrentVersion = 4;
 
     private readonly DbConnectionFactory _factory;
 
@@ -34,6 +34,8 @@ public sealed class SchemaInitializer
             MigrateV1ToV2(conn);
         if (version < 3)
             MigrateV2ToV3(conn);
+        if (version < 4)
+            MigrateV3ToV4(conn);
         SetUserVersion(conn, CurrentVersion);
         tx.Commit();
     }
@@ -105,6 +107,55 @@ public sealed class SchemaInitializer
                 tokenize='unicode61'
             );
             """);
+
+    // v4: categories gain a Color column (#RRGGBB) and the built-in set is seeded
+    // on first run (全部 is a synthetic UI item and never lives in the DB). The
+    // CREATE TABLE IF NOT EXISTS covers legacy test/dev databases that have a
+    // categories-less v1 layout; seeding is guarded on an empty table so it is
+    // idempotent and never duplicates on later launches.
+    private static void MigrateV3ToV4(SqliteConnection conn)
+    {
+        Execute(conn, """
+            CREATE TABLE IF NOT EXISTS categories (
+                Id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                Name      TEXT    NOT NULL UNIQUE,
+                IconKey   TEXT    NOT NULL DEFAULT '',
+                SortOrder INTEGER NOT NULL DEFAULT 0
+            );
+            """);
+
+        if (!ColumnExists(conn, "categories", "Color"))
+            Execute(conn, "ALTER TABLE categories ADD COLUMN Color TEXT NOT NULL DEFAULT '';");
+
+        // Per-name guard: seeds each built-in independently (idempotent, and a
+        // user-deleted custom set never blocks the remaining built-ins).
+        Execute(conn, """
+            INSERT INTO categories (Name, IconKey, Color, SortOrder)
+            SELECT '工作', 'E821', '#3B82F6', 0 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE Name = '工作');
+            """);
+        Execute(conn, """
+            INSERT INTO categories (Name, IconKey, Color, SortOrder)
+            SELECT '生活', 'E80F', '#22C55E', 1 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE Name = '生活');
+            """);
+        Execute(conn, """
+            INSERT INTO categories (Name, IconKey, Color, SortOrder)
+            SELECT '重要', 'E734', '#EF4444', 2 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE Name = '重要');
+            """);
+    }
+
+    private static bool ColumnExists(SqliteConnection conn, string table, string column)
+    {
+        using var cmd = conn.CreateCommand();
+        // PRAGMA table_info cannot be parameterized; names here are internal constants.
+        cmd.CommandText = $"PRAGMA table_info({table});";
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            if (string.Equals(reader.GetString(1), column, StringComparison.Ordinal))
+                return true;
+        }
+        return false;
+    }
 
     private static void Execute(SqliteConnection conn, string sql)
     {

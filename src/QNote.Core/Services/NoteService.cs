@@ -21,8 +21,8 @@ public sealed class NoteService : INoteService
 
     public Task<IReadOnlyList<Note>> GetAllAsync(CancellationToken ct = default) => _repo.GetAllAsync(ct);
 
-    public Task<IReadOnlyList<NoteSummary>> GetSummariesAsync(CancellationToken ct = default) =>
-        _repo.GetSummariesAsync(ct);
+    public Task<IReadOnlyList<NoteSummary>> GetSummariesAsync(string? category = null, CancellationToken ct = default) =>
+        _repo.GetSummariesAsync(category, ct);
 
     public Task<Note?> GetByIdAsync(long id, CancellationToken ct = default) => _repo.GetByIdAsync(id, ct);
 
