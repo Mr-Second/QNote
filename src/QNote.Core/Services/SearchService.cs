@@ -35,23 +35,30 @@ public sealed class SearchService : ISearchService
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<NoteSummary>> SearchAsync(string query, string? category = null, CancellationToken ct = default)
+    public async Task<IReadOnlyList<NoteSummary>> SearchAsync(string query, string? category = null, SearchSortOrder sort = SearchSortOrder.Relevance, CancellationToken ct = default)
     {
         var ftsQuery = BuildMatchExpression(query);
         if (ftsQuery.Length == 0)
             return [];
 
-        // ponytail: one MATCH scan, bm25 rank, optional SQL-side category filter.
-        // No post-filter, no paging (Qt parity). Title ×10 weighting via bm25 weights.
+        // ponytail: one MATCH scan, optional SQL-side category filter. No
+        // post-filter, no paging (Qt parity). Title ×10 weighting via bm25 weights.
         await using var conn = _factory.OpenRead();
         await using var cmd = conn.CreateCommand();
 
+        var orderBy = sort switch
+        {
+            SearchSortOrder.NewestFirst => "n.UpdatedAt DESC",
+            SearchSortOrder.OldestFirst => "n.UpdatedAt ASC",
+            _ => "bm25(notes_fts, 10.0, 1.0)",
+        };
+
         var hasCategory = !string.IsNullOrWhiteSpace(category);
         cmd.CommandText =
-            "SELECT n.Id, n.Uuid, n.Title, substr(n.PlainText, 1, $len) AS Preview, n.Category, n.UpdatedAt " +
+            "SELECT n.Id, n.Uuid, n.Title, substr(n.PlainText, 1, $len) AS Preview, n.Category, n.CreatedAt, n.UpdatedAt " +
             "FROM notes_fts f JOIN notes n ON n.Id = f.rowid " +
             "WHERE notes_fts MATCH $q" + (hasCategory ? " AND n.Category = $cat" : "") + " " +
-            "ORDER BY bm25(notes_fts, 10.0, 1.0);";
+            $"ORDER BY {orderBy};";
         cmd.Parameters.AddWithValue("$q", ftsQuery);
         cmd.Parameters.AddWithValue("$len", ListPreviewLength);
         if (hasCategory)
@@ -68,7 +75,8 @@ public sealed class SearchService : ISearchService
                 Title = reader.GetString(2),
                 Preview = reader.GetString(3),
                 Category = reader.GetString(4),
-                UpdatedAt = ParseUtc(reader.GetString(5)),
+                CreatedAt = ParseUtc(reader.GetString(5)),
+                UpdatedAt = ParseUtc(reader.GetString(6)),
             });
         }
 

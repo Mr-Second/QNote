@@ -30,6 +30,8 @@ internal sealed class TestDatabase : IDisposable
 
     public CategoryService NewCategoryService() => new(NewRepository(), NullLogger<CategoryService>.Instance);
 
+    public SettingsService NewSettingsService() => new(Factory, NullLogger<SettingsService>.Instance);
+
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();

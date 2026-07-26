@@ -89,6 +89,7 @@ public partial class App : Application
 
         // ViewModels
         services.AddTransient<NotesPageViewModel>();
+        services.AddTransient<SettingsViewModel>();
 
         return services.BuildServiceProvider();
     }

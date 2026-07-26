@@ -60,7 +60,7 @@ public sealed partial class NotesPage : Page
             var wasSelected = ViewModel.SelectedNote;
             ViewModel.Notes.Clear();
             foreach (var s in results)
-                ViewModel.Notes.Add(new NoteItemViewModel(s) { Keyword = keyword });
+                ViewModel.Notes.Add(ViewModel.CreateItem(s, keyword));
 
             // Preserve selection if the same note is still in the results, else clear.
             if (wasSelected is { } prev && ViewModel.Notes.FirstOrDefault(n => n.Id == prev.Id) is { } still)
@@ -76,7 +76,7 @@ public sealed partial class NotesPage : Page
             var wasSelected = ViewModel.SelectedNote;
             ViewModel.Notes.Clear();
             foreach (var s in summaries)
-                ViewModel.Notes.Add(new NoteItemViewModel(s));
+                ViewModel.Notes.Add(ViewModel.CreateItem(s));
 
             if (wasSelected is { } prev && ViewModel.Notes.FirstOrDefault(n => n.Id == prev.Id) is { } still)
                 ViewModel.SelectedNote = still;
@@ -104,6 +104,22 @@ public sealed partial class NotesPage : Page
     private async void NotesList_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
         await ViewModel.OnSelectionChangedAsync();
 
+    // ---------- Search-result sort (funnel flyout) ----------
+
+    /// <summary>Mark the persisted sort with a right-aligned ✓ when the flyout opens.</summary>
+    private void SearchSortFlyout_Opened(object sender, object e)
+    {
+        SortByRelevanceItem.KeyboardAcceleratorTextOverride = ViewModel.SearchSortIndex == 0 ? "✓" : "";
+        SortByNewestItem.KeyboardAcceleratorTextOverride = ViewModel.SearchSortIndex == 1 ? "✓" : "";
+        SortByOldestItem.KeyboardAcceleratorTextOverride = ViewModel.SearchSortIndex == 2 ? "✓" : "";
+    }
+
+    private void SearchSortItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement el && int.TryParse(el.Tag as string, out var index))
+            ViewModel.SearchSortIndex = index;
+    }
+
     // ---------- Note-item hover delete badge ----------
 
     private void NoteItem_PointerEntered(object sender, PointerRoutedEventArgs e) =>
@@ -123,9 +139,18 @@ public sealed partial class NotesPage : Page
         if ((sender as FrameworkElement)?.DataContext is not NoteItemViewModel item)
             return;
 
+        // Settings: 删除前确认 = off → delete immediately.
+        if (!ViewModel.ConfirmBeforeDelete)
+        {
+            await ViewModel.DeleteNoteAsync(item);
+            return;
+        }
+
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,
+            // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
+            RequestedTheme = ActualTheme,
             Title = "删除便签",
             Content = "确认删除这条便签?此操作无法撤销。",
             PrimaryButtonText = "删除",
@@ -161,6 +186,7 @@ public sealed partial class NotesPage : Page
         var dialog = new CategoryEditDialog("新建分类", string.Empty, "#3B82F6", QNote.Controls.IconCatalog.Options[0].Key)
         {
             XamlRoot = XamlRoot,
+            RequestedTheme = ActualTheme,
         };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary)
             return;
@@ -178,6 +204,7 @@ public sealed partial class NotesPage : Page
         var dialog = new CategoryEditDialog("编辑分类", item.Name, item.ColorHex, item.IconKey)
         {
             XamlRoot = XamlRoot,
+            RequestedTheme = ActualTheme,
         };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary)
             return;
@@ -198,6 +225,8 @@ public sealed partial class NotesPage : Page
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,
+            // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
+            RequestedTheme = ActualTheme,
             Title = "删除分类",
             Content = content,
             PrimaryButtonText = "删除",
@@ -214,14 +243,31 @@ public sealed partial class NotesPage : Page
 
     private async void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
+        var vm = App.Services.GetRequiredService<SettingsViewModel>();
+        await vm.InitializeAsync();
+
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,
+            // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
+            RequestedTheme = ActualTheme,
             Title = "设置",
-            Content = "设置面板即将推出。",
-            CloseButtonText = "知道了",
+            Content = new SettingsPanel(vm),
+            CloseButtonText = "关闭",
         };
-        await dialog.ShowAsync();
+
+        // Live-follow theme switches while the dialog is open (the settings panel
+        // is where the theme gets changed — reopening to see it would be silly).
+        void OnThemeChanged(FrameworkElement sender, object args) => dialog.RequestedTheme = ActualTheme;
+        ActualThemeChanged += OnThemeChanged;
+        try
+        {
+            await dialog.ShowAsync();
+        }
+        finally
+        {
+            ActualThemeChanged -= OnThemeChanged;
+        }
     }
 
     private async Task ShowErrorDialogAsync(string title, string message)
@@ -229,6 +275,8 @@ public sealed partial class NotesPage : Page
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,
+            // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
+            RequestedTheme = ActualTheme,
             Title = title,
             Content = message,
             CloseButtonText = "知道了",

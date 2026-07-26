@@ -244,15 +244,59 @@
                     </Button>
                 </Grid>
 
-                <!--  Search box (as-you-type, debounced in the VM)  -->
-                <AutoSuggestBox
+                <!--  Search box (as-you-type, debounced in the VM) + funnel button
+                      for result ordering (visible only while searching).  -->
+                <Grid
                     Grid.Row="1"
                     Margin="10,0,10,4"
-                    Padding="10,6"
-                    AutomationProperties.Name="搜索便签"
-                    PlaceholderText="搜索便签"
-                    QueryIcon="Find"
-                    Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    ColumnSpacing="6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <AutoSuggestBox
+                        Padding="10,6"
+                        AutomationProperties.Name="搜索便签"
+                        PlaceholderText="搜索便签"
+                        QueryIcon="Find"
+                        Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <Button
+                        Grid.Column="1"
+                        Width="32"
+                        Height="32"
+                        Padding="0"
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="SearchSortButton"
+                        AutomationProperties.Name="搜索排序"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        ToolTipService.ToolTip="搜索结果排序"
+                        Visibility="{x:Bind ViewModel.IsSearching, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
+                        <FontIcon FontSize="14" Glyph="&#xE71C;" />
+                        <Button.Flyout>
+                            <!-- Check mark rides the right-aligned accelerator slot
+                                 (KeyboardAcceleratorTextOverride) instead of the
+                                 left radio bullet. -->
+                            <MenuFlyout Opened="SearchSortFlyout_Opened" Placement="Bottom">
+                                <MenuFlyoutItem
+                                    x:Name="SortByRelevanceItem"
+                                    Click="SearchSortItem_Click"
+                                    Tag="0"
+                                    Text="按匹配度" />
+                                <MenuFlyoutItem
+                                    x:Name="SortByNewestItem"
+                                    Click="SearchSortItem_Click"
+                                    Tag="1"
+                                    Text="最新优先" />
+                                <MenuFlyoutItem
+                                    x:Name="SortByOldestItem"
+                                    Click="SearchSortItem_Click"
+                                    Tag="2"
+                                    Text="最早优先" />
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
+                </Grid>
 
                 <ListView
                     x:Name="NotesList"
@@ -265,15 +309,20 @@
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
                             <Setter Property="Margin" Value="0,2" />
-                            <Setter Property="Padding" Value="10,8" />
+                            <Setter Property="Padding" Value="0" />
                             <Setter Property="CornerRadius" Value="8" />
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                         </Style>
                     </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="vm:NoteItemViewModel">
-                            <Grid PointerEntered="NoteItem_PointerEntered" PointerExited="NoteItem_PointerExited">
-                                <StackPanel Spacing="3">
+                            <!-- Row metrics come from the density setting (padding lives
+                                 here, not in the container style, so it can bind). -->
+                            <Grid
+                                Padding="{x:Bind Density, Converter={StaticResource ListDensity}, ConverterParameter=Padding, Mode=OneWay}"
+                                PointerEntered="NoteItem_PointerEntered"
+                                PointerExited="NoteItem_PointerExited">
+                                <StackPanel Spacing="{x:Bind Density, Converter={StaticResource ListDensity}, ConverterParameter=Spacing, Mode=OneWay}">
                                     <TextBlock
                                         controls:TextBlockHighlighter.Keyword="{x:Bind Keyword, Mode=OneWay}"
                                         controls:TextBlockHighlighter.Text="{x:Bind DisplayTitle, Mode=OneWay}"

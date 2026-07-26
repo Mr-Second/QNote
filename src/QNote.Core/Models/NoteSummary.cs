@@ -21,5 +21,8 @@ public sealed record NoteSummary
     /// <summary>Category name-link (matches the Qt build; no FK).</summary>
     public string Category { get; init; } = string.Empty;
 
+    /// <summary>Projected so the list can sort by creation time (settings: 便签排序).</summary>
+    public DateTimeOffset CreatedAt { get; init; }
+
     public DateTimeOffset UpdatedAt { get; init; }
 }

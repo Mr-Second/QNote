@@ -69,6 +69,13 @@ public partial class CategoryItemViewModel : ObservableObject
     /// <summary>Color hex while selected, <c>null</c> otherwise (→ default theme foreground).</summary>
     public string? ActiveColorHex => IsSelected && ColorHex.Length > 0 ? ColorHex : null;
 
+    /// <summary>
+    /// Re-raise <see cref="ActiveColorHex"/> so the view re-runs the brush converter —
+    /// needed after a runtime theme switch (the fallback brush is theme-dependent
+    /// but the property value itself did not change).
+    /// </summary>
+    public void RefreshActiveColor() => OnPropertyChanged(nameof(ActiveColorHex));
+
     public string CountText => NoteCount.ToString();
 
     public string IconGlyph => IconCatalog.ToGlyph(IconKey);

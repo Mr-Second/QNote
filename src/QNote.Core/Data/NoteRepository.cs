@@ -47,7 +47,7 @@ public sealed class NoteRepository : INoteRepository
         await using var cmd = conn.CreateCommand();
         var hasCategory = !string.IsNullOrEmpty(category);
         cmd.CommandText =
-            "SELECT Id, Uuid, Title, substr(PlainText, 1, $len) AS Preview, Category, UpdatedAt " +
+            "SELECT Id, Uuid, Title, substr(PlainText, 1, $len) AS Preview, Category, CreatedAt, UpdatedAt " +
             "FROM notes " + (hasCategory ? "WHERE Category = $cat " : "") +
             "ORDER BY UpdatedAt DESC;";
         cmd.Parameters.AddWithValue("$len", PreviewLength);
@@ -65,7 +65,8 @@ public sealed class NoteRepository : INoteRepository
                 Title = reader.GetString(2),
                 Preview = reader.GetString(3),
                 Category = reader.GetString(4),
-                UpdatedAt = ParseUtc(reader.GetString(5)),
+                CreatedAt = ParseUtc(reader.GetString(5)),
+                UpdatedAt = ParseUtc(reader.GetString(6)),
             });
         }
 

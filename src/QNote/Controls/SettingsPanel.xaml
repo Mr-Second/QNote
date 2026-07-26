@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="QNote.Controls.SettingsPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer MaxHeight="420" VerticalScrollBarVisibility="Auto">
+        <StackPanel Width="400" Spacing="16">
+
+            <!-- ============ 显示 ============ -->
+            <StackPanel Spacing="2">
+                <TextBlock
+                    Margin="4,0,0,0"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="显示" />
+                <Border
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                    <StackPanel>
+                        <!-- Row template: label left, control in a FIXED-WIDTH right
+                             column so every control's left edge aligns. -->
+                        <Grid Padding="10,3" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="140" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" Text="列表密度" />
+                            <ComboBox
+                                Grid.Column="1"
+                                HorizontalAlignment="Stretch"
+                                AutomationProperties.AutomationId="SettingsDensityBox"
+                                AutomationProperties.Name="列表密度"
+                                SelectedIndex="{x:Bind ViewModel.DensityIndex, Mode=TwoWay}">
+                                <x:String>紧凑</x:String>
+                                <x:String>标准</x:String>
+                                <x:String>宽松</x:String>
+                            </ComboBox>
+                        </Grid>
+                        <Border
+                            Margin="10,0"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0" />
+                        <Grid Padding="10,3" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="140" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" Text="时间格式" />
+                            <ComboBox
+                                Grid.Column="1"
+                                HorizontalAlignment="Stretch"
+                                AutomationProperties.AutomationId="SettingsTimeFormatBox"
+                                AutomationProperties.Name="时间格式"
+                                SelectedIndex="{x:Bind ViewModel.TimeFormatIndex, Mode=TwoWay}">
+                                <x:String>相对（3 分钟前）</x:String>
+                                <x:String>分级（今日时分）</x:String>
+                                <x:String>完整（年-月-日 时分）</x:String>
+                            </ComboBox>
+                        </Grid>
+                        <Border
+                            Margin="10,0"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0" />
+                        <Grid Padding="10,3" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="140" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" Text="便签排序" />
+                            <ComboBox
+                                Grid.Column="1"
+                                HorizontalAlignment="Stretch"
+                                AutomationProperties.AutomationId="SettingsSortBox"
+                                AutomationProperties.Name="便签排序"
+                                SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}">
+                                <x:String>更新时间</x:String>
+                                <x:String>创建时间</x:String>
+                                <x:String>标题</x:String>
+                            </ComboBox>
+                        </Grid>
+                        <Border
+                            Margin="10,0"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0" />
+                        <Grid Padding="10,3" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="140" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" Text="删除前确认" />
+                            <ToggleSwitch
+                                Grid.Column="1"
+                                HorizontalAlignment="Left"
+                                AutomationProperties.AutomationId="SettingsConfirmDeleteSwitch"
+                                AutomationProperties.Name="删除前确认"
+                                IsOn="{x:Bind ViewModel.ConfirmBeforeDelete, Mode=TwoWay}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- ============ 常规 ============ -->
+            <StackPanel Spacing="2">
+                <TextBlock
+                    Margin="4,0,0,0"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="常规" />
+                <Border
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                    <StackPanel>
+                        <Grid Padding="10,3" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="140" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" Text="主题" />
+                            <ComboBox
+                                Grid.Column="1"
+                                HorizontalAlignment="Stretch"
+                                AutomationProperties.AutomationId="SettingsThemeBox"
+                                AutomationProperties.Name="主题"
+                                SelectedIndex="{x:Bind ViewModel.ThemeIndex, Mode=TwoWay}">
+                                <x:String>跟随系统</x:String>
+                                <x:String>浅色</x:String>
+                                <x:String>深色</x:String>
+                            </ComboBox>
+                        </Grid>
+                        <Border
+                            Margin="10,0"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0" />
+                        <Grid Padding="10,3" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="140" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" Text="窗口置顶" />
+                            <ToggleSwitch
+                                Grid.Column="1"
+                                HorizontalAlignment="Left"
+                                AutomationProperties.AutomationId="SettingsTopmostSwitch"
+                                AutomationProperties.Name="窗口置顶"
+                                IsOn="{x:Bind ViewModel.AlwaysOnTop, Mode=TwoWay}" />
+                        </Grid>
+                        <Border
+                            Margin="10,0"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0" />
+                        <Grid Padding="10,3" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="140" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" Text="记住窗口位置和大小" />
+                            <ToggleSwitch
+                                Grid.Column="1"
+                                HorizontalAlignment="Left"
+                                AutomationProperties.AutomationId="SettingsGeometrySwitch"
+                                AutomationProperties.Name="记住窗口位置和大小"
+                                IsOn="{x:Bind ViewModel.RememberWindowGeometry, Mode=TwoWay}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

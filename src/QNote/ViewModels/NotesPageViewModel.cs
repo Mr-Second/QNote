@@ -30,25 +30,31 @@ public partial class NotesPageViewModel : ObservableObject
     private readonly INoteService _notes;
     private readonly ISearchService _search;
     private readonly ICategoryService _categories;
+    private readonly ISettingsService _settings;
     private readonly ILogger<NotesPageViewModel> _log;
 
     private Note? _loaded;        // full note currently shown in the editor
     private bool _suppressDirty;  // true while loading editor fields programmatically
     private bool _initializing;   // true during LoadAsync (category selection must not double-reload)
+    private bool _loadingSettings; // true while applying a settings snapshot (no echo-save)
+
+    private AppSettings _settingsSnapshot = new();
 
     private CancellationTokenSource? _searchCts;
 
-    public NotesPageViewModel(INoteService notes, ISearchService search, ICategoryService categories, ILogger<NotesPageViewModel> log)
+    public NotesPageViewModel(INoteService notes, ISearchService search, ICategoryService categories, ISettingsService settings, ILogger<NotesPageViewModel> log)
     {
         _notes = notes;
         _search = search;
         _categories = categories;
+        _settings = settings;
         _log = log;
         Notes.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(CountText));
             OnPropertyChanged(nameof(IsEmpty));
         };
+        _settings.Changed += OnSettingsChanged;
     }
 
     /// <summary>Raised when a freshly created note wants keyboard focus in the title box.</summary>
@@ -97,7 +103,32 @@ public partial class NotesPageViewModel : ObservableObject
 
     /// <summary>Live search box content. Debounced ~300ms before querying FTS.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsSearching))]
     public partial string SearchText { get; set; } = string.Empty;
+
+    // ---------- Settings-driven display state ----------
+
+    /// <summary>True while the search box has text → the search-sort dropdown shows.</summary>
+    public bool IsSearching => !string.IsNullOrWhiteSpace(SearchText);
+
+    /// <summary>Settings: 删除前确认 (read by the view's delete-badge handler).</summary>
+    [ObservableProperty]
+    public partial bool ConfirmBeforeDelete { get; set; } = true;
+
+    /// <summary>
+    /// Settings: search-results ordering as a ComboBox index (0 匹配度 / 1 最新 / 2 最早).
+    /// Persisted on change and re-runs the active search immediately.
+    /// </summary>
+    [ObservableProperty]
+    public partial int SearchSortIndex { get; set; }
+
+    /// <summary>Build a list item with the current display settings applied.</summary>
+    public NoteItemViewModel CreateItem(NoteSummary summary, string keyword = "") => new(summary)
+    {
+        Keyword = keyword,
+        TimeFormat = _settingsSnapshot.TimeFormat,
+        Density = _settingsSnapshot.ListDensity,
+    };
 
     // ---------- Categories ----------
 
@@ -130,6 +161,7 @@ public partial class NotesPageViewModel : ObservableObject
         try
         {
             _initializing = true;
+            ApplySettings(await _settings.LoadAsync());
             await RefreshCategoriesAsync(selectedId: null); // → SelectedCategory = null ("全部")
             _initializing = false;
             await ReloadListAsync();
@@ -141,6 +173,73 @@ public partial class NotesPageViewModel : ObservableObject
         }
     }
 
+    // ---------- Settings application ----------
+
+    /// <summary>SettingsService.Changed → re-apply display settings live (UI thread).</summary>
+    private void OnSettingsChanged(AppSettings settings) => ApplySettings(settings);
+
+    private void ApplySettings(AppSettings settings)
+    {
+        _loadingSettings = true;
+        _settingsSnapshot = settings;
+        ConfirmBeforeDelete = settings.ConfirmBeforeDelete;
+        SearchSortIndex = (int)settings.SearchSortOrder;
+        _loadingSettings = false;
+
+        foreach (var item in Notes)
+        {
+            item.TimeFormat = settings.TimeFormat;
+            item.Density = settings.ListDensity;
+        }
+        ResortList();
+
+        // Theme may have switched: the category rows' fallback text brush is
+        // theme-dependent — force the converter to re-run (see HexToBrushConverter).
+        foreach (var c in Categories)
+            c.RefreshActiveColor();
+    }
+
+    /// <summary>Comparer for the browse-mode list per settings: 更新/创建/标题 (all newest/first = index 0).</summary>
+    private int CompareItems(NoteItemViewModel a, NoteItemViewModel b) => _settingsSnapshot.NoteSortOrder switch
+    {
+        NoteSortOrder.Created => b.CreatedAt.CompareTo(a.CreatedAt),
+        NoteSortOrder.Title => string.Compare(a.DisplayTitle, b.DisplayTitle, StringComparison.CurrentCulture),
+        _ => b.UpdatedAt.CompareTo(a.UpdatedAt),
+    };
+
+    /// <summary>Insert at the sorted position (browse mode; search results stay service-ordered).</summary>
+    private void InsertSorted(NoteItemViewModel item)
+    {
+        var index = 0;
+        while (index < Notes.Count && CompareItems(Notes[index], item) <= 0)
+            index++;
+        Notes.Insert(index, item);
+    }
+
+    /// <summary>Re-sort the current list in place, preserving selection (settings changed).</summary>
+    private void ResortList()
+    {
+        if (Notes.Count < 2 || IsSearching)
+            return; // search results keep their service-side ordering
+
+        var sorted = Notes.OrderBy(n => n, Comparer<NoteItemViewModel>.Create(CompareItems)).ToList();
+        for (var i = 0; i < sorted.Count; i++)
+        {
+            var currentIndex = Notes.IndexOf(sorted[i]);
+            if (currentIndex != i)
+                Notes.Move(currentIndex, i);
+        }
+    }
+
+    /// <summary>Sort freshly loaded summaries so the view adds them in display order.</summary>
+    private IEnumerable<NoteSummary> SortSummaries(IEnumerable<NoteSummary> summaries) =>
+        _settingsSnapshot.NoteSortOrder switch
+        {
+            NoteSortOrder.Created => summaries.OrderByDescending(s => s.CreatedAt),
+            NoteSortOrder.Title => summaries.OrderBy(s => string.IsNullOrWhiteSpace(s.Title) ? "新便签" : s.Title, StringComparer.CurrentCulture),
+            _ => summaries.OrderByDescending(s => s.UpdatedAt),
+        };
+
     /// <summary>Reload the note list for the current scope (category filter, no search).</summary>
     private async Task ReloadListAsync()
     {
@@ -149,8 +248,8 @@ public partial class NotesPageViewModel : ObservableObject
             var summaries = await _notes.GetSummariesAsync(CurrentCategoryName);
             var wasSelectedId = SelectedNote?.Id;
             Notes.Clear();
-            foreach (var summary in summaries)
-                Notes.Add(new NoteItemViewModel(summary));
+            foreach (var summary in SortSummaries(summaries))
+                Notes.Add(CreateItem(summary));
 
             if (wasSelectedId is { } id && Notes.FirstOrDefault(n => n.Id == id) is { } still)
                 SelectedNote = still;
@@ -219,9 +318,12 @@ public partial class NotesPageViewModel : ObservableObject
             if (item is not null)
             {
                 item.Apply(saved.Title, MakePreview(saved.PlainText), saved.UpdatedAt);
-                var index = Notes.IndexOf(item);
-                if (index > 0)
-                    Notes.Move(index, 0); // bumped UpdatedAt → newest → top of the list
+                if (!IsSearching)
+                {
+                    // Bumped UpdatedAt may change the item's rank under any sort mode.
+                    Notes.Remove(item);
+                    InsertSorted(item);
+                }
             }
         }
         catch (Exception ex)
@@ -261,8 +363,16 @@ public partial class NotesPageViewModel : ObservableObject
         {
             await FlushAsync();
             var created = await _notes.CreateAsync(CurrentCategoryName ?? string.Empty);
-            var item = NoteItemViewModel.FromNote(created);
-            Notes.Insert(0, item);
+            var item = CreateItem(new NoteSummary
+            {
+                Id = created.Id,
+                Uuid = created.Uuid,
+                Title = created.Title,
+                Category = created.Category,
+                CreatedAt = created.CreatedAt,
+                UpdatedAt = created.UpdatedAt,
+            });
+            InsertSorted(item);
             SelectedNote = item; // → OnSelectionChangedAsync loads the blank note into the editor
             await RefreshCategoryCountsAsync();
             FocusTitleRequested?.Invoke();
@@ -465,12 +575,27 @@ public partial class NotesPageViewModel : ObservableObject
         _ = DebouncedSearchAsync(value, cts.Token);
     }
 
+    /// <summary>
+    /// Search-sort dropdown changed: persist the choice, then re-run the active
+    /// search so the results re-rank immediately (no-op while settings load).
+    /// </summary>
+    partial void OnSearchSortIndexChanged(int value)
+    {
+        if (_loadingSettings)
+            return;
+
+        _settingsSnapshot = _settingsSnapshot with { SearchSortOrder = (SearchSortOrder)value };
+        _ = _settings.SaveAsync(_settingsSnapshot);
+        if (IsSearching)
+            OnSearchTextChanged(SearchText); // re-debounce with the new ORDER BY
+    }
+
     private async Task DebouncedSearchAsync(string query, CancellationToken ct)
     {
         try
         {
             await Task.Delay(SearchDebounce, ct);
-            var results = await _search.SearchAsync(query, category: CurrentCategoryName, ct);
+            var results = await _search.SearchAsync(query, category: CurrentCategoryName, _settingsSnapshot.SearchSortOrder, ct);
             if (!ct.IsCancellationRequested)
                 SearchCompleted?.Invoke(results, query);
         }
@@ -484,13 +609,12 @@ public partial class NotesPageViewModel : ObservableObject
         }
     }
 
-    private async Task RestoreFullListAsync(CancellationToken ct)
-    {
+    private async Task RestoreFullListAsync(CancellationToken ct)    {
         try
         {
             var summaries = await _notes.GetSummariesAsync(CurrentCategoryName, ct);
             if (!ct.IsCancellationRequested)
-                SearchCleared?.Invoke(summaries);
+                SearchCleared?.Invoke(SortSummaries(summaries).ToList());
         }
         catch (OperationCanceledException)
         {

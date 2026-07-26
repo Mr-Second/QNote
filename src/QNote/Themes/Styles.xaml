@@ -6,6 +6,7 @@
 
     <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
     <conv:HexToBrushConverter x:Key="HexToBrush" />
+    <conv:ListDensityConverter x:Key="ListDensity" />
 
     <!-- Shared, keyed styles. Reused across views, never copy-pasted per view. -->
     <Style x:Key="NoteTitleTextStyle" TargetType="TextBlock">

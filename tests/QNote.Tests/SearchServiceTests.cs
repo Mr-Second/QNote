@@ -211,10 +211,30 @@ public sealed class SearchServiceTests
         Assert.Single(await search.SearchAsync("对账触发"));
     }
 
-    private static async Task SeedNoteAsync(
-        TestDatabase db, string title, string body, string category = "")
+    [Fact]
+    public async Task SearchAsync_TimeSort_OverridesRelevance()
     {
-        await db.NewRepository().CreateAsync(NewNote(title, body, category));
+        using var db = new TestDatabase();
+        var search = db.NewSearchService();
+        // Same keyword in both bodies → relevance tie is possible; time sort must
+        // strictly follow UpdatedAt regardless of rank.
+        await SeedNoteAsync(db, title: "旧", body: "共同关键词", updated: DateTimeOffset.UtcNow.AddDays(-2));
+        await SeedNoteAsync(db, title: "新", body: "共同关键词", updated: DateTimeOffset.UtcNow);
+
+        var newest = await search.SearchAsync("共同关键词", sort: SearchSortOrder.NewestFirst);
+        Assert.Equal("新", newest[0].Title);
+
+        var oldest = await search.SearchAsync("共同关键词", sort: SearchSortOrder.OldestFirst);
+        Assert.Equal("旧", oldest[0].Title);
+    }
+
+    private static async Task SeedNoteAsync(
+        TestDatabase db, string title, string body, string category = "", DateTimeOffset? updated = null)
+    {
+        var note = NewNote(title, body, category);
+        if (updated is { } u)
+            note = note with { UpdatedAt = u };
+        await db.NewRepository().CreateAsync(note);
     }
 
     private static Note NewNote(string title, string body, string category = "")

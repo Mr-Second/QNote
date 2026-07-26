@@ -12,7 +12,9 @@
     PrimaryButtonClick="OnPrimaryButtonClick"
     mc:Ignorable="d">
 
-    <StackPanel MinWidth="320" Spacing="12">
+    <!-- Fixed compact width: ContentDialog otherwise stretches the content
+         across its default (much wider) size, leaving a dead right half. -->
+    <StackPanel Width="340" Spacing="10">
         <TextBox
             x:Name="NameBox"
             AutomationProperties.Name="分类名称"
@@ -20,7 +22,7 @@
             MaxLength="32"
             PlaceholderText="分类名称" />
 
-        <StackPanel Spacing="6">
+        <StackPanel Spacing="4">
             <TextBlock Text="颜色" />
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button
@@ -74,11 +76,11 @@
             </StackPanel>
         </StackPanel>
 
-        <StackPanel Spacing="6">
+        <StackPanel Spacing="4">
             <TextBlock Text="图标" />
             <GridView
                 x:Name="GlyphGrid"
-                MaxHeight="112"
+                MaxHeight="96"
                 AutomationProperties.Name="分类图标"
                 ItemClick="GlyphGrid_ItemClick"
                 ItemsSource="{x:Bind controls:IconCatalog.Options, Mode=OneTime}"
