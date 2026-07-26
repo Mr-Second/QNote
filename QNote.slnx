@@ -1,7 +1,13 @@
 <Solution>
+  <Configurations>
+    <Platform Name="x64" />
+  </Configurations>
   <Folder Name="/src/">
     <Project Path="src/QNote.Core/QNote.Core.csproj" />
-    <Project Path="src/QNote/QNote.csproj" />
+    <Project Path="src/QNote/QNote.csproj">
+      <Platform Project="x64" />
+      <Deploy Solution="Release|*" />
+    </Project>
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/QNote.Tests/QNote.Tests.csproj" />

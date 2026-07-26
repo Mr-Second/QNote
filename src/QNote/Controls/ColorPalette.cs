@@ -25,6 +25,15 @@ public sealed class PaletteColor
     internal Color Color { get; set; }
 }
 
+/// <summary>
+/// Source-generated metadata for the palette JSON. Reflection-based
+/// <c>JsonSerializer.Deserialize&lt;T&gt;</c> breaks under Release trimming
+/// (IL2026 — PublishTrimmed is on for non-Debug); the context overload is
+/// statically analyzable and trim-safe.
+/// </summary>
+[JsonSerializable(typeof(List<PaletteColor>))]
+internal partial class PaletteJsonContext : JsonSerializerContext;
+
 /// <summary>Loads the color palette shipped as an app asset (<c>Assets/colors.json</c>).</summary>
 public static class ColorPalette
 {
@@ -36,7 +45,7 @@ public static class ColorPalette
     private static IReadOnlyList<PaletteColor> Load()
     {
         var path = Path.Combine(AppContext.BaseDirectory, "Assets", "colors.json");
-        var colors = JsonSerializer.Deserialize<List<PaletteColor>>(File.ReadAllText(path))
+        var colors = JsonSerializer.Deserialize(File.ReadAllText(path), PaletteJsonContext.Default.ListPaletteColor)
             ?? new List<PaletteColor>();
         foreach (var c in colors)
         {

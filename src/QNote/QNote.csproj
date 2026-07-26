@@ -71,11 +71,9 @@
     <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
   </PropertyGroup>
 
-  <!-- Publish Properties -->
-  <PropertyGroup>
-    <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
-    <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
-    <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
-    <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
-  </PropertyGroup>
+  <!--
+    PublishTrimmed / PublishReadyToRun live in the pubxml profiles (which also set
+    SelfContained=true). Keeping them here would fire NETSDK1102 on a plain Release
+    BUILD in VS (trimming requires self-contained publish).
+  -->
 </Project>
