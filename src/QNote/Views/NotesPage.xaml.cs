@@ -20,6 +20,7 @@ public sealed partial class NotesPage : Page
 {
     private readonly RichTextEditorController _editor;
     private bool _syncingToolbar;
+    private bool _settingsOpen;
 
     public NotesPageViewModel ViewModel { get; }
 
@@ -243,30 +244,42 @@ public sealed partial class NotesPage : Page
 
     private async void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
-        var vm = App.Services.GetRequiredService<SettingsViewModel>();
-        await vm.InitializeAsync();
-
-        var dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
-            RequestedTheme = ActualTheme,
-            Title = "设置",
-            Content = new SettingsPanel(vm),
-            CloseButtonText = "关闭",
-        };
-
-        // Live-follow theme switches while the dialog is open (the settings panel
-        // is where the theme gets changed — reopening to see it would be silly).
-        void OnThemeChanged(FrameworkElement sender, object args) => dialog.RequestedTheme = ActualTheme;
-        ActualThemeChanged += OnThemeChanged;
+        // Only one ContentDialog may be open at a time — a re-entrant click
+        // (e.g. double-click) crashes ShowAsync with 0x80000019.
+        if (_settingsOpen)
+            return;
+        _settingsOpen = true;
         try
         {
-            await dialog.ShowAsync();
+            var vm = App.Services.GetRequiredService<SettingsViewModel>();
+            await vm.InitializeAsync();
+
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
+                RequestedTheme = ActualTheme,
+                Title = "设置",
+                Content = new SettingsPanel(vm),
+                CloseButtonText = "关闭",
+            };
+
+            // Live-follow theme switches while the dialog is open (the settings panel
+            // is where the theme gets changed — reopening to see it would be silly).
+            void OnThemeChanged(FrameworkElement sender, object args) => dialog.RequestedTheme = ActualTheme;
+            ActualThemeChanged += OnThemeChanged;
+            try
+            {
+                await dialog.ShowAsync();
+            }
+            finally
+            {
+                ActualThemeChanged -= OnThemeChanged;
+            }
         }
         finally
         {
-            ActualThemeChanged -= OnThemeChanged;
+            _settingsOpen = false;
         }
     }
 

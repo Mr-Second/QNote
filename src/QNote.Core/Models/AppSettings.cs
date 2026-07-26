@@ -63,6 +63,9 @@ public sealed record AppSettings
 
     public bool RememberWindowGeometry { get; init; }
 
+    /// <summary>Launch straight to the tray without showing the main window.</summary>
+    public bool StartMinimized { get; init; }
+
     /// <summary>Last window position (-1 = never persisted / centered by the OS).</summary>
     public int WindowX { get; init; } = -1;
 

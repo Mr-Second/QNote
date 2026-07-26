@@ -55,6 +55,10 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial bool RememberWindowGeometry { get; set; }
 
+    /// <summary>启动时最小化到托盘（不显示主窗口）.</summary>
+    [ObservableProperty]
+    public partial bool StartMinimized { get; set; }
+
     /// <summary>Called by the view before showing the panel.</summary>
     public async Task InitializeAsync()
     {
@@ -68,6 +72,7 @@ public partial class SettingsViewModel : ObservableObject
         ThemeIndex = _snapshot.ThemeMode switch { "light" => 1, "dark" => 2, _ => 0 };
         AlwaysOnTop = _snapshot.AlwaysOnTop;
         RememberWindowGeometry = _snapshot.RememberWindowGeometry;
+        StartMinimized = _snapshot.StartMinimized;
         _loading = false;
     }
 
@@ -85,6 +90,8 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnAlwaysOnTopChanged(bool value) => Save(_snapshot with { AlwaysOnTop = value });
 
     partial void OnRememberWindowGeometryChanged(bool value) => Save(_snapshot with { RememberWindowGeometry = value });
+
+    partial void OnStartMinimizedChanged(bool value) => Save(_snapshot with { StartMinimized = value });
 
     private void Save(AppSettings next)
     {

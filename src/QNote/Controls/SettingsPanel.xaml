@@ -167,6 +167,23 @@
                                 AutomationProperties.Name="记住窗口位置和大小"
                                 IsOn="{x:Bind ViewModel.RememberWindowGeometry, Mode=TwoWay}" />
                         </Grid>
+                        <Border
+                            Margin="10,0"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0" />
+                        <Grid Padding="10,3" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="140" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" Text="启动时最小化到托盘" />
+                            <ToggleSwitch
+                                Grid.Column="1"
+                                HorizontalAlignment="Left"
+                                AutomationProperties.AutomationId="SettingsStartMinimizedSwitch"
+                                AutomationProperties.Name="启动时最小化到托盘"
+                                IsOn="{x:Bind ViewModel.StartMinimized, Mode=TwoWay}" />
+                        </Grid>
                     </StackPanel>
                 </Border>
             </StackPanel>

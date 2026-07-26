@@ -19,6 +19,7 @@ public sealed class SettingsServiceTests
         Assert.Equal("system", s.ThemeMode);
         Assert.False(s.AlwaysOnTop);
         Assert.False(s.RememberWindowGeometry);
+        Assert.False(s.StartMinimized);
         Assert.Equal(-1, s.WindowX);
         Assert.Equal(940, s.WindowWidth);
         Assert.Equal(NoteListDensity.Standard, s.ListDensity);
@@ -39,6 +40,7 @@ public sealed class SettingsServiceTests
             ThemeMode = "dark",
             AlwaysOnTop = true,
             RememberWindowGeometry = true,
+            StartMinimized = true,
             WindowX = 100,
             WindowY = 80,
             WindowWidth = 1024,

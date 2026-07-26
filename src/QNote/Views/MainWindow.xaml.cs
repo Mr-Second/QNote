@@ -1,8 +1,12 @@
 using System.Runtime.InteropServices;
+using System.Windows.Input;
+using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using QNote.Models;
 using QNote.Services;
 using Windows.Graphics;
@@ -19,15 +23,20 @@ namespace QNote.Views;
 /// </summary>
 public sealed partial class MainWindow : Window
 {
-    private bool _closingHandled;
+    private ElementTheme _currentTheme = ElementTheme.Default;
 
     private readonly ISettingsService _settings;
     private readonly DispatcherQueueTimer _geometrySaveTimer;
     private AppSettings _snapshot = new();
 
+    /// <summary>Tray double-click command (bound from XAML).</summary>
+    public ICommand ShowWindowCommand { get; }
+
     public MainWindow()
     {
         InitializeComponent();
+
+        ShowWindowCommand = new RelayCommand(ShowFromTray);
 
         _settings = App.Services.GetRequiredService<ISettingsService>();
         _settings.Changed += OnSettingsChanged;
@@ -70,12 +79,13 @@ public sealed partial class MainWindow : Window
         _snapshot = s;
 
         // Theme: Mica + ThemeResources follow the root element's RequestedTheme.
-        ((FrameworkElement)Content).RequestedTheme = s.ThemeMode switch
+        _currentTheme = s.ThemeMode switch
         {
             "light" => ElementTheme.Light,
             "dark" => ElementTheme.Dark,
             _ => ElementTheme.Default,
         };
+        ((FrameworkElement)Content).RequestedTheme = _currentTheme;
 
         if (AppWindow.Presenter is OverlappedPresenter presenter)
             presenter.IsAlwaysOnTop = s.AlwaysOnTop;
@@ -114,20 +124,80 @@ public sealed partial class MainWindow : Window
         _ = _settings.SaveAsync(_snapshot);
     }
 
+    /// <summary>
+    /// Close requests (X button, Alt+F4) never exit the app: cancel, flush the
+    /// dirty note if needed, and hide to the tray. The only real exit is the
+    /// tray quit path (<see cref="TrayQuit_Click"/> → Application.Exit).
+    /// </summary>
     private async void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
     {
-        if (_closingHandled)
-            return;
+        args.Cancel = true;
 
         if (RootFrame.Content is NotesPage { ViewModel.IsDirty: true } page)
-        {
-            // Cancel this close, flush the unsaved note, then close for real.
-            args.Cancel = true;
             await page.ViewModel.FlushAsync();
-            _closingHandled = true;
-            Close();
+
+        AppWindow.Hide();
+    }
+
+    /// <summary>
+    /// StartMinimized launch: the window is never activated, so the tray control
+    /// never Loads — register the icon explicitly. Efficiency mode is left off:
+    /// EcoQoS throttles the process, which risks a sluggish UI when the window
+    /// is later shown. (ponytail: revisit per-hide EcoQoS if idle memory matters.)
+    /// </summary>
+    public void ForceCreateTrayIcon() => TrayIcon.ForceCreate(enablesEfficiencyMode: false);
+
+    private void TrayShow_Click(object sender, RoutedEventArgs e) => ShowFromTray();
+
+    private void TrayMenu_Opened(object sender, object e)
+    {
+        // Flyout popups do not inherit the window root's RequestedTheme (same
+        // gotcha as ContentDialog) — pin the presenter so the tray menu follows
+        // the app theme. Themed on open because the presenter is created lazily.
+        if (TrayMenuFlyout.Items.Count == 0)
+            return;
+
+        DependencyObject node = TrayMenuFlyout.Items[0];
+        while (VisualTreeHelper.GetParent(node) is { } parent)
+        {
+            if (parent is MenuFlyoutPresenter presenter)
+            {
+                presenter.RequestedTheme = _currentTheme;
+                return;
+            }
+            node = parent;
         }
     }
+
+    private async void TrayQuit_Click(object sender, RoutedEventArgs e)
+    {
+        // Destroying only the main AppWindow does NOT exit the process:
+        // H.NotifyIcon keeps a hidden menu-host window alive, so the app lingered
+        // (and a second quit click then NRE'd on the destroyed AppWindow).
+        // Application.Exit() is the only path that tears down every window.
+        if (RootFrame.Content is NotesPage { ViewModel.IsDirty: true } page)
+            await page.ViewModel.FlushAsync();
+
+        Application.Current.Exit();
+    }
+
+    private void ShowFromTray()
+    {
+        // Win32 path (same as H.NotifyIcon's own WindowUtilities): AppWindow.Show
+        // + Window.Activate silently no-op on a hidden window. SW_RESTORE covers
+        // all three states: hidden, minimized, visible-but-background.
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        ShowWindow(hwnd, SwRestore);
+        SetForegroundWindow(hwnd);
+    }
+
+    private const int SwRestore = 9;
+
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(nint hwnd, int cmd);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(nint hwnd);
 
     [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(nint hwnd);

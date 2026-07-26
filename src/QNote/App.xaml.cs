@@ -35,7 +35,7 @@ public partial class App : Application
         Services = ConfigureServices();
     }
 
-    protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+    protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
         // Infrastructure bring-up: data directories, crash capture, DB schema.
         var paths = Services.GetRequiredService<AppPaths>();
@@ -56,7 +56,14 @@ public partial class App : Application
 
         Window = new MainWindow();
         DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
-        Window.Activate();
+
+        // StartMinimized: skip Activate (window stays hidden) and register the
+        // tray icon explicitly — it only registers on Load/ForceCreate otherwise.
+        var settings = await Services.GetRequiredService<ISettingsService>().LoadAsync();
+        if (settings.StartMinimized)
+            ((MainWindow)Window).ForceCreateTrayIcon();
+        else
+            Window.Activate();
     }
 
     private static IServiceProvider ConfigureServices()

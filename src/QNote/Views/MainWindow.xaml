@@ -6,6 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:QNote.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:tb="using:H.NotifyIcon"
     Title="QNote"
     mc:Ignorable="d">
     <Window.SystemBackdrop>
@@ -17,6 +18,22 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
+
+        <!-- Tray icon lives in the visual tree but renders nothing (no template). -->
+        <tb:TaskbarIcon
+            x:Name="TrayIcon"
+            ContextMenuMode="SecondWindow"
+            DoubleClickCommand="{x:Bind ShowWindowCommand}"
+            IconSource="ms-appx:///Assets/AppIcon.ico"
+            ToolTipText="QNote">
+            <tb:TaskbarIcon.ContextFlyout>
+                <MenuFlyout x:Name="TrayMenuFlyout" Opened="TrayMenu_Opened">
+                    <MenuFlyoutItem Click="TrayShow_Click" Text="显示窗口" />
+                    <MenuFlyoutSeparator />
+                    <MenuFlyoutItem Click="TrayQuit_Click" Text="退出" />
+                </MenuFlyout>
+            </tb:TaskbarIcon.ContextFlyout>
+        </tb:TaskbarIcon>
 
         <TitleBar x:Name="AppTitleBar" Title="QNote">
             <TitleBar.IconSource>

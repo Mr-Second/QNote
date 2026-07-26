@@ -19,6 +19,7 @@ public sealed class SettingsService : ISettingsService
         public const string AlwaysOnTop = "alwaysOnTop";
         public const string LaunchAtStartup = "launchAtStartup";
         public const string RememberWindowGeometry = "rememberWindowGeometry";
+        public const string StartMinimized = "startMinimized";
         public const string WindowX = "windowX";
         public const string WindowY = "windowY";
         public const string WindowWidth = "windowWidth";
@@ -88,6 +89,7 @@ public sealed class SettingsService : ISettingsService
             AlwaysOnTop = GetBool(Keys.AlwaysOnTop, defaults.AlwaysOnTop),
             LaunchAtStartup = GetBool(Keys.LaunchAtStartup, defaults.LaunchAtStartup),
             RememberWindowGeometry = GetBool(Keys.RememberWindowGeometry, defaults.RememberWindowGeometry),
+            StartMinimized = GetBool(Keys.StartMinimized, defaults.StartMinimized),
             WindowX = GetInt(Keys.WindowX, defaults.WindowX),
             WindowY = GetInt(Keys.WindowY, defaults.WindowY),
             WindowWidth = GetInt(Keys.WindowWidth, defaults.WindowWidth),
@@ -150,6 +152,7 @@ public sealed class SettingsService : ISettingsService
         yield return (Keys.AlwaysOnTop, Bool(s.AlwaysOnTop));
         yield return (Keys.LaunchAtStartup, Bool(s.LaunchAtStartup));
         yield return (Keys.RememberWindowGeometry, Bool(s.RememberWindowGeometry));
+        yield return (Keys.StartMinimized, Bool(s.StartMinimized));
         yield return (Keys.WindowX, Int(s.WindowX));
         yield return (Keys.WindowY, Int(s.WindowY));
         yield return (Keys.WindowWidth, Int(s.WindowWidth));
