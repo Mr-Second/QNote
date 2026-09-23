@@ -37,7 +37,7 @@
 
         <TitleBar x:Name="AppTitleBar" Title="QNote">
             <TitleBar.IconSource>
-                <ImageIconSource ImageSource="Assets/AppIcon.ico" />
+                <ImageIconSource ImageSource="ms-appx:///Assets/TitleBarIcon.png" />
             </TitleBar.IconSource>
         </TitleBar>
 

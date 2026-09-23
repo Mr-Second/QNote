@@ -5,6 +5,7 @@
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
     <RootNamespace>QNote</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLowerInvariant())</RuntimeIdentifier>
     <PublishProfile Condition="Exists('Properties\PublishProfiles\win-$(Platform).pubxml')">win-$(Platform).pubxml</PublishProfile>
@@ -25,8 +26,16 @@
     <Content Include="Assets\Square44x44Logo.targetsize-48_altform-lightunplated.png" />
     <Content Include="Assets\StoreLogo.png" />
     <Content Include="Assets\AppIcon.ico" />
+    <Content Include="Assets\TitleBarIcon.png" />
     <Content Include="Assets\Wide310x150Logo.scale-200.png" />
     <Content Include="Assets\colors.json" />
+    <!--
+      note.svg is the regeneration source for the PNG/ICO assets above, not a
+      runtime asset. The WinUI SDK globs Assets/**/*.* into Content
+      (EnableDefaultAssets), so it must be removed explicitly or it ships in
+      the package and gets indexed into resources.pri.
+    -->
+    <Content Remove="Assets\note.svg" />
   </ItemGroup>
 
   <ItemGroup>
