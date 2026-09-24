@@ -30,6 +30,11 @@ public sealed class DbConnectionFactory
     {
         var conn = new SqliteConnection(_connectionString);
         conn.Open();
+        // Required for note_images' ON DELETE CASCADE to fire: SQLite leaves foreign
+        // keys OFF by default, per connection.
+        using var pragma = conn.CreateCommand();
+        pragma.CommandText = "PRAGMA foreign_keys=ON;";
+        pragma.ExecuteNonQuery();
         return conn;
     }
 }

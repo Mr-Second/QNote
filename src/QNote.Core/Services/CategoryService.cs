@@ -16,11 +16,13 @@ public sealed partial class CategoryService : ICategoryService
     private static readonly HashSet<string> BuiltInNames = new(StringComparer.Ordinal) { "工作", "生活", "重要" };
 
     private readonly INoteRepository _repo;
+    private readonly IImageService _images;
     private readonly ILogger<CategoryService> _log;
 
-    public CategoryService(INoteRepository repo, ILogger<CategoryService> log)
+    public CategoryService(INoteRepository repo, IImageService images, ILogger<CategoryService> log)
     {
         _repo = repo;
+        _images = images;
         _log = log;
     }
 
@@ -68,8 +70,9 @@ public sealed partial class CategoryService : ICategoryService
         if (IsBuiltIn(existing.Name))
             throw new InvalidOperationException($"内置分类「{existing.Name}」不能删除");
 
-        await _repo.DeleteCategoryAsync(id, ct);
-        _log.LogInformation("Deleted category '{Name}' ({Id}) and its notes", existing.Name, id);
+        var orphans = await _repo.DeleteCategoryAsync(id, ct);
+        await _images.DeleteOriginalsAsync(orphans, ct);
+        _log.LogInformation("Deleted category '{Name}' ({Id}) and its notes (pruned {Orphans} original image(s))", existing.Name, id, orphans.Count);
     }
 
     public Task ReorderAsync(IReadOnlyList<long> orderedIds, CancellationToken ct = default) =>

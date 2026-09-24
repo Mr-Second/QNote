@@ -10,7 +10,7 @@ namespace QNote.Data.Schema;
 public sealed class SchemaInitializer
 {
     /// <summary>Current schema version. Bump when adding a migration step.</summary>
-    public const long CurrentVersion = 4;
+    public const long CurrentVersion = 5;
 
     private readonly DbConnectionFactory _factory;
 
@@ -36,6 +36,8 @@ public sealed class SchemaInitializer
             MigrateV2ToV3(conn);
         if (version < 4)
             MigrateV3ToV4(conn);
+        if (version < 5)
+            MigrateV4ToV5(conn);
         SetUserVersion(conn, CurrentVersion);
         tx.Commit();
     }
@@ -141,6 +143,66 @@ public sealed class SchemaInitializer
             INSERT INTO categories (Name, IconKey, Color, SortOrder)
             SELECT '重要', 'E734', '#EF4444', 2 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE Name = '重要');
             """);
+    }
+
+    // v5 (image task): inline images put a huge RTF blob in notes.Content, so Content
+    // is rebuilt to be the LAST physical column — any column after an overflowing one
+    // forces SQLite to walk that row's overflow page chain, which made the note-list
+    // query ~1000x slower (spike sqlite_colorder_bench). Ids are preserved (Id is
+    // INTEGER PRIMARY KEY = rowid, so notes_fts' contentless rowids stay valid); the
+    // FTS shadow is left untouched. A new note_images table links notes to their
+    // content-addressed originals on disk (D2), cascading on note delete.
+    private static void MigrateV4ToV5(SqliteConnection conn)
+    {
+        Execute(conn, """
+            CREATE TABLE IF NOT EXISTS notes (
+                Id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                Uuid      TEXT    NOT NULL UNIQUE,
+                Title     TEXT    NOT NULL DEFAULT '',
+                Content   TEXT    NOT NULL DEFAULT '',
+                Category  TEXT    NOT NULL DEFAULT '',
+                CreatedAt TEXT    NOT NULL,
+                UpdatedAt TEXT    NOT NULL
+            );
+            """);
+        if (!ColumnExists(conn, "notes", "PlainText"))
+            Execute(conn, "ALTER TABLE notes ADD COLUMN PlainText TEXT NOT NULL DEFAULT '';");
+
+        // Rebuild notes with Content moved to the last column. DROP+ren+CREATE keeps
+        // the rowids (Id preserved explicitly in the SELECT) so notes_fts rowids stay valid.
+        Execute(conn, "ALTER TABLE notes RENAME TO notes_old;");
+        Execute(conn, """
+            CREATE TABLE notes (
+                Id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                Uuid      TEXT    NOT NULL UNIQUE,
+                Title     TEXT    NOT NULL DEFAULT '',
+                Category  TEXT    NOT NULL DEFAULT '',
+                CreatedAt TEXT    NOT NULL,
+                UpdatedAt TEXT    NOT NULL,
+                PlainText TEXT    NOT NULL DEFAULT '',
+                Content   TEXT    NOT NULL DEFAULT ''
+            );
+            """);
+        Execute(conn, """
+            INSERT INTO notes (Id, Uuid, Title, Category, CreatedAt, UpdatedAt, PlainText, Content)
+            SELECT Id, Uuid, Title, Category, CreatedAt, UpdatedAt, PlainText, Content FROM notes_old;
+            """);
+        Execute(conn, "DROP TABLE notes_old;");
+
+        Execute(conn, """
+            CREATE TABLE IF NOT EXISTS note_images (
+                note_id    INTEGER NOT NULL,
+                sha256     TEXT    NOT NULL,
+                ext        TEXT    NOT NULL DEFAULT '',
+                byte_size  INTEGER NOT NULL DEFAULT 0,
+                width      INTEGER NOT NULL DEFAULT 0,
+                height     INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT    NOT NULL,
+                PRIMARY KEY (note_id, sha256),
+                FOREIGN KEY (note_id) REFERENCES notes(Id) ON DELETE CASCADE
+            );
+            """);
+        Execute(conn, "CREATE INDEX IF NOT EXISTS idx_note_images_sha256 ON note_images (sha256);");
     }
 
     private static bool ColumnExists(SqliteConnection conn, string table, string column)

@@ -32,8 +32,12 @@ public interface INoteRepository
     /// <summary>Updates Title/Content/Category/UpdatedAt of an existing note by id.</summary>
     Task UpdateAsync(Note note, CancellationToken ct = default);
 
-    /// <summary>Deletes a note by id (no-op if it does not exist).</summary>
-    Task DeleteAsync(long id, CancellationToken ct = default);
+    /// <summary>
+    /// Deletes a note by id (no-op if it does not exist). Returns the content addresses
+    /// (<c>note_images.sha256</c>) that are no longer referenced by ANY note after the
+    /// delete — the caller prunes those original files from disk.
+    /// </summary>
+    Task<IReadOnlyList<string>> DeleteAsync(long id, CancellationToken ct = default);
 
     /// <summary>
     /// Full index projection of every note (Id, Title, PlainText) for an FTS full
@@ -59,13 +63,37 @@ public interface INoteRepository
 
     /// <summary>
     /// Deletes a category AND all its notes (Qt parity: destructive, caller confirms
-    /// first) plus their FTS shadow rows — all inside one transaction.
+    /// first) plus their FTS shadow rows — all inside one transaction. Returns the
+    /// content addresses no longer referenced by any note (for original-file pruning).
     /// </summary>
-    Task DeleteCategoryAsync(long id, CancellationToken ct = default);
+    Task<IReadOnlyList<string>> DeleteCategoryAsync(long id, CancellationToken ct = default);
 
     /// <summary>Persists a new ordering: <paramref name="orderedIds"/> index → SortOrder.</summary>
     Task ReorderCategoriesAsync(IReadOnlyList<long> orderedIds, CancellationToken ct = default);
 
     /// <summary>Note count per category name (<c>GROUP BY Category</c>; uncategorized notes sit under <c>""</c>).</summary>
     Task<IReadOnlyDictionary<string, int>> CountNotesByCategoryAsync(CancellationToken ct = default);
+
+    /// <summary>Upserts the <c>note_images</c> link rows for a note (dedup on (note_id, sha256)).</summary>
+    Task AddNoteImagesAsync(long noteId, IReadOnlyList<NoteImage> images, CancellationToken ct = default);
+
+    /// <summary>
+    /// Reconciles a note's <c>note_images</c> rows with the content addresses its
+    /// current RTF actually references: rows for dropped images are deleted, kept
+    /// (and still-present) addresses are left alone. Returns the addresses that became
+    /// unreferenced by ANY note — the caller prunes those original files. Metadata for
+    /// newly referenced addresses must already have been inserted via
+    /// <see cref="AddNoteImagesAsync"/> at import time.
+    /// </summary>
+    Task<IReadOnlyList<string>> SyncNoteImagesAsync(long noteId, IReadOnlyList<string> referencedSha256, CancellationToken ct = default);
+
+    /// <summary>The original-image links for a note, newest first.</summary>
+    Task<IReadOnlyList<NoteImage>> GetNoteImagesAsync(long noteId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Known metadata for the given content addresses, from any note that already
+    /// references them (used to adopt a pasted image's metadata without a WIC decode).
+    /// </summary>
+    Task<IReadOnlyDictionary<string, NoteImage>> GetImageMetadataByShaAsync(
+        IReadOnlyList<string> sha256, CancellationToken ct = default);
 }

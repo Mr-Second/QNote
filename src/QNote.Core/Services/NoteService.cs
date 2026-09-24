@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using QNote.Data;
 using QNote.Models;
+using QNote.Text;
 
 namespace QNote.Services;
 
@@ -11,11 +12,13 @@ namespace QNote.Services;
 public sealed class NoteService : INoteService
 {
     private readonly INoteRepository _repo;
+    private readonly IImageService _images;
     private readonly ILogger<NoteService> _log;
 
-    public NoteService(INoteRepository repo, ILogger<NoteService> log)
+    public NoteService(INoteRepository repo, IImageService images, ILogger<NoteService> log)
     {
         _repo = repo;
+        _images = images;
         _log = log;
     }
 
@@ -53,7 +56,50 @@ public sealed class NoteService : INoteService
 
     public async Task DeleteAsync(long id, CancellationToken ct = default)
     {
-        await _repo.DeleteAsync(id, ct);
-        _log.LogInformation("Deleted note {Id}", id);
+        var orphans = await _repo.DeleteAsync(id, ct);
+        await _images.DeleteOriginalsAsync(orphans, ct);
+        _log.LogInformation("Deleted note {Id} (pruned {Orphans} orphaned original image(s))", id, orphans.Count);
+    }
+
+    public Task AddNoteImagesAsync(long noteId, IReadOnlyList<NoteImage> images, CancellationToken ct = default) =>
+        _repo.AddNoteImagesAsync(noteId, images, ct);
+
+    public async Task SyncNoteImagesAsync(long noteId, string? rtf, CancellationToken ct = default)
+    {
+        var referenced = RtfPictInspector.ReferencedSha256(rtf);
+
+        // Adopt images that arrived via paste/copy rather than import: they carry a
+        // qnote:<sha> alt but may have no row for THIS note. Reuse metadata another
+        // note already recorded, or a minimal row when the original file is on disk.
+        var existing = (await _repo.GetNoteImagesAsync(noteId, ct)).Select(i => i.Sha256)
+            .ToHashSet(StringComparer.Ordinal);
+        var missing = referenced.Where(sha => !existing.Contains(sha)).ToList();
+        if (missing.Count > 0)
+        {
+            var known = await _repo.GetImageMetadataByShaAsync(missing, ct);
+            var toAdd = new List<NoteImage>();
+            foreach (var sha in missing)
+            {
+                if (known.TryGetValue(sha, out var meta))
+                {
+                    toAdd.Add(meta with { NoteId = noteId, CreatedAt = DateTimeOffset.UtcNow });
+                }
+                else if (_images.FindOriginalPath(sha) is { } path)
+                {
+                    toAdd.Add(new NoteImage
+                    {
+                        NoteId = noteId,
+                        Sha256 = sha,
+                        Ext = Path.GetExtension(path).TrimStart('.'),
+                        ByteSize = new FileInfo(path).Length,
+                        CreatedAt = DateTimeOffset.UtcNow,
+                    });
+                }
+            }
+            await _repo.AddNoteImagesAsync(noteId, toAdd, ct);
+        }
+
+        var orphans = await _repo.SyncNoteImagesAsync(noteId, referenced, ct);
+        await _images.DeleteOriginalsAsync(orphans, ct);
     }
 }

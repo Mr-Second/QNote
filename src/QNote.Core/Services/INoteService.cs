@@ -26,6 +26,16 @@ public interface INoteService
     /// <summary>Persists edits, stamping <see cref="Note.UpdatedAt"/> = now; returns the saved note.</summary>
     Task<Note> UpdateAsync(Note note, CancellationToken ct = default);
 
-    /// <summary>Deletes a note by id.</summary>
+    /// <summary>Deletes a note by id and prunes any original images no longer referenced.</summary>
     Task DeleteAsync(long id, CancellationToken ct = default);
+
+    /// <summary>Links a note to its originals (called at import time, when metadata is known).</summary>
+    Task AddNoteImagesAsync(long noteId, IReadOnlyList<NoteImage> images, CancellationToken ct = default);
+
+    /// <summary>
+    /// Reconciles a note's <c>note_images</c> rows with the images its current RTF
+    /// actually references (parsed from the <c>qnote:&lt;sha256&gt;</c> alt marker) and
+    /// deletes originals that became unreferenced by any note.
+    /// </summary>
+    Task SyncNoteImagesAsync(long noteId, string? rtf, CancellationToken ct = default);
 }

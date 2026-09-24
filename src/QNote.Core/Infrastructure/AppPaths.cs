@@ -10,10 +10,18 @@ namespace QNote.Infrastructure;
 /// </summary>
 public sealed class AppPaths
 {
-    public AppPaths()
+    public AppPaths() : this(null) { }
+
+    /// <summary>
+    /// Optional <paramref name="rootOverride"/> roots every path at a caller-supplied
+    /// directory (tests, future portable mode). Production uses the default Roaming path.
+    /// </summary>
+    public AppPaths(string? rootOverride)
     {
-        var roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        Root = Path.Combine(roaming, "QNote", "QNote");
+        var root = string.IsNullOrWhiteSpace(rootOverride)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "QNote", "QNote")
+            : rootOverride;
+        Root = root;
         DatabasePath = Path.Combine(Root, "qnote.db");
         ImagesDir = Path.Combine(Root, "images");
         LogsDir = Path.Combine(Root, "logs");
