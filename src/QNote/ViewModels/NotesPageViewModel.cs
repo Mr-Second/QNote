@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using QNote.Models;
 using QNote.Services;
+using QNote.Text;
 
 namespace QNote.ViewModels;
 
@@ -79,11 +80,21 @@ public partial class NotesPageViewModel : ObservableObject
     /// </summary>
     public event Action<IReadOnlyList<NoteSummary>>? SearchCleared;
 
+    /// <summary>Editor content captured by the view for a flush.</summary>
+    /// <param name="Rtf">Current RTF (persisted to <c>notes.Content</c>).</param>
+    /// <param name="Plain">Current plain text (persisted to <c>notes.PlainText</c>).</param>
+    /// <param name="RtfChanged">
+    /// True when the editor's RTF differs from the post-load baseline. Catches
+    /// format-only and image-only edits the plain-text compare cannot see, while
+    /// staying immune to RichEdit's load normalization noise.
+    /// </param>
+    public readonly record struct EditorSnapshot(string Rtf, string Plain, bool RtfChanged);
+
     /// <summary>
-    /// Set by the view: returns the editor's current (RTF, plain text) so flushes
-    /// always persist what is on screen, no matter who triggered them.
+    /// Set by the view: returns the editor's current state so flushes always persist
+    /// what is on screen, no matter who triggered them.
     /// </summary>
-    public Func<(string Rtf, string Plain)>? EditorContentProvider { get; set; }
+    public Func<EditorSnapshot>? EditorContentProvider { get; set; }
 
     public ObservableCollection<NoteItemViewModel> Notes { get; } = new();
 
@@ -291,15 +302,18 @@ public partial class NotesPageViewModel : ObservableObject
 
         try
         {
-            var (rtf, plain) = EditorContentProvider?.Invoke() ?? (EditingContentRtf, string.Empty);
+            var snapshot = EditorContentProvider?.Invoke() ?? new EditorSnapshot(EditingContentRtf, string.Empty, false);
 
-            // No-op guard: a dirty flag raised by editor noise (programmatic SetText,
-            // RTF normalization) must not bump UpdatedAt / reorder the list. Compare
-            // plain text + title — GetText(FormatRtf) can rewrite RTF byte-wise even
-            // with zero user edits. Trailing '\r' is the RichEditBox paragraph mark,
-            // not user content.
-            if (EditingTitle == _loaded.Title
-                && Normalize(plain) == Normalize(_loaded.PlainText))
+            // No-op guard. Previously this compared only title + plain text, so a
+            // format-only edit (bold/colour/alignment — which leaves the plain text
+            // identical) was silently dropped, and an image-only edit could be lost
+            // too. The editor now supplies an RTF-vs-baseline flag: it is true for any
+            // real content or formatting change and false for RichEdit's load/render
+            // normalization (which refreshes the baseline instead of flagging dirty).
+            if (!NoteEditComparer.HasChanges(
+                    _loaded.Title, EditingTitle,
+                    _loaded.PlainText, snapshot.Plain,
+                    snapshot.RtfChanged))
             {
                 IsDirty = false;
                 return;
@@ -308,11 +322,23 @@ public partial class NotesPageViewModel : ObservableObject
             var saved = await _notes.UpdateAsync(_loaded with
             {
                 Title = EditingTitle,
-                Content = rtf,
-                PlainText = plain,
+                Content = snapshot.Rtf,
+                PlainText = snapshot.Plain,
             });
             _loaded = saved;
             IsDirty = false;
+
+            // Keep note_images in step with the images the note actually contains:
+            // images dropped from the note are unlinked (and their originals pruned
+            // when no note references them any more).
+            try
+            {
+                await _notes.SyncNoteImagesAsync(saved.Id, saved.Content);
+            }
+            catch (Exception ex)
+            {
+                _log.LogWarning(ex, "同步便签图片关联失败");
+            }
 
             var item = Notes.FirstOrDefault(n => n.Id == saved.Id);
             if (item is not null)
@@ -641,8 +667,6 @@ public partial class NotesPageViewModel : ObservableObject
         if (!_suppressDirty)
             IsDirty = true;
     }
-
-    private static string Normalize(string text) => text.TrimEnd('\r');
 
     private static string MakePreview(string plainText)
     {

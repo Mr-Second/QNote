@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
@@ -5,7 +6,11 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using QNote.Controls;
+using QNote.Services;
 using QNote.ViewModels;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.Storage;
+using Windows.Storage.Pickers;
 
 namespace QNote.Views;
 
@@ -21,6 +26,7 @@ public sealed partial class NotesPage : Page
     private readonly RichTextEditorController _editor;
     private bool _syncingToolbar;
     private bool _settingsOpen;
+    private bool _dialogOpen;
 
     public NotesPageViewModel ViewModel { get; }
 
@@ -31,8 +37,15 @@ public sealed partial class NotesPage : Page
 
         _editor = new RichTextEditorController(
             ContentEditor,
-            App.Services.GetService<Microsoft.Extensions.Logging.ILogger<RichTextEditorController>>());
-        ViewModel.EditorContentProvider = () => (_editor.GetRtf(), _editor.GetPlainText());
+            App.Services.GetService<Microsoft.Extensions.Logging.ILogger<RichTextEditorController>>(),
+            App.Services.GetService<IImageService>(),
+            App.Services.GetService<INoteService>());
+        ViewModel.EditorContentProvider = () =>
+            new NotesPageViewModel.EditorSnapshot(_editor.GetRtf(), _editor.GetPlainText(), _editor.IsRtfChangedFromBaseline());
+        _editor.CurrentNoteIdProvider = () => ViewModel.SelectedNote?.Id;
+        _editor.OpenImageRequested += OnOpenImageRequested;
+        _editor.ImportFailed += OnImageError;
+        _editor.ImageOpenFailed += OnImageError;
 
         ViewModel.FocusTitleRequested += OnFocusTitleRequested;
         ViewModel.ContentReloadRequested += OnContentReloadRequested;
@@ -51,6 +64,62 @@ public sealed partial class NotesPage : Page
     private async void OnLoaded(object sender, RoutedEventArgs e) => await ViewModel.LoadAsync();
 
     private void OnFocusTitleRequested() => TitleBox.Focus(FocusState.Programmatic);
+
+    // ---------- Images ----------
+
+    private async void InsertImageButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var picker = new FileOpenPicker
+            {
+                SuggestedStartLocation = PickerLocationId.PicturesLibrary,
+                ViewMode = PickerViewMode.Thumbnail,
+            };
+            picker.FileTypeFilter.Add(".png");
+            picker.FileTypeFilter.Add(".jpg");
+            picker.FileTypeFilter.Add(".jpeg");
+            picker.FileTypeFilter.Add(".gif");
+            picker.FileTypeFilter.Add(".bmp");
+            picker.FileTypeFilter.Add(".tif");
+            picker.FileTypeFilter.Add(".tiff");
+            picker.FileTypeFilter.Add(".webp");
+
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, App.WindowHandle);
+            if (await picker.PickSingleFileAsync() is { } file)
+                await _editor.InsertImageFromFileAsync(file.Path);
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorDialogAsync("插入图片", $"插入图片失败：{ex.Message}");
+        }
+    }
+
+    private void OnOpenImageRequested(string path)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            OnImageError($"无法打开原图：{ex.Message}");
+        }
+    }
+
+    // ---------- Drag & drop image files ----------
+
+    private void ContentEditor_DragOver(object sender, DragEventArgs e)
+    {
+        e.AcceptedOperation = e.DataView.Contains(StandardDataFormats.StorageItems)
+            ? DataPackageOperation.Copy
+            : DataPackageOperation.None;
+        e.DragUIOverride.Caption = "插入图片";
+        e.DragUIOverride.IsCaptionVisible = true;
+    }
+
+    private async void ContentEditor_Drop(object sender, DragEventArgs e) =>
+        await _editor.HandleDropAsync(e.DataView);
 
     // VM raised a debounced search off-thread → marshal back to the UI thread and
     // swap the note list there (ObservableCollection is UI-thread-affine).
@@ -283,18 +352,36 @@ public sealed partial class NotesPage : Page
         }
     }
 
+    private void OnImageError(string message)
+    {
+        // Raised from import/launch paths that may be off the UI thread — marshal the
+        // dialog back to it.
+        App.DispatcherQueue.TryEnqueue(() => _ = ShowErrorDialogAsync("图片", message));
+    }
+
     private async Task ShowErrorDialogAsync(string title, string message)
     {
-        var dialog = new ContentDialog
+        // Only one ContentDialog may be open at a time (a re-entrant ShowAsync throws).
+        if (_dialogOpen)
+            return;
+        _dialogOpen = true;
+        try
         {
-            XamlRoot = XamlRoot,
-            // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
-            RequestedTheme = ActualTheme,
-            Title = title,
-            Content = message,
-            CloseButtonText = "知道了",
-        };
-        await dialog.ShowAsync();
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
+                RequestedTheme = ActualTheme,
+                Title = title,
+                Content = message,
+                CloseButtonText = "知道了",
+            };
+            await dialog.ShowAsync();
+        }
+        finally
+        {
+            _dialogOpen = false;
+        }
     }
 
     // ---------- Toolbar ----------

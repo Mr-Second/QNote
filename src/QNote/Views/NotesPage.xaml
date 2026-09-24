@@ -691,6 +691,17 @@
                                 ToolTipService.ToolTip="有序列表">
                                 <FontIcon FontSize="14" Glyph="&#xE8FC;" />
                             </ToggleButton>
+
+                            <AppBarSeparator />
+
+                            <Button
+                                x:Name="InsertImageButton"
+                                AutomationProperties.Name="插入图片"
+                                Click="InsertImageButton_Click"
+                                Style="{StaticResource EditorToolbarButtonStyle}"
+                                ToolTipService.ToolTip="插入图片">
+                                <FontIcon FontSize="14" Glyph="&#xEB9F;" />
+                            </Button>
                         </StackPanel>
                     </ScrollViewer>
 
@@ -703,9 +714,12 @@
                             <RichEditBox
                                 x:Name="ContentEditor"
                                 Padding="0,10,0,0"
+                                AllowDrop="True"
                                 AutomationProperties.Name="便签内容"
                                 Background="Transparent"
                                 BorderThickness="0"
+                                DragOver="ContentEditor_DragOver"
+                                Drop="ContentEditor_Drop"
                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
                                 <!-- Kill default focus visuals in every state: paper surface stays borderless. -->
                                 <RichEditBox.Resources>
