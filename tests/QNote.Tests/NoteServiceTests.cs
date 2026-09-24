@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging.Abstractions;
 using QNote.Services;
 
 namespace QNote.Tests;
@@ -50,6 +49,5 @@ public sealed class NoteServiceTests
         Assert.Empty(await service.GetSummariesAsync());
     }
 
-    private static NoteService NewService(TestDatabase db) =>
-        new(db.NewRepository(), NullLogger<NoteService>.Instance);
+    private static NoteService NewService(TestDatabase db) => db.NewNoteService();
 }

@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
+using QNote.Infrastructure;
 using QNote.Data;
 using QNote.Data.Schema;
 using QNote.Services;
@@ -20,15 +21,30 @@ internal sealed class TestDatabase : IDisposable
         _dbPath = Path.Combine(Path.GetTempPath(), $"qnote-test-{Guid.NewGuid():N}.db");
         Factory = new DbConnectionFactory(_dbPath);
         new SchemaInitializer(Factory).EnsureCreated();
+
+        // Image storage is rooted in a per-test temp dir so original files never
+        // touch the real user data directory.
+        ImagesRoot = Path.Combine(Path.GetTempPath(), $"qnote-test-images-{Guid.NewGuid():N}");
+        Paths = new AppPaths(ImagesRoot);
     }
 
     public DbConnectionFactory Factory { get; }
+
+    public AppPaths Paths { get; }
+
+    private string ImagesRoot { get; }
 
     public NoteRepository NewRepository() => new(Factory);
 
     public SearchService NewSearchService() => new(Factory, NewRepository(), NullLogger<SearchService>.Instance);
 
-    public CategoryService NewCategoryService() => new(NewRepository(), NullLogger<CategoryService>.Instance);
+    public ImageService NewImageService() => new(Paths, NullLogger<ImageService>.Instance);
+
+    public CategoryService NewCategoryService() =>
+        new(NewRepository(), NewImageService(), NullLogger<CategoryService>.Instance);
+
+    public NoteService NewNoteService() =>
+        new(NewRepository(), NewImageService(), NullLogger<NoteService>.Instance);
 
     public SettingsService NewSettingsService() => new(Factory, NullLogger<SettingsService>.Instance);
 
@@ -38,6 +54,8 @@ internal sealed class TestDatabase : IDisposable
         TryDelete(_dbPath);
         TryDelete(_dbPath + "-wal");
         TryDelete(_dbPath + "-shm");
+        if (Directory.Exists(ImagesRoot))
+            Directory.Delete(ImagesRoot, recursive: true);
     }
 
     private static void TryDelete(string path)
