@@ -45,6 +45,13 @@ public interface INoteRepository
     /// </summary>
     Task<IReadOnlyList<NoteIndexEntry>> GetAllForIndexAsync(CancellationToken ct = default);
 
+    /// <summary>
+    /// Uuid → (Id, UpdatedAt) for every note. Used by the backup restore pipeline
+    /// for conflict analysis and merge decisions (notes carry no other identity
+    /// across databases).
+    /// </summary>
+    Task<IReadOnlyDictionary<string, (long Id, DateTimeOffset UpdatedAt)>> GetUuidTimestampsAsync(CancellationToken ct = default);
+
     /// <summary>All categories ordered by <see cref="Category.SortOrder"/>.</summary>
     Task<IReadOnlyList<Category>> GetCategoriesAsync(CancellationToken ct = default);
 

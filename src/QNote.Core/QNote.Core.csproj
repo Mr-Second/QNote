@@ -8,6 +8,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!--
+      LibArchive.Net: managed wrapper over native libarchive for the .qns backup
+      container (ZIP + AES-256). Chosen by the backup-library spike (both headless
+      and packaged-WinUI layers PASS). The NuGet bundles native libarchive for ALL
+      platforms under runtimes/ — TODO(packaging): trim the non-Windows natives
+      (linux/osx, unused win-x86) out of the MSIX payload or the package grows by
+      several MB of dead native code (research/backup-library-spike.md).
+    -->
+    <PackageReference Include="LibArchive.Net" Version="0.3.1" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
   </ItemGroup>

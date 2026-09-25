@@ -120,6 +120,14 @@ public sealed class SettingsService : ISettingsService
         }
     }
 
+    public async Task<AppSettings> ReloadAsync(CancellationToken ct = default)
+    {
+        _cache = null;
+        var snapshot = await LoadAsync(ct);
+        Changed?.Invoke(snapshot);
+        return snapshot;
+    }
+
     public async Task SaveAsync(AppSettings settings, CancellationToken ct = default)
     {
         await using var conn = _factory.OpenWrite();

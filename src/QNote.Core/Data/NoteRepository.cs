@@ -186,6 +186,19 @@ public sealed class NoteRepository : INoteRepository
         return list;
     }
 
+    public async Task<IReadOnlyDictionary<string, (long Id, DateTimeOffset UpdatedAt)>> GetUuidTimestampsAsync(CancellationToken ct = default)
+    {
+        await using var conn = _factory.OpenRead();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT Uuid, Id, UpdatedAt FROM notes;";
+
+        var map = new Dictionary<string, (long, DateTimeOffset)>(StringComparer.Ordinal);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+            map[reader.GetString(0)] = (reader.GetInt64(1), ParseUtc(reader.GetString(2)));
+        return map;
+    }
+
     public async Task<IReadOnlyList<Category>> GetCategoriesAsync(CancellationToken ct = default)
     {
         await using var conn = _factory.OpenRead();
