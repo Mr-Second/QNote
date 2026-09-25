@@ -745,5 +745,14 @@
                 </Grid>
             </Grid>
         </Border>
+
+        <!-- Page-level floating toast for backup/restore final outcomes
+             (success=green / failure=red card, auto-dismiss). -->
+        <controls:AppToast
+            x:Name="ResultTip"
+            Grid.ColumnSpan="3"
+            Margin="0,2,0,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top" />
     </Grid>
 </Page>

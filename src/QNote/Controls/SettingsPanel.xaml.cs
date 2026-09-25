@@ -17,4 +17,17 @@ public sealed partial class SettingsPanel : UserControl
     }
 
     public SettingsViewModel ViewModel { get; }
+
+    /// <summary>
+    /// Raised when the user picks 备份/恢复. The hosting dialog must close BEFORE the
+    /// follow-up dialog opens (only one ContentDialog may be open at a time) — the
+    /// host (NotesPage) owns that choreography.
+    /// </summary>
+    public event Action? BackupRequested;
+
+    public event Action? RestoreRequested;
+
+    private void Backup_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) => BackupRequested?.Invoke();
+
+    private void Restore_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) => RestoreRequested?.Invoke();
 }

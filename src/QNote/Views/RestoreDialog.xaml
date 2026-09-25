@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentDialog
+    x:Class="QNote.Views.RestoreDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:QNote.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="恢复数据"
+    CloseButtonText="取消"
+    DefaultButton="None"
+    IsPrimaryButtonEnabled="False"
+    PrimaryButtonText="开始恢复"
+    PrimaryButtonClick="OnPrimaryButtonClick"
+    mc:Ignorable="d">
+
+    <!-- Single dialog, sections revealed step by step: only ONE ContentDialog may
+         be open at a time, so the pick → password → analyze → mode → run flow
+         cannot span nested dialogs (xaml-guidelines). -->
+    <!-- Grid wrapper lets the toast overlay the content (top-center). -->
+    <Grid Width="420">
+        <StackPanel x:Name="ContentRoot" Spacing="10">
+
+        <!-- Step 1: pick the archive -->
+        <StackPanel Spacing="4">
+            <TextBlock Text="备份文件" />
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
+                    x:Name="FilePathText"
+                    VerticalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="未选择文件"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="NoWrap" />
+                <Button
+                    x:Name="PickButton"
+                    Grid.Column="1"
+                    AutomationProperties.AutomationId="RestorePickButton"
+                    AutomationProperties.Name="选择备份文件"
+                    Click="Pick_Click"
+                    Content="选择…" />
+            </Grid>
+        </StackPanel>
+
+        <!-- Step 2: password (only when the archive is encrypted) -->
+        <PasswordBox
+            x:Name="PasswordBox"
+            AutomationProperties.AutomationId="RestorePasswordBox"
+            AutomationProperties.Name="备份密码"
+            Header="备份密码（该备份已加密）"
+            Visibility="Collapsed" />
+
+        <Button
+            x:Name="AnalyzeButton"
+            AutomationProperties.AutomationId="RestoreAnalyzeButton"
+            AutomationProperties.Name="分析备份"
+            Click="Analyze_Click"
+            Content="分析备份"
+            Visibility="Collapsed" />
+
+        <!-- Step 3: conflict analysis + mode -->
+        <StackPanel
+            x:Name="AnalysisPanel"
+            Spacing="8"
+            Visibility="Collapsed">
+            <TextBlock x:Name="CountsText" TextWrapping="Wrap" />
+            <RadioButtons
+                x:Name="ModeRadios"
+                AutomationProperties.AutomationId="RestoreModeRadios"
+                AutomationProperties.Name="恢复模式"
+                SelectedIndex="1"
+                SelectionChanged="ModeRadios_SelectionChanged">
+                <x:String>覆盖：完全替换当前数据（会先自动备份当前数据）</x:String>
+                <x:String>合并：冲突便签保留较新版本，并导入新便签</x:String>
+                <x:String>仅导入新增：只导入当前不存在的便签</x:String>
+            </RadioButtons>
+            <TextBlock
+                x:Name="OverwriteWarning"
+                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                Text="覆盖将删除当前全部便签、分类和设置，替换为备份内容。"
+                TextWrapping="Wrap"
+                Visibility="Collapsed" />
+        </StackPanel>
+
+        <ProgressBar
+            x:Name="WorkingBar"
+            Maximum="1"
+            Visibility="Collapsed" />
+        </StackPanel>
+
+        <!-- Floating toast for in-dialog (pick/analysis) failures; the final
+             outcome is reported by the caller as a page-level toast after close. -->
+        <controls:AppToast
+            x:Name="ResultTip"
+            Margin="0,2,0,0"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Top" />
+    </Grid>
+</ContentDialog>

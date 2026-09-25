@@ -7,8 +7,12 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <ScrollViewer MaxHeight="420" VerticalScrollBarVisibility="Auto">
-        <StackPanel Width="400" Spacing="16">
+    <!-- Compact dialog (half height) + scrollbar. Right padding reserves the
+         scrollbar gutter: WinUI overlays the scrollbar ON the content, so
+         without it the thumb clips the ComboBox chevrons / ToggleSwitch labels
+         when scrolling. -->
+    <ScrollViewer MaxHeight="315" VerticalScrollBarVisibility="Auto">
+        <StackPanel Width="400" Padding="0,0,8,0" Spacing="16">
 
             <!-- ============ 显示 ============ -->
             <StackPanel Spacing="2">
@@ -24,10 +28,10 @@
                     <StackPanel>
                         <!-- Row template: label left, control in a FIXED-WIDTH right
                              column so every control's left edge aligns. -->
-                        <Grid Padding="10,3" ColumnSpacing="8">
+                        <Grid Padding="10,3" ColumnSpacing="4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="140" />
+                                <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
                             <TextBlock VerticalAlignment="Center" Text="列表密度" />
                             <ComboBox
@@ -45,10 +49,10 @@
                             Margin="10,0"
                             BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                             BorderThickness="0,1,0,0" />
-                        <Grid Padding="10,3" ColumnSpacing="8">
+                        <Grid Padding="10,3" ColumnSpacing="4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="140" />
+                                <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
                             <TextBlock VerticalAlignment="Center" Text="时间格式" />
                             <ComboBox
@@ -66,10 +70,10 @@
                             Margin="10,0"
                             BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                             BorderThickness="0,1,0,0" />
-                        <Grid Padding="10,3" ColumnSpacing="8">
+                        <Grid Padding="10,3" ColumnSpacing="4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="140" />
+                                <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
                             <TextBlock VerticalAlignment="Center" Text="便签排序" />
                             <ComboBox
@@ -87,10 +91,10 @@
                             Margin="10,0"
                             BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                             BorderThickness="0,1,0,0" />
-                        <Grid Padding="10,3" ColumnSpacing="8">
+                        <Grid Padding="10,3" ColumnSpacing="4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="140" />
+                                <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
                             <TextBlock VerticalAlignment="Center" Text="删除前确认" />
                             <ToggleSwitch
@@ -116,10 +120,10 @@
                     BorderThickness="1"
                     CornerRadius="8">
                     <StackPanel>
-                        <Grid Padding="10,3" ColumnSpacing="8">
+                        <Grid Padding="10,3" ColumnSpacing="4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="140" />
+                                <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
                             <TextBlock VerticalAlignment="Center" Text="主题" />
                             <ComboBox
@@ -137,10 +141,10 @@
                             Margin="10,0"
                             BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                             BorderThickness="0,1,0,0" />
-                        <Grid Padding="10,3" ColumnSpacing="8">
+                        <Grid Padding="10,3" ColumnSpacing="4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="140" />
+                                <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
                             <TextBlock VerticalAlignment="Center" Text="窗口置顶" />
                             <ToggleSwitch
@@ -154,10 +158,10 @@
                             Margin="10,0"
                             BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                             BorderThickness="0,1,0,0" />
-                        <Grid Padding="10,3" ColumnSpacing="8">
+                        <Grid Padding="10,3" ColumnSpacing="4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="140" />
+                                <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
                             <TextBlock VerticalAlignment="Center" Text="记住窗口位置和大小" />
                             <ToggleSwitch
@@ -171,10 +175,10 @@
                             Margin="10,0"
                             BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                             BorderThickness="0,1,0,0" />
-                        <Grid Padding="10,3" ColumnSpacing="8">
+                        <Grid Padding="10,3" ColumnSpacing="4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="140" />
+                                <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
                             <TextBlock VerticalAlignment="Center" Text="启动时最小化到托盘" />
                             <ToggleSwitch
@@ -185,6 +189,47 @@
                                 IsOn="{x:Bind ViewModel.StartMinimized, Mode=TwoWay}" />
                         </Grid>
                     </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- ============ 数据 ============ -->
+            <StackPanel Spacing="2">
+                <TextBlock
+                    Margin="4,0,0,0"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="数据" />
+                <Border
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                    <!-- Only ONE ContentDialog may be open at a time: these buttons ask
+                         the host to close the settings dialog first, then open the
+                         backup/restore dialog (see SettingsPanel.BackupRequested).
+                         Same fixed-width right column as the other rows, so the
+                         buttons' left edge aligns with the ComboBoxes/ToggleSwitches. -->
+                    <Grid Padding="10,3" ColumnSpacing="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="152" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="备份与恢复（.qns 文件）" />
+                        <StackPanel
+                            Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="4">
+                            <Button
+                                AutomationProperties.AutomationId="SettingsBackupButton"
+                                AutomationProperties.Name="备份数据"
+                                Click="Backup_Click"
+                                Content="备份…" />
+                            <Button
+                                AutomationProperties.AutomationId="SettingsRestoreButton"
+                                AutomationProperties.Name="恢复数据"
+                                Click="Restore_Click"
+                                Content="恢复…" />
+                        </StackPanel>
+                    </Grid>
                 </Border>
             </StackPanel>
         </StackPanel>

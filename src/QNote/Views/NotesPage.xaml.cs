@@ -27,6 +27,7 @@ public sealed partial class NotesPage : Page
     private bool _syncingToolbar;
     private bool _settingsOpen;
     private bool _dialogOpen;
+    private bool _dataDialogOpen;
 
     public NotesPageViewModel ViewModel { get; }
 
@@ -318,20 +319,28 @@ public sealed partial class NotesPage : Page
         if (_settingsOpen)
             return;
         _settingsOpen = true;
+
+        // The settings panel's 数据 buttons can't open their dialog while THIS one
+        // is open (the same one-dialog rule): they stash a pending request and close
+        // the settings dialog; the follow-up opens after ShowAsync returns.
+        var pending = PendingDataDialog.None;
         try
         {
             var vm = App.Services.GetRequiredService<SettingsViewModel>();
             await vm.InitializeAsync();
 
+            var panel = new SettingsPanel(vm);
             var dialog = new ContentDialog
             {
                 XamlRoot = XamlRoot,
                 // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
                 RequestedTheme = ActualTheme,
                 Title = "设置",
-                Content = new SettingsPanel(vm),
+                Content = panel,
                 CloseButtonText = "关闭",
             };
+            panel.BackupRequested += () => { pending = PendingDataDialog.Backup; dialog.Hide(); };
+            panel.RestoreRequested += () => { pending = PendingDataDialog.Restore; dialog.Hide(); };
 
             // Live-follow theme switches while the dialog is open (the settings panel
             // is where the theme gets changed — reopening to see it would be silly).
@@ -350,6 +359,74 @@ public sealed partial class NotesPage : Page
         {
             _settingsOpen = false;
         }
+
+        if (pending == PendingDataDialog.Backup)
+            await ShowBackupDialogAsync();
+        else if (pending == PendingDataDialog.Restore)
+            await ShowRestoreDialogAsync();
+    }
+
+    private enum PendingDataDialog { None, Backup, Restore }
+
+    /// <summary>Backup dialog (settings panel → 数据 → 备份). Flush first so the archive captures unsaved edits.</summary>
+    private async Task ShowBackupDialogAsync()
+    {
+        if (_dataDialogOpen)
+            return;
+        _dataDialogOpen = true;
+        try
+        {
+            await ViewModel.FlushAsync();
+            var dialog = new BackupDialog(App.Services.GetRequiredService<IBackupService>())
+            {
+                XamlRoot = XamlRoot,
+                RequestedTheme = ActualTheme,
+            };
+            await dialog.ShowAsync();
+            if (dialog.FinalResult is { } result)
+                ShowDataResultToast(result);
+        }
+        finally
+        {
+            _dataDialogOpen = false;
+        }
+    }
+
+    /// <summary>Restore dialog (settings panel → 数据 → 恢复). A completed restore invalidates every cached list.</summary>
+    private async Task ShowRestoreDialogAsync()
+    {
+        if (_dataDialogOpen)
+            return;
+        _dataDialogOpen = true;
+        try
+        {
+            // Flush BEFORE the restore: overwrite swaps the DB file, so an unsaved
+            // edit would otherwise be flushed into the restored database afterwards.
+            await ViewModel.FlushAsync();
+            var dialog = new RestoreDialog(App.Services.GetRequiredService<IBackupService>())
+            {
+                XamlRoot = XamlRoot,
+                RequestedTheme = ActualTheme,
+            };
+            await dialog.ShowAsync();
+            if (dialog.RestoreCompleted)
+                await ViewModel.ReloadAfterRestoreAsync();
+            if (dialog.FinalResult is { } result)
+                ShowDataResultToast(result);
+        }
+        finally
+        {
+            _dataDialogOpen = false;
+        }
+    }
+
+    /// <summary>Surface a backup/restore final outcome as a floating page-level toast.</summary>
+    private void ShowDataResultToast(OperationResult result)
+    {
+        if (result.Success)
+            ResultTip.ShowSuccess(result.Title, result.Message);
+        else
+            ResultTip.ShowError(result.Title, result.Message);
     }
 
     private void OnImageError(string message)

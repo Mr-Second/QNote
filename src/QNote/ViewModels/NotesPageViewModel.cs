@@ -184,6 +184,21 @@ public partial class NotesPageViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// After a backup restore the database changed underneath every cached list
+    /// (an overwrite restore swaps the DB file entirely): drop the loaded editor
+    /// note, clear any active search, and reload settings/categories/list from disk.
+    /// </summary>
+    public async Task ReloadAfterRestoreAsync()
+    {
+        _loaded = null;
+        IsDirty = false;
+        SelectedNote = null;
+        SetEditor(null, string.Empty, string.Empty);
+        SearchText = string.Empty;
+        await LoadAsync();
+    }
+
     // ---------- Settings application ----------
 
     /// <summary>SettingsService.Changed → re-apply display settings live (UI thread).</summary>
