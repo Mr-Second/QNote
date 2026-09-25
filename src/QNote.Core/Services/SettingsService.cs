@@ -29,6 +29,10 @@ public sealed class SettingsService : ISettingsService
         public const string NoteSortOrder = "noteSortOrder";
         public const string ConfirmBeforeDelete = "confirmBeforeDelete";
         public const string SearchSortOrder = "searchSortOrder";
+        public const string EdgeHideEnabled = "edgeHideEnabled";
+        public const string HideTaskbarIconOnEdgeHide = "hideTaskbarIconOnEdgeHide";
+        public const string EdgeHideHotkeyModifiers = "edgeHideHotkeyModifiers";
+        public const string EdgeHideHotkeyKey = "edgeHideHotkeyKey";
     }
 
     private readonly DbConnectionFactory _factory;
@@ -99,6 +103,10 @@ public sealed class SettingsService : ISettingsService
             NoteSortOrder = GetEnum(Keys.NoteSortOrder, defaults.NoteSortOrder),
             ConfirmBeforeDelete = GetBool(Keys.ConfirmBeforeDelete, defaults.ConfirmBeforeDelete),
             SearchSortOrder = GetEnum(Keys.SearchSortOrder, defaults.SearchSortOrder),
+            EdgeHideEnabled = GetBool(Keys.EdgeHideEnabled, defaults.EdgeHideEnabled),
+            HideTaskbarIconOnEdgeHide = GetBool(Keys.HideTaskbarIconOnEdgeHide, defaults.HideTaskbarIconOnEdgeHide),
+            EdgeHideHotkeyModifiers = GetInt(Keys.EdgeHideHotkeyModifiers, defaults.EdgeHideHotkeyModifiers),
+            EdgeHideHotkeyKey = GetInt(Keys.EdgeHideHotkeyKey, defaults.EdgeHideHotkeyKey),
         };
         return _cache;
 
@@ -170,5 +178,9 @@ public sealed class SettingsService : ISettingsService
         yield return (Keys.NoteSortOrder, Int((int)s.NoteSortOrder));
         yield return (Keys.ConfirmBeforeDelete, Bool(s.ConfirmBeforeDelete));
         yield return (Keys.SearchSortOrder, Int((int)s.SearchSortOrder));
+        yield return (Keys.EdgeHideEnabled, Bool(s.EdgeHideEnabled));
+        yield return (Keys.HideTaskbarIconOnEdgeHide, Bool(s.HideTaskbarIconOnEdgeHide));
+        yield return (Keys.EdgeHideHotkeyModifiers, Int(s.EdgeHideHotkeyModifiers));
+        yield return (Keys.EdgeHideHotkeyKey, Int(s.EdgeHideHotkeyKey));
     }
 }

@@ -1,3 +1,5 @@
+using QNote.EdgeHide;
+
 namespace QNote.Models;
 
 /// <summary>Which field drives the browse-mode note-list ordering.</summary>
@@ -84,4 +86,26 @@ public sealed record AppSettings
     public bool ConfirmBeforeDelete { get; init; } = true;
 
     public SearchSortOrder SearchSortOrder { get; init; } = SearchSortOrder.Relevance;
+
+    /// <summary>Top-edge auto-hide master switch (Qt parity: edgeEnabled).</summary>
+    public bool EdgeHideEnabled { get; init; }
+
+    /// <summary>
+    /// While edge-hidden, also remove the taskbar/Alt+Tab entry (Qt parity:
+    /// hideTaskbarIconOnEdgeHide). Default ON — a hidden window should not keep a
+    /// taskbar slot (user acceptance, 2026-09-25).
+    /// </summary>
+    public bool HideTaskbarIconOnEdgeHide { get; init; } = true;
+
+    /// <summary>
+    /// Edge-hide hotkey modifier mask (Win32 MOD_* bits, see <see cref="HotkeyFormat"/>;
+    /// 0 = no modifier). Default: Win.
+    /// </summary>
+    public int EdgeHideHotkeyModifiers { get; init; } = HotkeyFormat.ModWin;
+
+    /// <summary>
+    /// Edge-hide hotkey virtual-key code (0 = manual hotkey disabled).
+    /// Default: VK_OEM_3 (`).
+    /// </summary>
+    public int EdgeHideHotkeyKey { get; init; } = HotkeyFormat.VkOem3;
 }
