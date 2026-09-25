@@ -1,3 +1,4 @@
+using QNote.EdgeHide;
 using QNote.Models;
 
 namespace QNote.Tests;
@@ -27,6 +28,10 @@ public sealed class SettingsServiceTests
         Assert.Equal(NoteSortOrder.Updated, s.NoteSortOrder);
         Assert.True(s.ConfirmBeforeDelete);
         Assert.Equal(SearchSortOrder.Relevance, s.SearchSortOrder);
+        Assert.False(s.EdgeHideEnabled);
+        Assert.True(s.HideTaskbarIconOnEdgeHide); // hidden window keeps no taskbar slot by default
+        Assert.Equal(HotkeyFormat.ModWin, s.EdgeHideHotkeyModifiers);
+        Assert.Equal(HotkeyFormat.VkOem3, s.EdgeHideHotkeyKey);
     }
 
     [Fact]
@@ -50,6 +55,10 @@ public sealed class SettingsServiceTests
             NoteSortOrder = NoteSortOrder.Title,
             ConfirmBeforeDelete = false,
             SearchSortOrder = SearchSortOrder.OldestFirst,
+            EdgeHideEnabled = true,
+            HideTaskbarIconOnEdgeHide = true,
+            EdgeHideHotkeyModifiers = HotkeyFormat.ModControl | HotkeyFormat.ModShift,
+            EdgeHideHotkeyKey = 0x41, // A
         };
         await settings.SaveAsync(expected);
 
