@@ -6,7 +6,8 @@
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   xmlns:systemai="http://schemas.microsoft.com/appx/manifest/systemai/windows10"
-  IgnorableNamespaces="uap rescap systemai">
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  IgnorableNamespaces="uap rescap systemai uap5">
 
   <Identity
     Name="71E74B05-BE20-45DC-B948-E90C0A09B4F8"
@@ -43,6 +44,22 @@
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
+      <!--
+        Launch-at-startup (release-prep task). WinUI 3-proven uap5 form: NO
+        Executable/EntryPoint attributes — including them makes startup activation
+        spawn the process without bringing the app up (see research/autostart-options.md).
+        Enabled="false" = opt-in via the settings toggle; the OS StartupTask state is
+        the single source of truth (no SQLite key). The task registers after the app
+        has been launched once post-install.
+      -->
+      <Extensions>
+        <uap5:Extension Category="windows.startupTask">
+          <uap5:StartupTask
+            TaskId="QNoteStartup"
+            Enabled="false"
+            DisplayName="QNote" />
+        </uap5:Extension>
+      </Extensions>
     </Application>
   </Applications>
 

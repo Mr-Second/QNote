@@ -258,6 +258,36 @@
                                 AutomationProperties.Name="启动时最小化到托盘"
                                 IsOn="{x:Bind ViewModel.StartMinimized, Mode=TwoWay}" />
                         </Grid>
+                        <Border
+                            Margin="10,0"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0" />
+                        <Grid Padding="10,3" ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="152" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" Text="开机自启动" />
+                            <!-- Right column stacks the toggle over the hint: the OS
+                                 StartupTask state is the source of truth, so the toggle
+                                 can be refused (DisabledByUser) and must explain why. -->
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="2">
+                                <ToggleSwitch
+                                    HorizontalAlignment="Left"
+                                    AutomationProperties.AutomationId="SettingsLaunchAtStartupSwitch"
+                                    AutomationProperties.Name="开机自启动"
+                                    IsEnabled="{x:Bind ViewModel.LaunchAtStartupToggleEnabled, Mode=OneWay}"
+                                    IsOn="{x:Bind ViewModel.LaunchAtStartup, Mode=TwoWay}" />
+                                <TextBlock
+                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind ViewModel.LaunchAtStartupHint, Mode=OneWay}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
                     </StackPanel>
                 </Border>
             </StackPanel>

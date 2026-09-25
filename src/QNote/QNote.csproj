@@ -43,6 +43,22 @@
   </ItemGroup>
 
   <!--
+    Runtime crash-dump backstop (release-prep): arms the runtime's own createdump
+    path for FATAL crashes (AccessViolation, stack overflow, native WinAppSDK/COM)
+    that by design never reach managed handlers. Must live in runtimeconfig.json:
+    Environment.SetEnvironmentVariable in Main proved too late, and the config keys
+    carry NO DOTNET_ prefix here (CLRConfig names). Zero runtime cost when no crash
+    occurs. Empirical caveat (2026-09-25, this dev machine): WER preempts the
+    runtime backstop — neither AV nor FailFast produced a createdump file in any
+    configuration; WER itself captured those crashes to %LOCALAPPDATA%\CrashDumps.
+    Kept armed because it is the documented mechanism and costs nothing.
+  -->
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="DbgEnableMiniDump" Value="1" Trim="true" />
+    <RuntimeHostConfigurationOption Include="DbgMiniDumpType" Value="2" Trim="true" />
+  </ItemGroup>
+
+  <!--
     Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging
     Tools extension to be activated for this project even if the Windows App SDK Nuget
     package has not yet been restored.

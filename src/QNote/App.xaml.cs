@@ -50,6 +50,10 @@ public partial class App : Application
         Services.GetRequiredService<ILogger<App>>()
             .LogInformation("QNote starting. Data root: {Root}", paths.Root);
 
+        // Startup self-check: log the OS StartupTask state (the single source of
+        // truth for 开机自启动) — first thing to read when diagnosing startup issues.
+        _ = LogStartupTaskStateAsync(Services);
+
         // Qt parity: count-only FTS reconcile on startup - notes vs FTS row count
         // diverges (e.g. a crash mid-write, a restored backup) → background rebuild.
         _ = ReconcileSearchIndexAsync(Services);
@@ -73,12 +77,19 @@ public partial class App : Application
         // Infrastructure
         var paths = new AppPaths();
         services.AddSingleton(paths);
+        // The provider is a shared singleton so CrashHandler can read
+        // CurrentLogFilePath for its triage .txt (Qt Logger::currentLogFilePath parity).
+        var logProvider = new FileLoggerProvider(paths.LogsDir);
+        services.AddSingleton(logProvider);
         services.AddLogging(builder =>
         {
             builder.SetMinimumLevel(LogLevel.Information);
-            builder.AddProvider(new FileLoggerProvider(paths.LogsDir));
+            builder.AddProvider(logProvider);
         });
-        services.AddSingleton<CrashHandler>();
+        services.AddSingleton(sp => new CrashHandler(
+            paths,
+            sp.GetRequiredService<ILogger<CrashHandler>>(),
+            () => sp.GetRequiredService<FileLoggerProvider>().CurrentLogFilePath));
 
         // Data
         services.AddSingleton(sp => new DbConnectionFactory(sp.GetRequiredService<AppPaths>().DatabasePath));
@@ -95,12 +106,30 @@ public partial class App : Application
         services.AddSingleton<ILocalizationService, LocalizationService>();
         // Presentation-side impl of the Core abstraction (window-level Win32 hotkey).
         services.AddSingleton<IGlobalHotkey, GlobalHotkeyService>();
+        // Presentation-side impl of the Core abstraction (WinRT StartupTask — the OS
+        // state is the single source of truth for launch-at-startup).
+        services.AddSingleton<IStartupTaskService, StartupTaskService>();
 
         // ViewModels
         services.AddTransient<NotesPageViewModel>();
         services.AddTransient<SettingsViewModel>();
 
         return services.BuildServiceProvider();
+    }
+
+    private static async Task LogStartupTaskStateAsync(IServiceProvider services)
+    {
+        try
+        {
+            var state = await services.GetRequiredService<IStartupTaskService>().GetStateAsync();
+            services.GetRequiredService<ILogger<App>>()
+                .LogInformation("StartupTask state: {State}", state);
+        }
+        catch (Exception ex)
+        {
+            services.GetRequiredService<ILogger<App>>()
+                .LogWarning(ex, "StartupTask state self-check failed.");
+        }
     }
 
     /// <summary>

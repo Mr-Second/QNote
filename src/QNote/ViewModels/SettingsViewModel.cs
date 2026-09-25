@@ -17,15 +17,22 @@ public partial class SettingsViewModel : ObservableObject
 {
     private readonly ISettingsService _settings;
     private readonly IGlobalHotkey _hotkey;
+    private readonly IStartupTaskService _startup;
     private readonly ILogger<SettingsViewModel> _log;
 
     private bool _loading = true;
+    private bool _suppressStartupToggle;
     private AppSettings _snapshot = new();
 
-    public SettingsViewModel(ISettingsService settings, IGlobalHotkey hotkey, ILogger<SettingsViewModel> log)
+    public SettingsViewModel(
+        ISettingsService settings,
+        IGlobalHotkey hotkey,
+        IStartupTaskService startup,
+        ILogger<SettingsViewModel> log)
     {
         _settings = settings;
         _hotkey = hotkey;
+        _startup = startup;
         _log = log;
     }
 
@@ -61,6 +68,21 @@ public partial class SettingsViewModel : ObservableObject
     /// <summary>启动时最小化到托盘（不显示主窗口）.</summary>
     [ObservableProperty]
     public partial bool StartMinimized { get; set; }
+
+    /// <summary>
+    /// 开机自启动。Reflects the OS StartupTask state directly (single source of truth);
+    /// NOT part of the <see cref="AppSettings"/> snapshot.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool LaunchAtStartup { get; set; }
+
+    /// <summary>开机自启动开关可用性（策略锁定 / 不可用时禁用）.</summary>
+    [ObservableProperty]
+    public partial bool LaunchAtStartupToggleEnabled { get; set; } = true;
+
+    /// <summary>开机自启动提示（被系统/策略禁用时）；空串 = 无提示.</summary>
+    [ObservableProperty]
+    public partial string LaunchAtStartupHint { get; set; } = "";
 
     /// <summary>贴边自动隐藏：窗口拖到屏幕顶边后自动滑出隐藏.</summary>
     [ObservableProperty]
@@ -100,6 +122,8 @@ public partial class SettingsViewModel : ObservableObject
             ? "热键注册失败：可能已被其他程序占用，请更换按键"
             : "";
         _loading = false;
+
+        await RefreshStartupStateAsync();
     }
 
     partial void OnDensityIndexChanged(int value) => Save(_snapshot with { ListDensity = (NoteListDensity)value });
@@ -118,6 +142,79 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnRememberWindowGeometryChanged(bool value) => Save(_snapshot with { RememberWindowGeometry = value });
 
     partial void OnStartMinimizedChanged(bool value) => Save(_snapshot with { StartMinimized = value });
+
+    partial void OnLaunchAtStartupChanged(bool value)
+    {
+        if (_loading || _suppressStartupToggle)
+            return;
+        _ = ApplyStartupAsync(value);
+    }
+
+    /// <summary>
+    /// Toggle → drive the OS startup task, then reconcile the UI with the resulting
+    /// OS state (RequestEnableAsync can be refused, e.g. DisabledByUser).
+    /// </summary>
+    private async Task ApplyStartupAsync(bool enable)
+    {
+        try
+        {
+            _ = enable
+                ? await _startup.RequestEnableAsync()
+                : await _startup.DisableAsync();
+        }
+        finally
+        {
+            await RefreshStartupStateAsync();
+        }
+    }
+
+    /// <summary>Pull the OS StartupTask state into the toggle + hint (source of truth).</summary>
+    private async Task RefreshStartupStateAsync()
+    {
+        var state = await _startup.GetStateAsync();
+
+        _suppressStartupToggle = true;
+        try
+        {
+            switch (state)
+            {
+                case StartupTaskStatus.Enabled:
+                    LaunchAtStartup = true;
+                    LaunchAtStartupToggleEnabled = true;
+                    LaunchAtStartupHint = "";
+                    break;
+                case StartupTaskStatus.EnabledByPolicy:
+                    LaunchAtStartup = true;
+                    LaunchAtStartupToggleEnabled = false;
+                    LaunchAtStartupHint = "已由系统策略启用";
+                    break;
+                case StartupTaskStatus.DisabledByUser:
+                    LaunchAtStartup = false;
+                    LaunchAtStartupToggleEnabled = true;
+                    LaunchAtStartupHint = "已被系统禁用，请在任务管理器→启动应用 中重新启用";
+                    break;
+                case StartupTaskStatus.DisabledByPolicy:
+                    LaunchAtStartup = false;
+                    LaunchAtStartupToggleEnabled = false;
+                    LaunchAtStartupHint = "已被系统策略禁用";
+                    break;
+                case StartupTaskStatus.Unavailable:
+                    LaunchAtStartup = false;
+                    LaunchAtStartupToggleEnabled = false;
+                    LaunchAtStartupHint = "当前环境不支持开机自启动";
+                    break;
+                default: // Disabled
+                    LaunchAtStartup = false;
+                    LaunchAtStartupToggleEnabled = true;
+                    LaunchAtStartupHint = "";
+                    break;
+            }
+        }
+        finally
+        {
+            _suppressStartupToggle = false;
+        }
+    }
 
     partial void OnEdgeHideEnabledChanged(bool value) => Save(_snapshot with { EdgeHideEnabled = value });
 
