@@ -93,6 +93,8 @@ public partial class App : Application
         services.AddSingleton<IBackupService, BackupService>();
         services.AddSingleton<IImageService, ImageService>();
         services.AddSingleton<ILocalizationService, LocalizationService>();
+        // Presentation-side impl of the Core abstraction (window-level Win32 hotkey).
+        services.AddSingleton<IGlobalHotkey, GlobalHotkeyService>();
 
         // ViewModels
         services.AddTransient<NotesPageViewModel>();

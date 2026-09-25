@@ -2,11 +2,13 @@ using System.Runtime.InteropServices;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using QNote.Controls;
 using QNote.Models;
 using QNote.Services;
 using Windows.Graphics;
@@ -27,6 +29,8 @@ public sealed partial class MainWindow : Window
 
     private readonly ISettingsService _settings;
     private readonly DispatcherQueueTimer _geometrySaveTimer;
+    private readonly EdgeHideController _edgeHide;
+    private readonly IGlobalHotkey _hotkey;
     private AppSettings _snapshot = new();
 
     /// <summary>Tray double-click command (bound from XAML).</summary>
@@ -40,6 +44,16 @@ public sealed partial class MainWindow : Window
 
         _settings = App.Services.GetRequiredService<ISettingsService>();
         _settings.Changed += OnSettingsChanged;
+
+        // Edge-hide: view-side controller owns polling/animation; judgment is in Core.
+        _edgeHide = new EdgeHideController(this,
+            App.Services.GetRequiredService<ILogger<EdgeHideController>>());
+
+        // Global hotkey (ADR D6): subclass the HWND for WM_HOTKEY; registration
+        // happens once settings load (below) and on every change from the panel.
+        _hotkey = App.Services.GetRequiredService<IGlobalHotkey>();
+        _hotkey.Attach(WinRT.Interop.WindowNative.GetWindowHandle(this));
+        _hotkey.Pressed += OnHotkeyPressed;
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
@@ -70,6 +84,28 @@ public sealed partial class MainWindow : Window
     {
         var s = await _settings.LoadAsync();
         Apply(s, restoreGeometry: true);
+
+        // Register the persisted hotkey once at startup; later changes re-register
+        // from the settings panel. Failure (combo owned by another app) is logged
+        // by the service and surfaced in the panel — never fatal.
+        if (s.EdgeHideHotkeyKey != 0)
+            _hotkey.TryRegister(s.EdgeHideHotkeyModifiers, s.EdgeHideHotkeyKey);
+    }
+
+    /// <summary>
+    /// Hotkey pressed (WM_HOTKEY, UI thread): toggle edge-hide from any position.
+    /// A reveal also foregrounds the window — same Win32 path as the tray show.
+    /// </summary>
+    private void OnHotkeyPressed()
+    {
+        var wasHidden = _edgeHide.IsHidden;
+        _edgeHide.ToggleHide();
+        if (!wasHidden)
+            return;
+
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        ShowWindow(hwnd, SwRestore);
+        SetForegroundWindow(hwnd);
     }
 
     private void OnSettingsChanged(AppSettings s) => Apply(s, restoreGeometry: false);
@@ -87,8 +123,12 @@ public sealed partial class MainWindow : Window
         };
         ((FrameworkElement)Content).RequestedTheme = _currentTheme;
 
+        // An edge-hidden window must KEEP its forced topmost (PRD: hot-zone reveal
+        // reliability) even when a settings re-apply lands while it is off-screen.
         if (AppWindow.Presenter is OverlappedPresenter presenter)
-            presenter.IsAlwaysOnTop = s.AlwaysOnTop;
+            presenter.IsAlwaysOnTop = s.AlwaysOnTop || _edgeHide.IsHidden;
+
+        _edgeHide.ApplySettings(s);
 
         // Stored values are physical pixels (AppWindow space) — no DPI rescaling.
         if (restoreGeometry && s.RememberWindowGeometry && s.WindowX != -1 && s.WindowWidth > 0 && s.WindowHeight > 0)
@@ -101,6 +141,9 @@ public sealed partial class MainWindow : Window
             return;
         if (!args.DidPositionChange && !args.DidSizeChange)
             return;
+        // ADR D3: edge-hidden / animating positions are never persisted as user geometry.
+        if (_edgeHide.SuppressGeometryPersistence)
+            return;
 
         _geometrySaveTimer.Stop();
         _geometrySaveTimer.Start();
@@ -109,6 +152,15 @@ public sealed partial class MainWindow : Window
     private void OnGeometrySaveTick(DispatcherQueueTimer sender, object args)
     {
         _geometrySaveTimer.Stop();
+
+        // The debounce may fire after a hide started (armed before the slide) — re-check.
+        if (_edgeHide.SuppressGeometryPersistence)
+            return;
+
+        // A minimized window reports (-32000,-32000) — never persist that as the
+        // user's geometry, or the next launch restores the window off-screen.
+        if (AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized })
+            return;
 
         var pos = AppWindow.Position;
         var size = AppWindow.Size;
@@ -183,6 +235,10 @@ public sealed partial class MainWindow : Window
 
     private void ShowFromTray()
     {
+        // An edge-hidden window slides back first (ADR D5); SW_RESTORE alone would
+        // foreground it at its off-screen position.
+        _edgeHide.RevealFromTray();
+
         // Win32 path (same as H.NotifyIcon's own WindowUtilities): AppWindow.Show
         // + Window.Activate silently no-op on a hidden window. SW_RESTORE covers
         // all three states: hidden, minimized, visible-but-background.

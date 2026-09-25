@@ -163,6 +163,76 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" Text="贴边自动隐藏" />
+                            <ToggleSwitch
+                                Grid.Column="1"
+                                HorizontalAlignment="Left"
+                                AutomationProperties.AutomationId="SettingsEdgeHideSwitch"
+                                AutomationProperties.Name="贴边自动隐藏"
+                                IsOn="{x:Bind ViewModel.EdgeHideEnabled, Mode=TwoWay}" />
+                        </Grid>
+                        <Border
+                            Margin="10,0"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0" />
+                        <Grid Padding="10,3" ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="152" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" Text="贴边隐藏时隐藏任务栏图标" />
+                            <ToggleSwitch
+                                Grid.Column="1"
+                                HorizontalAlignment="Left"
+                                AutomationProperties.AutomationId="SettingsEdgeHideTaskbarSwitch"
+                                AutomationProperties.Name="贴边隐藏时隐藏任务栏图标"
+                                IsEnabled="{x:Bind ViewModel.EdgeHideEnabled, Mode=OneWay}"
+                                IsOn="{x:Bind ViewModel.HideTaskbarIconOnEdgeHide, Mode=TwoWay}" />
+                        </Grid>
+                        <Border
+                            Margin="10,0"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0" />
+                        <Grid Padding="10,3" ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="152" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" Text="隐藏/显示快捷键" />
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="2">
+                                <Button
+                                    x:Name="HotkeyButton"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    AutomationProperties.AutomationId="SettingsHotkeyButton"
+                                    AutomationProperties.Name="隐藏/显示快捷键"
+                                    Click="Hotkey_Click"
+                                    PreviewKeyDown="Hotkey_PreviewKeyDown"
+                                    ToolTipService.ToolTip="点击后按下新快捷键；Esc 取消，Backspace 清空">
+                                    <TextBlock
+                                        HorizontalTextAlignment="Center"
+                                        Text="{x:Bind ViewModel.HotkeyDisplay, Mode=OneWay}"
+                                        TextWrapping="Wrap" />
+                                </Button>
+                                <TextBlock
+                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind ViewModel.HotkeyError, Mode=OneWay}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                        <Border
+                            Margin="10,0"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0" />
+                        <Grid Padding="10,3" ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="152" />
+                            </Grid.ColumnDefinitions>
                             <TextBlock VerticalAlignment="Center" Text="记住窗口位置和大小" />
                             <ToggleSwitch
                                 Grid.Column="1"

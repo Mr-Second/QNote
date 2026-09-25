@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.Logging;
+using QNote.EdgeHide;
 using QNote.Models;
 using QNote.Services;
 
@@ -15,14 +16,16 @@ namespace QNote.ViewModels;
 public partial class SettingsViewModel : ObservableObject
 {
     private readonly ISettingsService _settings;
+    private readonly IGlobalHotkey _hotkey;
     private readonly ILogger<SettingsViewModel> _log;
 
     private bool _loading = true;
     private AppSettings _snapshot = new();
 
-    public SettingsViewModel(ISettingsService settings, ILogger<SettingsViewModel> log)
+    public SettingsViewModel(ISettingsService settings, IGlobalHotkey hotkey, ILogger<SettingsViewModel> log)
     {
         _settings = settings;
+        _hotkey = hotkey;
         _log = log;
     }
 
@@ -59,6 +62,22 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial bool StartMinimized { get; set; }
 
+    /// <summary>贴边自动隐藏：窗口拖到屏幕顶边后自动滑出隐藏.</summary>
+    [ObservableProperty]
+    public partial bool EdgeHideEnabled { get; set; }
+
+    /// <summary>贴边隐藏时同时隐藏任务栏图标.</summary>
+    [ObservableProperty]
+    public partial bool HideTaskbarIconOnEdgeHide { get; set; }
+
+    /// <summary>当前热键显示文本（如 "Win + `"）；录入态显示提示语.</summary>
+    [ObservableProperty]
+    public partial string HotkeyDisplay { get; set; } = "";
+
+    /// <summary>热键注册失败 / 录入校验提示；空串 = 无错误.</summary>
+    [ObservableProperty]
+    public partial string HotkeyError { get; set; } = "";
+
     /// <summary>Called by the view before showing the panel.</summary>
     public async Task InitializeAsync()
     {
@@ -73,6 +92,13 @@ public partial class SettingsViewModel : ObservableObject
         AlwaysOnTop = _snapshot.AlwaysOnTop;
         RememberWindowGeometry = _snapshot.RememberWindowGeometry;
         StartMinimized = _snapshot.StartMinimized;
+        EdgeHideEnabled = _snapshot.EdgeHideEnabled;
+        HideTaskbarIconOnEdgeHide = _snapshot.HideTaskbarIconOnEdgeHide;
+        UpdateHotkeyDisplay();
+        // Startup registration may already have failed (combo owned by another app).
+        HotkeyError = _snapshot.EdgeHideHotkeyKey != 0 && !_hotkey.IsRegistered
+            ? "热键注册失败：可能已被其他程序占用，请更换按键"
+            : "";
         _loading = false;
     }
 
@@ -92,6 +118,38 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnRememberWindowGeometryChanged(bool value) => Save(_snapshot with { RememberWindowGeometry = value });
 
     partial void OnStartMinimizedChanged(bool value) => Save(_snapshot with { StartMinimized = value });
+
+    partial void OnEdgeHideEnabledChanged(bool value) => Save(_snapshot with { EdgeHideEnabled = value });
+
+    partial void OnHideTaskbarIconOnEdgeHideChanged(bool value) => Save(_snapshot with { HideTaskbarIconOnEdgeHide = value });
+
+    // ---------- 热键录入（view calls these; capture mechanics live in the view） ----------
+
+    /// <summary>进入录入态：按钮显示提示语.</summary>
+    public void BeginHotkeyCapture() => HotkeyDisplay = "按下快捷键…";
+
+    /// <summary>Esc 取消：恢复显示当前热键.</summary>
+    public void CancelHotkeyCapture() => UpdateHotkeyDisplay();
+
+    /// <summary>
+    /// 录入完成：持久化并重新注册（先注销旧键）；注册失败时提示但不回滚设置、不崩应用。
+    /// </summary>
+    public void CommitHotkey(int modifiers, int virtualKey)
+    {
+        Save(_snapshot with { EdgeHideHotkeyModifiers = modifiers, EdgeHideHotkeyKey = virtualKey });
+        UpdateHotkeyDisplay();
+        HotkeyError = _hotkey.TryRegister(modifiers, virtualKey)
+            ? ""
+            : "热键注册失败：可能已被其他程序占用，请更换按键";
+    }
+
+    /// <summary>清空 = 禁用手动热键（Backspace/Delete 录入）.</summary>
+    public void ClearHotkey() => CommitHotkey(0, 0);
+
+    private void UpdateHotkeyDisplay() =>
+        HotkeyDisplay = _snapshot.EdgeHideHotkeyKey == 0
+            ? "未设置"
+            : HotkeyFormat.ToDisplay(_snapshot.EdgeHideHotkeyModifiers, _snapshot.EdgeHideHotkeyKey);
 
     private void Save(AppSettings next)
     {
