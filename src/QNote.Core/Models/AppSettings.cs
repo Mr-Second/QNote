@@ -61,7 +61,9 @@ public sealed record AppSettings
 
     public bool AlwaysOnTop { get; init; }
 
-    public bool LaunchAtStartup { get; init; }
+    // NOTE: launch-at-startup is deliberately NOT here — the OS StartupTask state is
+    // the single source of truth (see IStartupTaskService). A stale "launchAtStartup"
+    // row in an old DB is harmless (k/v table, ignored on load).
 
     public bool RememberWindowGeometry { get; init; }
 

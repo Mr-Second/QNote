@@ -17,7 +17,6 @@ public sealed class SettingsService : ISettingsService
     {
         public const string ThemeMode = "themeMode";
         public const string AlwaysOnTop = "alwaysOnTop";
-        public const string LaunchAtStartup = "launchAtStartup";
         public const string RememberWindowGeometry = "rememberWindowGeometry";
         public const string StartMinimized = "startMinimized";
         public const string WindowX = "windowX";
@@ -91,7 +90,6 @@ public sealed class SettingsService : ISettingsService
         {
             ThemeMode = Get(Keys.ThemeMode) ?? defaults.ThemeMode,
             AlwaysOnTop = GetBool(Keys.AlwaysOnTop, defaults.AlwaysOnTop),
-            LaunchAtStartup = GetBool(Keys.LaunchAtStartup, defaults.LaunchAtStartup),
             RememberWindowGeometry = GetBool(Keys.RememberWindowGeometry, defaults.RememberWindowGeometry),
             StartMinimized = GetBool(Keys.StartMinimized, defaults.StartMinimized),
             WindowX = GetInt(Keys.WindowX, defaults.WindowX),
@@ -166,7 +164,6 @@ public sealed class SettingsService : ISettingsService
 
         yield return (Keys.ThemeMode, s.ThemeMode);
         yield return (Keys.AlwaysOnTop, Bool(s.AlwaysOnTop));
-        yield return (Keys.LaunchAtStartup, Bool(s.LaunchAtStartup));
         yield return (Keys.RememberWindowGeometry, Bool(s.RememberWindowGeometry));
         yield return (Keys.StartMinimized, Bool(s.StartMinimized));
         yield return (Keys.WindowX, Int(s.WindowX));
