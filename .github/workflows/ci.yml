@@ -1,0 +1,44 @@
+# CI — build + test on every push to main and every PR.
+#
+# Plain `dotnet build` works fine on GitHub runners; the MSB4018 issue from the
+# local packaging notes only hits the MSIX *packaging* pipeline (handled by
+# release.yml with full-framework MSBuild), never a plain build.
+#
+# Do NOT pass -p:Platform=x64 at the solution level: QNote.slnx has no x64
+# solution configuration (Core/Tests are AnyCPU-only) and MSBuild errors MSB4126.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: NuGet cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Build
+        run: dotnet build QNote.slnx -c Release --nologo
+
+      # No --no-build: the test project was already built by the solution build
+      # above, but letting `dotnet test` resolve its own build state is the
+      # safe path (incremental, cheap).
+      - name: Test
+        run: dotnet test tests/QNote.Tests/QNote.Tests.csproj -c Release --nologo
