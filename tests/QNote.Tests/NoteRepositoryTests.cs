@@ -32,6 +32,21 @@ public sealed class NoteRepositoryTests
     }
 
     [Fact]
+    public async Task GetSummariesAsync_StripsImagePlaceholder_FromPreview()
+    {
+        using var db = new TestDatabase();
+        var repo = db.NewRepository();
+
+        // U+FFFC is the RichEdit image placeholder embedded in PlainText — it must
+        // not leak into the list preview (renders as "obj" boxes).
+        await repo.CreateAsync(NewNote(title: "", content: "rtf", plainText: "文字￼混排"));
+
+        var summaries = await repo.GetSummariesAsync();
+
+        Assert.Equal("文字混排", summaries[0].Preview);
+    }
+
+    [Fact]
     public async Task GetSummariesAsync_TruncatesPreview_AndOrdersByUpdatedAtDesc()
     {
         using var db = new TestDatabase();

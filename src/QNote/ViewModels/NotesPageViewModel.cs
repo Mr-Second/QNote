@@ -362,8 +362,19 @@ public partial class NotesPageViewModel : ObservableObject
                 if (!IsSearching)
                 {
                     // Bumped UpdatedAt may change the item's rank under any sort mode.
-                    Notes.Remove(item);
-                    InsertSorted(item);
+                    // Move (not Remove+Insert): Remove would drop the ListView selection
+                    // asynchronously and the selection chain then "closes" the editor —
+                    // Move keeps the item in the collection, so selection (and the
+                    // editor) survive the reorder.
+                    var oldIndex = Notes.IndexOf(item);
+                    var target = 0;
+                    for (var i = 0; i < Notes.Count; i++)
+                    {
+                        if (i != oldIndex && CompareItems(Notes[i], item) <= 0)
+                            target++;
+                    }
+                    if (oldIndex >= 0 && target != oldIndex)
+                        Notes.Move(oldIndex, target);
                 }
             }
         }
@@ -685,7 +696,10 @@ public partial class NotesPageViewModel : ObservableObject
 
     private static string MakePreview(string plainText)
     {
-        var oneLine = plainText.ReplaceLineEndings(" ").Trim();
+        // U+FFFC is the RichEdit image placeholder — it renders as "obj" boxes in
+        // the list preview. Previews are text-only; drop non-content characters.
+        var textOnly = plainText.Replace("￼", string.Empty);
+        var oneLine = textOnly.ReplaceLineEndings(" ").Trim();
         return oneLine.Length <= PreviewLength ? oneLine : oneLine[..PreviewLength];
     }
 }

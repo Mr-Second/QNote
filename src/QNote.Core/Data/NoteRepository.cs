@@ -62,7 +62,9 @@ public sealed class NoteRepository : INoteRepository
                 Id = reader.GetInt64(0),
                 Uuid = reader.GetString(1),
                 Title = reader.GetString(2),
-                Preview = reader.GetString(3),
+                // U+FFFC (RichEdit image placeholder) renders as "obj" boxes in the
+                // list — previews are text-only, strip it at projection time.
+                Preview = reader.GetString(3).Replace("￼", string.Empty),
                 Category = reader.GetString(4),
                 CreatedAt = ParseUtc(reader.GetString(5)),
                 UpdatedAt = ParseUtc(reader.GetString(6)),
