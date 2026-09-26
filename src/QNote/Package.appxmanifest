@@ -71,6 +71,10 @@
 
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
-    <systemai:Capability Name="systemAIModels"/>
+    <!--
+      systemAIModels removed (2026-09): unused template leftover. Every declared
+      restricted capability needs its own justification in Store review, and the
+      app uses no system AI models.
+    -->
   </Capabilities>
 </Package>
