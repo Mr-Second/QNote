@@ -10,7 +10,12 @@ implementation, with one north star: **low memory footprint**. It idles at
 roughly **45–50 MB** of RAM where the Qt build consumed ~250 MB — lean enough
 to keep running all day without thinking about it.
 
-<!-- TODO: screenshots -->
+## Screenshots
+
+| | |
+|---|---|
+| ![Main view — categories, note list and rich-text editor](docs/screenshots/1-main.png) | ![Instant full-text search with keyword highlighting](docs/screenshots/2-search.png) |
+| ![Settings panel](docs/screenshots/3-settings.png) | ![Rich-text notes](docs/screenshots/4-richtext.png) |
 
 ## Features
 
