@@ -89,6 +89,9 @@ public sealed record AppSettings
 
     public SearchSortOrder SearchSortOrder { get; init; } = SearchSortOrder.Relevance;
 
+    /// <summary>Idle debounce after which a dirty note auto-saves (milliseconds); 0 = off.</summary>
+    public int AutoSaveMilliseconds { get; init; }
+
     /// <summary>Top-edge auto-hide master switch (Qt parity: edgeEnabled).</summary>
     public bool EdgeHideEnabled { get; init; }
 

@@ -53,6 +53,12 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial bool ConfirmBeforeDelete { get; set; } = true;
 
+    /// <summary>Auto-save interval choice: 0=关闭, then 0.5s / 1s / 2s / 5s / 10s / 30s.</summary>
+    [ObservableProperty]
+    public partial int AutoSaveIndex { get; set; }
+
+    private static readonly int[] AutoSaveOptions = { 0, 500, 1000, 2000, 5000, 10000, 30000 };
+
     // ---------- 常规 ----------
 
     /// <summary>主题: 0 跟随系统 / 1 浅色 / 2 深色.</summary>
@@ -110,6 +116,7 @@ public partial class SettingsViewModel : ObservableObject
         TimeFormatIndex = (int)_snapshot.TimeFormat;
         SortIndex = (int)_snapshot.NoteSortOrder;
         ConfirmBeforeDelete = _snapshot.ConfirmBeforeDelete;
+        AutoSaveIndex = Math.Max(0, Array.IndexOf(AutoSaveOptions, _snapshot.AutoSaveMilliseconds));
         ThemeIndex = _snapshot.ThemeMode switch { "light" => 1, "dark" => 2, _ => 0 };
         AlwaysOnTop = _snapshot.AlwaysOnTop;
         RememberWindowGeometry = _snapshot.RememberWindowGeometry;
@@ -133,6 +140,9 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnSortIndexChanged(int value) => Save(_snapshot with { NoteSortOrder = (NoteSortOrder)value });
 
     partial void OnConfirmBeforeDeleteChanged(bool value) => Save(_snapshot with { ConfirmBeforeDelete = value });
+
+    partial void OnAutoSaveIndexChanged(int value) =>
+        Save(_snapshot with { AutoSaveMilliseconds = AutoSaveOptions[Math.Clamp(value, 0, AutoSaveOptions.Length - 1)] });
 
     partial void OnThemeIndexChanged(int value) =>
         Save(_snapshot with { ThemeMode = value switch { 1 => "light", 2 => "dark", _ => "system" } });

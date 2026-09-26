@@ -166,6 +166,9 @@ public partial class NotesPageViewModel : ObservableObject
     /// <summary>Marks the note dirty — called by the view on editor text changes.</summary>
     public void NotifyContentEdited() => IsDirty = true;
 
+    /// <summary>Current auto-save debounce (milliseconds); 0 = off. Live via settings Changed.</summary>
+    public int AutoSaveMilliseconds => _settingsSnapshot.AutoSaveMilliseconds;
+
     /// <summary>Initial load of categories + the summary list (called from the page's Loaded event).</summary>
     public async Task LoadAsync()
     {

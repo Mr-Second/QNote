@@ -146,6 +146,31 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" Text="自动保存" />
+                            <ComboBox
+                                Grid.Column="1"
+                                HorizontalAlignment="Stretch"
+                                AutomationProperties.AutomationId="SettingsAutoSaveBox"
+                                AutomationProperties.Name="自动保存"
+                                SelectedIndex="{x:Bind ViewModel.AutoSaveIndex, Mode=TwoWay}">
+                                <x:String>关闭</x:String>
+                                <x:String>500 毫秒</x:String>
+                                <x:String>1 秒</x:String>
+                                <x:String>2 秒</x:String>
+                                <x:String>5 秒</x:String>
+                                <x:String>10 秒</x:String>
+                                <x:String>30 秒</x:String>
+                            </ComboBox>
+                        </Grid>
+                        <Border
+                            Margin="10,0"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0" />
+                        <Grid Padding="10,3" ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="152" />
+                            </Grid.ColumnDefinitions>
                             <TextBlock VerticalAlignment="Center" Text="窗口置顶" />
                             <ToggleSwitch
                                 Grid.Column="1"

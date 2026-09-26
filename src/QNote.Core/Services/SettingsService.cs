@@ -28,6 +28,7 @@ public sealed class SettingsService : ISettingsService
         public const string NoteSortOrder = "noteSortOrder";
         public const string ConfirmBeforeDelete = "confirmBeforeDelete";
         public const string SearchSortOrder = "searchSortOrder";
+        public const string AutoSaveMilliseconds = "autoSaveMilliseconds";
         public const string EdgeHideEnabled = "edgeHideEnabled";
         public const string HideTaskbarIconOnEdgeHide = "hideTaskbarIconOnEdgeHide";
         public const string EdgeHideHotkeyModifiers = "edgeHideHotkeyModifiers";
@@ -101,6 +102,7 @@ public sealed class SettingsService : ISettingsService
             NoteSortOrder = GetEnum(Keys.NoteSortOrder, defaults.NoteSortOrder),
             ConfirmBeforeDelete = GetBool(Keys.ConfirmBeforeDelete, defaults.ConfirmBeforeDelete),
             SearchSortOrder = GetEnum(Keys.SearchSortOrder, defaults.SearchSortOrder),
+            AutoSaveMilliseconds = GetInt(Keys.AutoSaveMilliseconds, defaults.AutoSaveMilliseconds),
             EdgeHideEnabled = GetBool(Keys.EdgeHideEnabled, defaults.EdgeHideEnabled),
             HideTaskbarIconOnEdgeHide = GetBool(Keys.HideTaskbarIconOnEdgeHide, defaults.HideTaskbarIconOnEdgeHide),
             EdgeHideHotkeyModifiers = GetInt(Keys.EdgeHideHotkeyModifiers, defaults.EdgeHideHotkeyModifiers),
@@ -175,6 +177,7 @@ public sealed class SettingsService : ISettingsService
         yield return (Keys.NoteSortOrder, Int((int)s.NoteSortOrder));
         yield return (Keys.ConfirmBeforeDelete, Bool(s.ConfirmBeforeDelete));
         yield return (Keys.SearchSortOrder, Int((int)s.SearchSortOrder));
+        yield return (Keys.AutoSaveMilliseconds, Int(s.AutoSaveMilliseconds));
         yield return (Keys.EdgeHideEnabled, Bool(s.EdgeHideEnabled));
         yield return (Keys.HideTaskbarIconOnEdgeHide, Bool(s.HideTaskbarIconOnEdgeHide));
         yield return (Keys.EdgeHideHotkeyModifiers, Int(s.EdgeHideHotkeyModifiers));
