@@ -22,31 +22,8 @@
         <Setter Property="CornerRadius" Value="8" />
     </Style>
 
-    <!-- Compact editor-toolbar app-bar buttons (CommandBar in NotesPage). The stock
-         AppBar(Toggle)Button chrome (~40px tall, loose padding) reads bulky next to
-         the editor; these setters shrink it back to the old ~26px toolbar look.
-         The bar/glyph/inner-margin metrics they rely on (AppBarThemeCompactHeight,
-         AppBarButtonContentHeight, AppBarButtonInnerBorderCompactMargin) are
-         overridden in the CommandBar's own Resources (Resources cannot ride a
-         Style setter). -->
-    <Style x:Key="EditorToolbarAppBarToggleButtonStyle" TargetType="AppBarToggleButton">
-        <Setter Property="Width" Value="NaN" />
-        <Setter Property="MinWidth" Value="0" />
-        <Setter Property="MinHeight" Value="0" />
-        <Setter Property="Height" Value="26" />
-        <Setter Property="Margin" Value="1,0" />
-        <Setter Property="Padding" Value="4,0" />
-        <Setter Property="VerticalAlignment" Value="Center" />
-    </Style>
-    <Style x:Key="EditorToolbarAppBarButtonStyle" TargetType="AppBarButton">
-        <Setter Property="Width" Value="NaN" />
-        <Setter Property="MinWidth" Value="0" />
-        <Setter Property="MinHeight" Value="0" />
-        <Setter Property="Height" Value="26" />
-        <Setter Property="Margin" Value="1,0" />
-        <Setter Property="Padding" Value="4,0" />
-        <Setter Property="VerticalAlignment" Value="Center" />
-    </Style>
+    <!-- Editor-toolbar AppBar button styles moved to Themes/EditorToolbar.xaml
+         (custom template — icon centered by construction). -->
 
     <!-- New-note button (Qt parity: soft accent tint circle, "+" in accent, never
          a solid accent fill in any state). PointerOver/Pressed theme-resource

@@ -25,7 +25,6 @@ namespace QNote.Views;
 public sealed partial class NotesPage : Page
 {
     private readonly RichTextEditorController _editor;
-    private bool _syncingToolbar;
     private bool _settingsOpen;
     private bool _dialogOpen;
     private bool _dataDialogOpen;
@@ -54,11 +53,21 @@ public sealed partial class NotesPage : Page
         ViewModel.SearchCompleted += OnSearchCompleted;
         ViewModel.SearchCleared += OnSearchCleared;
         _editor.ContentChanged += OnEditorContentChanged;
-        _editor.SelectionChanged += UpdateToolbarState;
+        _editor.SelectionChanged += OnEditorSelectionChanged;
 
-        FontFamilyBox.ItemsSource = FontCatalog.Families;
-        FontSizeBox.ItemsSource = FontCatalog.SizesPx;
-        ColorGrid.ItemsSource = ColorPalette.Colors;
+        // Populate the context menu's font family / size submenus from the catalog.
+        foreach (var font in FontCatalog.Families)
+        {
+            var item = new MenuFlyoutItem { Text = font.Display, Tag = font.Family };
+            item.Click += FontFamilyMenuItem_Click;
+            FontFamilySubMenu.Items.Add(item);
+        }
+        foreach (var px in FontCatalog.SizesPx)
+        {
+            var item = new MenuFlyoutItem { Text = px.ToString(), Tag = px };
+            item.Click += FontSizeMenuItem_Click;
+            FontSizeSubMenu.Items.Add(item);
+        }
 
         Loaded += OnLoaded;
     }
@@ -101,7 +110,18 @@ public sealed partial class NotesPage : Page
     {
         try
         {
-            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            // Packaged AppData is VIRTUALIZED: the app's %APPDATA% path is an alias
+            // into Packages\...\LocalCache, but external viewers resolve the alias to
+            // the UNvirtualized location — where the file does not exist ("File not
+            // found"). Hand the viewer a plain temp copy instead.
+            var viewerDir = Path.Combine(Path.GetTempPath(), "QNote", "viewer");
+            Directory.CreateDirectory(viewerDir);
+            var copy = Path.Combine(viewerDir, Path.GetFileName(path));
+            // Image originals are content-addressed (SHA-256 filename) — an existing
+            // temp file with the same name IS the same content, so copy at most once.
+            if (!File.Exists(copy))
+                File.Copy(path, copy);
+            Process.Start(new ProcessStartInfo(copy) { UseShellExecute = true });
         }
         catch (Exception ex)
         {
@@ -161,13 +181,53 @@ public sealed partial class NotesPage : Page
     {
         _editor.SetRtf(ViewModel.EditingContentRtf);
         UpdatePlaceholder();
-        UpdateToolbarState();
+        UpdateEditorStatus();
     }
 
     private void OnEditorContentChanged()
     {
         ViewModel.NotifyContentEdited();
         UpdatePlaceholder();
+        UpdateEditorStatus();
+        ScheduleAutoSave();
+    }
+
+    // Auto-save: idle debounce after the last edit (interval comes from the 自动保存
+    // setting, live via the settings-changed chain). A no-op while dirty is false.
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _autoSaveTimer;
+
+    private void ScheduleAutoSave()
+    {
+        var ms = ViewModel.AutoSaveMilliseconds;
+        if (ms <= 0)
+        {
+            _autoSaveTimer?.Stop();
+            return;
+        }
+        if (_autoSaveTimer is null)
+        {
+            _autoSaveTimer = App.DispatcherQueue.CreateTimer();
+            _autoSaveTimer.IsRepeating = false;
+            _autoSaveTimer.Tick += async (_, _) =>
+            {
+                if (ViewModel.SaveCommand.CanExecute(null))
+                    await ViewModel.SaveCommand.ExecuteAsync(null);
+            };
+        }
+        _autoSaveTimer.Interval = TimeSpan.FromMilliseconds(ms);
+        _autoSaveTimer.Stop();
+        _autoSaveTimer.Start();
+    }
+
+    private void OnEditorSelectionChanged() => UpdateEditorStatus();
+
+    // Notepads-style status bar: char count (image placeholders excluded) + last edited.
+    private void UpdateEditorStatus()
+    {
+        var text = _editor.GetPlainText();
+        int count = text.Count(c => !char.IsWhiteSpace(c) && c != '￼');
+        CharCountText.Text = $"{count} 字";
+        EditedTimeText.Text = ViewModel.SelectedNote is { } note ? $"编辑于 {note.TimeDisplay}" : string.Empty;
     }
 
     private void UpdatePlaceholder() =>
@@ -462,151 +522,77 @@ public sealed partial class NotesPage : Page
         }
     }
 
-    // ---------- Toolbar ----------
+    // ---------- Formatting (editor context flyout — the toolbar was deleted) ----------
 
-    private void BoldButton_Click(object sender, RoutedEventArgs e) => ApplyFormat(_editor.ToggleBold);
+    private void CutMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        ContentEditor.Document.Selection.Cut();
+        _editor.Focus();
+    }
 
-    private void ItalicButton_Click(object sender, RoutedEventArgs e) => ApplyFormat(_editor.ToggleItalic);
+    private void CopyMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        ContentEditor.Document.Selection.Copy();
+        _editor.Focus();
+    }
 
-    private void UnderlineButton_Click(object sender, RoutedEventArgs e) => ApplyFormat(_editor.ToggleUnderline);
+    private void PasteMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        ContentEditor.Document.Selection.Paste(0);
+        _editor.Focus();
+    }
 
-    private void StrikethroughButton_Click(object sender, RoutedEventArgs e) => ApplyFormat(_editor.ToggleStrikethrough);
+    private void BoldMenuItem_Click(object sender, RoutedEventArgs e) => ApplyFormat(_editor.ToggleBold);
 
-    private void AlignLeftButton_Click(object sender, RoutedEventArgs e) =>
+    private void ItalicMenuItem_Click(object sender, RoutedEventArgs e) => ApplyFormat(_editor.ToggleItalic);
+
+    private void UnderlineMenuItem_Click(object sender, RoutedEventArgs e) => ApplyFormat(_editor.ToggleUnderline);
+
+    private void StrikethroughMenuItem_Click(object sender, RoutedEventArgs e) => ApplyFormat(_editor.ToggleStrikethrough);
+
+    private void AlignLeftMenuItem_Click(object sender, RoutedEventArgs e) =>
         ApplyFormat(() => _editor.SetAlignment(ParagraphAlignment.Left));
 
-    private void AlignCenterButton_Click(object sender, RoutedEventArgs e) =>
+    private void AlignCenterMenuItem_Click(object sender, RoutedEventArgs e) =>
         ApplyFormat(() => _editor.SetAlignment(ParagraphAlignment.Center));
 
-    private void AlignRightButton_Click(object sender, RoutedEventArgs e) =>
+    private void AlignRightMenuItem_Click(object sender, RoutedEventArgs e) =>
         ApplyFormat(() => _editor.SetAlignment(ParagraphAlignment.Right));
 
-    private void BulletListButton_Click(object sender, RoutedEventArgs e) =>
+    private void BulletListMenuItem_Click(object sender, RoutedEventArgs e) =>
         ApplyFormat(() => _editor.ToggleList(MarkerType.Bullet));
 
-    private void NumberListButton_Click(object sender, RoutedEventArgs e) =>
+    private void NumberListMenuItem_Click(object sender, RoutedEventArgs e) =>
         ApplyFormat(() => _editor.ToggleList(MarkerType.Arabic)); // decimal 1. 2. 3.
 
-    private void FontFamilyBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void InsertImageMenuItem_Click(object sender, RoutedEventArgs e) => InsertImageButton_Click(sender, e);
+
+    private void FontFamilyMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncingToolbar || FontFamilyBox.SelectedItem is not FontOption font)
-            return;
-        ApplyFormat(() => _editor.SetFontFamily(font.Family));
+        if (sender is MenuFlyoutItem { Tag: string family })
+            ApplyFormat(() => _editor.SetFontFamily(family));
     }
 
-    private void FontSizeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void FontSizeMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncingToolbar || FontSizeBox.SelectedItem is not int px)
-            return;
-        ApplyFormat(() => _editor.SetFontSizePx(px));
+        if (sender is MenuFlyoutItem { Tag: int px })
+            ApplyFormat(() => _editor.SetFontSizePx(px));
     }
 
-    private void ColorGrid_ItemClick(object sender, ItemClickEventArgs e)
+    // 文字颜色 → native ColorPicker in a flyout (initialized from the current selection).
+    private void ColorMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        if (e.ClickedItem is not PaletteColor color)
-            return;
-        ColorButton.Flyout.Hide();
-        ApplyFormat(() => _editor.SetForegroundColor(color.Color));
+        if (_editor.GetSelectionState().ForegroundColor is { } color && color.A >= 128)
+            NativeColorPicker.Color = color;
+        ColorFlyout.ShowAt(ContentEditor);
     }
+
+    private void NativeColorPicker_ColorChanged(ColorPicker sender, ColorChangedEventArgs args) =>
+        _editor.SetForegroundColor(args.NewColor);
 
     private void ApplyFormat(Action apply)
     {
         apply();
-        UpdateToolbarState();
-        _editor.Focus(); // keep typing in the editor after a toolbar click
-    }
-
-    // Current selection's format → toolbar highlight / dropdown selection.
-    private void UpdateToolbarState()
-    {
-        if (_syncingToolbar)
-            return;
-
-        _syncingToolbar = true;
-        try
-        {
-            var s = _editor.GetSelectionState();
-
-            BoldButton.IsChecked = s.Bold;
-            ItalicButton.IsChecked = s.Italic;
-            UnderlineButton.IsChecked = s.Underline;
-            StrikethroughButton.IsChecked = s.Strikethrough;
-            BulletListButton.IsChecked = s.BulletedList;
-            NumberListButton.IsChecked = s.NumberedList;
-
-            AlignLeftButton.IsChecked = s.Alignment == ParagraphAlignment.Left;
-            AlignCenterButton.IsChecked = s.Alignment == ParagraphAlignment.Center;
-            AlignRightButton.IsChecked = s.Alignment == ParagraphAlignment.Right;
-
-            FontFamilyBox.SelectedItem = s.FontFamily is null
-                ? null
-                : FontCatalog.Families.FirstOrDefault(f => string.Equals(f.Family, s.FontFamily, StringComparison.OrdinalIgnoreCase));
-            FontSizeBox.SelectedItem = s.FontSizePx is int px && FontCatalog.SizesPx.Contains(px) ? px : null;
-
-            if (s.ForegroundColor is { } color)
-                ColorButtonIcon.Foreground = new SolidColorBrush(color);
-        }
-        finally
-        {
-            _syncingToolbar = false; // a throw must not permanently freeze toolbar sync
-        }
-    }
-
-    // The stock CommandBar template star-sizes the (empty) content column and lets
-    // the Auto-sized command column (buttons + "...") hug the RIGHT edge. Collapse
-    // the content column — the sibling of the PrimaryItemsControl inside its
-    // parent grid — so the command cluster hugs the LEFT instead. Arrange-only
-    // change: the items control keeps its own column/sizing, so the dynamic-
-    // overflow measurement is unaffected. Runs on SizeChanged, not Loaded: the
-    // editor grid starts Collapsed (no note selected), so the bar's template is
-    // only applied when it first shows. Retries until the template exists.
-    private bool _formatBarAligned;
-
-    private void FormatBar_SizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        if (_formatBarAligned)
-            return;
-
-        ItemsControl? primaryItems = null;
-        var queue = new Queue<DependencyObject>();
-        queue.Enqueue(FormatBar);
-        while (queue.Count > 0 && primaryItems is null)
-        {
-            var d = queue.Dequeue();
-            if (d is ItemsControl { Name: "PrimaryItemsControl" } items)
-            {
-                primaryItems = items;
-                break;
-            }
-            int count = VisualTreeHelper.GetChildrenCount(d);
-            for (int i = 0; i < count; i++)
-                queue.Enqueue(VisualTreeHelper.GetChild(d, i));
-        }
-
-        if (primaryItems is null ||
-            VisualTreeHelper.GetParent(primaryItems) is not Grid { ColumnDefinitions.Count: >= 2 } parentGrid)
-        {
-            App.Services.GetService<ILogger<NotesPage>>()
-                ?.LogWarning("FormatBar left-align fix: PrimaryItemsControl not found yet");
-            return; // template not applied yet — the next SizeChanged retries
-        }
-
-        // Zero the star-sized sibling content column so the cluster starts at the
-        // left edge; the MoreButton (in the outer Auto column) follows the cluster.
-        int itemsColumn = Grid.GetColumn(primaryItems);
-        if (itemsColumn > 0)
-            parentGrid.ColumnDefinitions[0].Width = GridLength.Auto;
-        primaryItems.HorizontalAlignment = HorizontalAlignment.Left;
-        _formatBarAligned = true;
-    }
-
-    // The CommandBar overflow menu renders in a popup, which does not inherit the
-    // window root's RequestedTheme (same rule as dialogs / flyouts) — pin it to the
-    // current theme every time the overflow opens.
-    private void FormatBar_Opened(object sender, object e)
-    {
-        foreach (var popup in VisualTreeHelper.GetOpenPopupsForXamlRoot(XamlRoot))
-            if (popup.Child is FrameworkElement child)
-                child.RequestedTheme = ActualTheme;
+        _editor.Focus(); // keep typing in the editor after a menu command
     }
 }
