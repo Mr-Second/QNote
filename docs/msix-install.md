@@ -4,14 +4,17 @@ QNote 以自签名证书签名的 MSIX 包分发。首次安装前需要信任�
 
 ## 一键安装（推荐）
 
-下载 Release 页的 **`install.ps1`**，与 `qnote.cer`、`QNote_<版本>_x64.msix` 放在同一目录，
-右键 `install.ps1` →“使用 PowerShell 运行”。脚本会自动请求管理员权限、信任证书（一次性）
-并安装 MSIX，全程无需手动操作。手动安装方式见下文。
+下载 Release 页的 **`QNote_<版本>_x64_Installer.zip`**（内含安装脚本 + 证书 + MSIX），
+解压后右键 `install.ps1` →“使用 PowerShell 运行”。脚本会自动请求管理员权限、
+信任证书（一次性）并安装 MSIX，全程无需手动操作。手动安装方式见下文。
+
+> 也可以分开下载 `install.ps1`、`qnote.cer`、`QNote_<版本>_x64.msix` 放入同一目录后运行脚本，效果相同。
 
 ## 产物
 
 | 文件 | 说明 |
 |---|---|
+| `QNote_<版本>_x64_Installer.zip` | **一键安装包**（install.ps1 + 证书 + MSIX，推荐） |
 | `QNote_<版本>_x64.msix` | 安装包（仅 x64，自包含 .NET 运行时 + R2R） |
 | `qnote.cer` | 签名证书公钥（用于信任，随包分发） |
 | `install.ps1` | 一键安装脚本（可选，导证书 + 装包一步完成） |
