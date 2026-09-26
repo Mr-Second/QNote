@@ -40,7 +40,9 @@ BundleArtifacts/
 
 # Publish output
 publish/
-*.pubxml
+# PublishProfiles ARE tracked: they carry the CI packaging config
+# (SelfContained / R2R / RuntimeIdentifier) and contain no secrets.
+!Properties/PublishProfiles/*.pubxml
 PublishScripts/
 
 # Code analysis and tooling
