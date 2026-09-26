@@ -1,7 +1,8 @@
 {
   "profiles": {
     "QNote (Package)": {
-      "commandName": "MsixPackage"
+      "commandName": "MsixPackage",
+      "nativeDebugging": true
     },
     "QNote (Unpackaged)": {
       "commandName": "Project"
