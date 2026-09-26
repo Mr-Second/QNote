@@ -53,3 +53,6 @@ project.lock.json
 .vscode/
 Thumbs.db
 Desktop.ini
+
+# Local packaging output (MSIX, certs, store screenshots)
+artifacts/
