@@ -15,19 +15,23 @@ internal static class Program
     /// <summary>Stable key that identifies the single application instance.</summary>
     private const string InstanceKey = "QNoteMain";
 
+    // NOTE: Main must stay SYNCHRONOUS. An `async Task Main` state machine breaks
+    // WinUI's input-stack (TSF) initialization and IME dies app-wide — every text
+    // control falls back to Latin-only input (confirmed 2026-09-26 by A/B: same
+    // single-instance code, sync Main = IME works, async Main = IME dead).
     [STAThread]
-    private static async Task<int> Main()
+    private static void Main()
     {
         var keyInstance = AppInstance.FindOrRegisterForKey(InstanceKey);
         if (!keyInstance.IsCurrent)
         {
             // Hand the activation to the running instance (it shows its window
             // via App.OnRedirectedActivation), then exit without starting the app.
+            // Blocking wait is fine: this second process exits right after.
             try
             {
-                await keyInstance.RedirectActivationToAsync(
-                    AppInstance.GetCurrent().GetActivatedEventArgs());
-                return 0;
+                keyInstance.RedirectActivationToAsync(
+                    AppInstance.GetCurrent().GetActivatedEventArgs()).GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
@@ -36,8 +40,9 @@ internal static class Program
                 // SQLite store. No logger exists this early (DI never starts on
                 // this path), so write to stderr and exit non-zero.
                 Console.Error.WriteLine($"QNote: activation redirect failed: {ex}");
-                return 1;
+                Environment.Exit(1);
             }
+            return;
         }
 
         WinRT.ComWrappersSupport.InitializeComWrappers();
@@ -48,6 +53,5 @@ internal static class Program
             SynchronizationContext.SetSynchronizationContext(context);
             _ = new App();
         });
-        return 0;
     }
 }
