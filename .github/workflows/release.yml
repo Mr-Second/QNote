@@ -106,7 +106,7 @@ jobs:
       - name: Build unsigned MSIX
         shell: pwsh
         run: |
-          msbuild src/QNote/QNote.csproj /t:Publish /p:Configuration=Release `
+          msbuild src/QNote/QNote.csproj /restore /t:Publish /p:Configuration=Release `
             /p:Platform=x64 /p:PublishProfile=win-x64.pubxml `
             /p:PublishAppxPackage=true /p:AppxPackageSigningEnabled=false /nologo
           if ($LASTEXITCODE -ne 0) { throw "MSBuild failed ($LASTEXITCODE)" }
