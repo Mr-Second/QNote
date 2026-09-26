@@ -22,28 +22,30 @@
         <Setter Property="CornerRadius" Value="8" />
     </Style>
 
-    <!-- Compact editor-toolbar buttons (default template, subdued chrome).
-         Checked state = soft accent tint + accent glyph (Qt parity: 5-10% tint,
-         never a solid accent fill). `Resources` is NOT a DependencyProperty, so
-         the checked-state theme-resource overrides live inline on the toolbar
-         StackPanel in NotesPage.xaml (the style's only consumer). -->
-    <Style x:Key="EditorToolbarToggleButtonStyle" TargetType="ToggleButton">
+    <!-- Compact editor-toolbar app-bar buttons (CommandBar in NotesPage). The stock
+         AppBar(Toggle)Button chrome (~40px tall, loose padding) reads bulky next to
+         the editor; these setters shrink it back to the old ~26px toolbar look.
+         The bar/glyph/inner-margin metrics they rely on (AppBarThemeCompactHeight,
+         AppBarButtonContentHeight, AppBarButtonInnerBorderCompactMargin) are
+         overridden in the CommandBar's own Resources (Resources cannot ride a
+         Style setter). -->
+    <Style x:Key="EditorToolbarAppBarToggleButtonStyle" TargetType="AppBarToggleButton">
+        <Setter Property="Width" Value="NaN" />
         <Setter Property="MinWidth" Value="0" />
         <Setter Property="MinHeight" Value="0" />
-        <Setter Property="Padding" Value="8,4" />
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="BorderBrush" Value="Transparent" />
-        <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="Height" Value="26" />
+        <Setter Property="Margin" Value="1,0" />
+        <Setter Property="Padding" Value="4,0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
-    <Style x:Key="EditorToolbarButtonStyle" TargetType="Button">
+    <Style x:Key="EditorToolbarAppBarButtonStyle" TargetType="AppBarButton">
+        <Setter Property="Width" Value="NaN" />
         <Setter Property="MinWidth" Value="0" />
         <Setter Property="MinHeight" Value="0" />
-        <Setter Property="Padding" Value="8,4" />
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="BorderBrush" Value="Transparent" />
-        <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="Height" Value="26" />
+        <Setter Property="Margin" Value="1,0" />
+        <Setter Property="Padding" Value="4,0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
     <!-- New-note button (Qt parity: soft accent tint circle, "+" in accent, never

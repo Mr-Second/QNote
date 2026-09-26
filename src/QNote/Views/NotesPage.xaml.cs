@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -543,11 +544,69 @@ public sealed partial class NotesPage : Page
             FontSizeBox.SelectedItem = s.FontSizePx is int px && FontCatalog.SizesPx.Contains(px) ? px : null;
 
             if (s.ForegroundColor is { } color)
-                ColorSwatch.Background = new SolidColorBrush(color);
+                ColorButtonIcon.Foreground = new SolidColorBrush(color);
         }
         finally
         {
             _syncingToolbar = false; // a throw must not permanently freeze toolbar sync
         }
+    }
+
+    // The stock CommandBar template star-sizes the (empty) content column and lets
+    // the Auto-sized command column (buttons + "...") hug the RIGHT edge. Collapse
+    // the content column — the sibling of the PrimaryItemsControl inside its
+    // parent grid — so the command cluster hugs the LEFT instead. Arrange-only
+    // change: the items control keeps its own column/sizing, so the dynamic-
+    // overflow measurement is unaffected. Runs on SizeChanged, not Loaded: the
+    // editor grid starts Collapsed (no note selected), so the bar's template is
+    // only applied when it first shows. Retries until the template exists.
+    private bool _formatBarAligned;
+
+    private void FormatBar_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (_formatBarAligned)
+            return;
+
+        ItemsControl? primaryItems = null;
+        var queue = new Queue<DependencyObject>();
+        queue.Enqueue(FormatBar);
+        while (queue.Count > 0 && primaryItems is null)
+        {
+            var d = queue.Dequeue();
+            if (d is ItemsControl { Name: "PrimaryItemsControl" } items)
+            {
+                primaryItems = items;
+                break;
+            }
+            int count = VisualTreeHelper.GetChildrenCount(d);
+            for (int i = 0; i < count; i++)
+                queue.Enqueue(VisualTreeHelper.GetChild(d, i));
+        }
+
+        if (primaryItems is null ||
+            VisualTreeHelper.GetParent(primaryItems) is not Grid { ColumnDefinitions.Count: >= 2 } parentGrid)
+        {
+            App.Services.GetService<ILogger<NotesPage>>()
+                ?.LogWarning("FormatBar left-align fix: PrimaryItemsControl not found yet");
+            return; // template not applied yet — the next SizeChanged retries
+        }
+
+        // Zero the star-sized sibling content column so the cluster starts at the
+        // left edge; the MoreButton (in the outer Auto column) follows the cluster.
+        int itemsColumn = Grid.GetColumn(primaryItems);
+        if (itemsColumn > 0)
+            parentGrid.ColumnDefinitions[0].Width = GridLength.Auto;
+        primaryItems.HorizontalAlignment = HorizontalAlignment.Left;
+        _formatBarAligned = true;
+    }
+
+    // The CommandBar overflow menu renders in a popup, which does not inherit the
+    // window root's RequestedTheme (same rule as dialogs / flyouts) — pin it to the
+    // current theme every time the overflow opens.
+    private void FormatBar_Opened(object sender, object e)
+    {
+        foreach (var popup in VisualTreeHelper.GetOpenPopupsForXamlRoot(XamlRoot))
+            if (popup.Child is FrameworkElement child)
+                child.RequestedTheme = ActualTheme;
     }
 }

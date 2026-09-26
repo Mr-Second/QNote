@@ -491,219 +491,294 @@
                         BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                         BorderThickness="0,1,0,0" />
 
-                    <!--  Formatting toolbar  -->
-                    <ScrollViewer
+                    <!--  Formatting toolbar: CommandBar with dynamic overflow — commands that
+                          don't fit move into the "..." overflow menu and back as the width
+                          changes (no more hidden horizontal scrollbar).
+                          DynamicOverflowOrder semantics (verified empirically on WinUI 2.3.6):
+                          LOWER values overflow FIRST, higher values stay on the bar longest
+                          (MS docs only state "equal values move together"). Rightmost items
+                          get the smallest orders so the bar collapses right-to-left; the two
+                          ComboBoxes are pinned at 0 via AppBarElementContainer — containers
+                          never overflow (locked PRD decision: they stay on the bar).  -->
+                    <CommandBar
+                        x:Name="FormatBar"
                         Grid.Row="2"
-                        HorizontalScrollBarVisibility="Hidden"
-                        HorizontalScrollMode="Auto"
-                        VerticalScrollBarVisibility="Disabled">
-                        <StackPanel Orientation="Horizontal" Spacing="2">
-                            <!-- Checked-state overrides for every toolbar ToggleButton:
-                                 soft accent tint + accent glyph, never a solid accent fill
-                                 (Qt parity). Lookup walks up from each button's template. -->
-                            <StackPanel.Resources>
-                                <ResourceDictionary>
-                                    <ResourceDictionary.ThemeDictionaries>
-                                        <ResourceDictionary x:Key="Light">
-                                            <StaticResource x:Key="ToggleButtonBackgroundChecked" ResourceKey="BrandAccentSubtleFillBrush" />
-                                            <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="BrandAccentSubtleFillHoverBrush" />
-                                            <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="BrandAccentSubtleFillPressedBrush" />
-                                            <StaticResource x:Key="ToggleButtonBackgroundCheckedDisabled" ResourceKey="BrandAccentSubtleFillBrush" />
-                                            <StaticResource x:Key="ToggleButtonForegroundChecked" ResourceKey="BrandAccentBrush" />
-                                            <StaticResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="BrandAccentBrush" />
-                                            <StaticResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="BrandAccentBrush" />
-                                            <StaticResource x:Key="ToggleButtonBorderBrushChecked" ResourceKey="BrandAccentSubtleBorderBrush" />
-                                            <StaticResource x:Key="ToggleButtonBorderBrushCheckedPointerOver" ResourceKey="BrandAccentSubtleBorderBrush" />
-                                            <StaticResource x:Key="ToggleButtonBorderBrushCheckedPressed" ResourceKey="BrandAccentSubtleBorderBrush" />
-                                        </ResourceDictionary>
-                                        <ResourceDictionary x:Key="Dark">
-                                            <StaticResource x:Key="ToggleButtonBackgroundChecked" ResourceKey="BrandAccentSubtleFillBrush" />
-                                            <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="BrandAccentSubtleFillHoverBrush" />
-                                            <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="BrandAccentSubtleFillPressedBrush" />
-                                            <StaticResource x:Key="ToggleButtonBackgroundCheckedDisabled" ResourceKey="BrandAccentSubtleFillBrush" />
-                                            <StaticResource x:Key="ToggleButtonForegroundChecked" ResourceKey="BrandAccentBrush" />
-                                            <StaticResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="BrandAccentBrush" />
-                                            <StaticResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="BrandAccentBrush" />
-                                            <StaticResource x:Key="ToggleButtonBorderBrushChecked" ResourceKey="BrandAccentSubtleBorderBrush" />
-                                            <StaticResource x:Key="ToggleButtonBorderBrushCheckedPointerOver" ResourceKey="BrandAccentSubtleBorderBrush" />
-                                            <StaticResource x:Key="ToggleButtonBorderBrushCheckedPressed" ResourceKey="BrandAccentSubtleBorderBrush" />
-                                        </ResourceDictionary>
-                                        <ResourceDictionary x:Key="HighContrast">
-                                            <StaticResource x:Key="ToggleButtonBackgroundChecked" ResourceKey="BrandAccentSubtleFillBrush" />
-                                            <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="BrandAccentSubtleFillHoverBrush" />
-                                            <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="BrandAccentSubtleFillPressedBrush" />
-                                            <StaticResource x:Key="ToggleButtonBackgroundCheckedDisabled" ResourceKey="BrandAccentSubtleFillBrush" />
-                                            <StaticResource x:Key="ToggleButtonForegroundChecked" ResourceKey="BrandAccentBrush" />
-                                            <StaticResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="BrandAccentBrush" />
-                                            <StaticResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="BrandAccentBrush" />
-                                            <StaticResource x:Key="ToggleButtonBorderBrushChecked" ResourceKey="BrandAccentSubtleBorderBrush" />
-                                            <StaticResource x:Key="ToggleButtonBorderBrushCheckedPointerOver" ResourceKey="BrandAccentSubtleBorderBrush" />
-                                            <StaticResource x:Key="ToggleButtonBorderBrushCheckedPressed" ResourceKey="BrandAccentSubtleBorderBrush" />
-                                        </ResourceDictionary>
-                                    </ResourceDictionary.ThemeDictionaries>
-                                </ResourceDictionary>
-                            </StackPanel.Resources>
-                            <ToggleButton
-                                x:Name="BoldButton"
-                                AutomationProperties.Name="粗体"
-                                IsThreeState="True"
-                                Click="BoldButton_Click"
-                                Style="{StaticResource EditorToolbarToggleButtonStyle}"
-                                ToolTipService.ToolTip="粗体">
-                                <TextBlock FontSize="13" FontWeight="Bold" Text="B" />
-                            </ToggleButton>
-                            <ToggleButton
-                                x:Name="ItalicButton"
-                                AutomationProperties.Name="斜体"
-                                IsThreeState="True"
-                                Click="ItalicButton_Click"
-                                Style="{StaticResource EditorToolbarToggleButtonStyle}"
-                                ToolTipService.ToolTip="斜体">
-                                <TextBlock FontSize="13" FontStyle="Italic" Text="I" />
-                            </ToggleButton>
-                            <ToggleButton
-                                x:Name="UnderlineButton"
-                                AutomationProperties.Name="下划线"
-                                IsThreeState="True"
-                                Click="UnderlineButton_Click"
-                                Style="{StaticResource EditorToolbarToggleButtonStyle}"
-                                ToolTipService.ToolTip="下划线">
-                                <TextBlock FontSize="13" Text="U" TextDecorations="Underline" />
-                            </ToggleButton>
-                            <ToggleButton
-                                x:Name="StrikethroughButton"
-                                AutomationProperties.Name="删除线"
-                                IsThreeState="True"
-                                Click="StrikethroughButton_Click"
-                                Style="{StaticResource EditorToolbarToggleButtonStyle}"
-                                ToolTipService.ToolTip="删除线">
-                                <TextBlock FontSize="13" Text="S" TextDecorations="Strikethrough" />
-                            </ToggleButton>
+                        Background="Transparent"
+                        DefaultLabelPosition="Collapsed"
+                        IsDynamicOverflowEnabled="True"
+                        Opened="FormatBar_Opened"
+                        SizeChanged="FormatBar_SizeChanged">
+                        <!-- Checked-state overrides for every on-bar AppBarToggleButton:
+                             soft accent tint + accent glyph, no border, never a solid accent
+                             fill (Qt parity). Same key family as the old ToggleButton
+                             overrides — verified against the WinUI 2.3.6 generic.xaml
+                             DefaultAppBarToggleButtonStyle template (Checked states read
+                             AppBarToggleButton{Background,Foreground,BorderBrush}Checked*).
+                             ThemeDictionaries (not plain aliases) so theme switches re-resolve
+                             the Brand* brushes. Overflow items live in a popup and do NOT see
+                             these scoped overrides — they keep the stock checked look. -->
+                        <CommandBar.Resources>
+                            <ResourceDictionary>
+                                <!-- Compact metrics (user acceptance: the stock ~40px bar and
+                                     loose margins read 喧宾夺主 next to the editor). These keys
+                                     are read by the CommandBar/AppBarButton templates from the
+                                     visual-tree walk, so scoping them here hits this bar only:
+                                     28px bar row, 14px glyphs, tight inner margins, slim "...".
+                                     Theme-invariant, so they live outside the ThemeDictionaries. -->
+                                <x:Double x:Key="AppBarThemeCompactHeight">28</x:Double>
+                                <x:Double x:Key="AppBarButtonContentHeight">14</x:Double>
+                                <Thickness x:Key="AppBarButtonInnerBorderCompactMargin">2</Thickness>
+                                <Thickness x:Key="AppBarButtonContentViewboxCollapsedMargin">0,2</Thickness>
+                                <Thickness x:Key="CommandBarMoreButtonMargin">6,0</Thickness>
+                                <ResourceDictionary.ThemeDictionaries>
+                                    <ResourceDictionary x:Key="Light">
+                                        <StaticResource x:Key="AppBarToggleButtonBackgroundChecked" ResourceKey="BrandAccentSubtleFillBrush" />
+                                        <StaticResource x:Key="AppBarToggleButtonBackgroundCheckedPointerOver" ResourceKey="BrandAccentSubtleFillHoverBrush" />
+                                        <StaticResource x:Key="AppBarToggleButtonBackgroundCheckedPressed" ResourceKey="BrandAccentSubtleFillPressedBrush" />
+                                        <StaticResource x:Key="AppBarToggleButtonBackgroundCheckedDisabled" ResourceKey="BrandAccentSubtleFillBrush" />
+                                        <StaticResource x:Key="AppBarToggleButtonForegroundChecked" ResourceKey="BrandAccentBrush" />
+                                        <StaticResource x:Key="AppBarToggleButtonForegroundCheckedPointerOver" ResourceKey="BrandAccentBrush" />
+                                        <StaticResource x:Key="AppBarToggleButtonForegroundCheckedPressed" ResourceKey="BrandAccentBrush" />
+                                        <SolidColorBrush x:Key="AppBarToggleButtonBorderBrushChecked" Color="Transparent" />
+                                        <SolidColorBrush x:Key="AppBarToggleButtonBorderBrushCheckedPointerOver" Color="Transparent" />
+                                        <SolidColorBrush x:Key="AppBarToggleButtonBorderBrushCheckedPressed" Color="Transparent" />
+                                    </ResourceDictionary>
+                                    <ResourceDictionary x:Key="Dark">
+                                        <StaticResource x:Key="AppBarToggleButtonBackgroundChecked" ResourceKey="BrandAccentSubtleFillBrush" />
+                                        <StaticResource x:Key="AppBarToggleButtonBackgroundCheckedPointerOver" ResourceKey="BrandAccentSubtleFillHoverBrush" />
+                                        <StaticResource x:Key="AppBarToggleButtonBackgroundCheckedPressed" ResourceKey="BrandAccentSubtleFillPressedBrush" />
+                                        <StaticResource x:Key="AppBarToggleButtonBackgroundCheckedDisabled" ResourceKey="BrandAccentSubtleFillBrush" />
+                                        <StaticResource x:Key="AppBarToggleButtonForegroundChecked" ResourceKey="BrandAccentBrush" />
+                                        <StaticResource x:Key="AppBarToggleButtonForegroundCheckedPointerOver" ResourceKey="BrandAccentBrush" />
+                                        <StaticResource x:Key="AppBarToggleButtonForegroundCheckedPressed" ResourceKey="BrandAccentBrush" />
+                                        <SolidColorBrush x:Key="AppBarToggleButtonBorderBrushChecked" Color="Transparent" />
+                                        <SolidColorBrush x:Key="AppBarToggleButtonBorderBrushCheckedPointerOver" Color="Transparent" />
+                                        <SolidColorBrush x:Key="AppBarToggleButtonBorderBrushCheckedPressed" Color="Transparent" />
+                                    </ResourceDictionary>
+                                    <ResourceDictionary x:Key="HighContrast">
+                                        <StaticResource x:Key="AppBarToggleButtonBackgroundChecked" ResourceKey="BrandAccentSubtleFillBrush" />
+                                        <StaticResource x:Key="AppBarToggleButtonBackgroundCheckedPointerOver" ResourceKey="BrandAccentSubtleFillHoverBrush" />
+                                        <StaticResource x:Key="AppBarToggleButtonBackgroundCheckedPressed" ResourceKey="BrandAccentSubtleFillPressedBrush" />
+                                        <StaticResource x:Key="AppBarToggleButtonBackgroundCheckedDisabled" ResourceKey="BrandAccentSubtleFillBrush" />
+                                        <StaticResource x:Key="AppBarToggleButtonForegroundChecked" ResourceKey="BrandAccentBrush" />
+                                        <StaticResource x:Key="AppBarToggleButtonForegroundCheckedPointerOver" ResourceKey="BrandAccentBrush" />
+                                        <StaticResource x:Key="AppBarToggleButtonForegroundCheckedPressed" ResourceKey="BrandAccentBrush" />
+                                        <SolidColorBrush x:Key="AppBarToggleButtonBorderBrushChecked" Color="Transparent" />
+                                        <SolidColorBrush x:Key="AppBarToggleButtonBorderBrushCheckedPointerOver" Color="Transparent" />
+                                        <SolidColorBrush x:Key="AppBarToggleButtonBorderBrushCheckedPressed" Color="Transparent" />
+                                    </ResourceDictionary>
+                                </ResourceDictionary.ThemeDictionaries>
+                            </ResourceDictionary>
+                        </CommandBar.Resources>
 
-                            <AppBarSeparator />
+                        <AppBarToggleButton
+                            x:Name="BoldButton"
+                            AutomationProperties.Name="粗体"
+                            DynamicOverflowOrder="15"
+                            Style="{StaticResource EditorToolbarAppBarToggleButtonStyle}"
+                            IsThreeState="True"
+                            Label="粗体"
+                            Click="BoldButton_Click"
+                            ToolTipService.ToolTip="粗体">
+                            <AppBarToggleButton.Icon>
+                                <FontIcon Glyph="&#xE8DD;" />
+                            </AppBarToggleButton.Icon>
+                        </AppBarToggleButton>
+                        <AppBarToggleButton
+                            x:Name="ItalicButton"
+                            AutomationProperties.Name="斜体"
+                            DynamicOverflowOrder="14"
+                            Style="{StaticResource EditorToolbarAppBarToggleButtonStyle}"
+                            IsThreeState="True"
+                            Label="斜体"
+                            Click="ItalicButton_Click"
+                            ToolTipService.ToolTip="斜体">
+                            <AppBarToggleButton.Icon>
+                                <FontIcon Glyph="&#xE8DB;" />
+                            </AppBarToggleButton.Icon>
+                        </AppBarToggleButton>
+                        <AppBarToggleButton
+                            x:Name="UnderlineButton"
+                            AutomationProperties.Name="下划线"
+                            DynamicOverflowOrder="13"
+                            Style="{StaticResource EditorToolbarAppBarToggleButtonStyle}"
+                            IsThreeState="True"
+                            Label="下划线"
+                            Click="UnderlineButton_Click"
+                            ToolTipService.ToolTip="下划线">
+                            <AppBarToggleButton.Icon>
+                                <FontIcon Glyph="&#xE8DC;" />
+                            </AppBarToggleButton.Icon>
+                        </AppBarToggleButton>
+                        <AppBarToggleButton
+                            x:Name="StrikethroughButton"
+                            AutomationProperties.Name="删除线"
+                            DynamicOverflowOrder="12"
+                            Style="{StaticResource EditorToolbarAppBarToggleButtonStyle}"
+                            IsThreeState="True"
+                            Label="删除线"
+                            Click="StrikethroughButton_Click"
+                            ToolTipService.ToolTip="删除线">
+                            <AppBarToggleButton.Icon>
+                                <FontIcon Glyph="&#xE8E0;" />
+                            </AppBarToggleButton.Icon>
+                        </AppBarToggleButton>
 
+                        <AppBarSeparator DynamicOverflowOrder="16" Margin="3,0" />
+
+                        <AppBarElementContainer DynamicOverflowOrder="0">
                             <ComboBox
                                 x:Name="FontFamilyBox"
                                 Width="124"
+                                Height="26"
+                                MinHeight="0"
+                                VerticalAlignment="Center"
                                 AutomationProperties.Name="字体"
                                 SelectionChanged="FontFamilyBox_SelectionChanged"
                                 ToolTipService.ToolTip="字体" />
+                        </AppBarElementContainer>
+                        <AppBarElementContainer DynamicOverflowOrder="0">
                             <ComboBox
                                 x:Name="FontSizeBox"
                                 Width="64"
+                                Height="26"
+                                MinHeight="0"
                                 Margin="4,0,0,0"
+                                VerticalAlignment="Center"
                                 AutomationProperties.Name="字号"
                                 SelectionChanged="FontSizeBox_SelectionChanged"
                                 ToolTipService.ToolTip="字号" />
+                        </AppBarElementContainer>
 
-                            <AppBarSeparator />
+                        <AppBarSeparator DynamicOverflowOrder="11" Margin="3,0" />
 
-                            <Button
-                                x:Name="ColorButton"
-                                AutomationProperties.Name="文字颜色"
-                                Style="{StaticResource EditorToolbarButtonStyle}"
-                                ToolTipService.ToolTip="文字颜色">
-                                <Grid Width="20" Height="20">
-                                    <FontIcon
-                                        VerticalAlignment="Top"
-                                        FontSize="14"
-                                        Glyph="&#xE8D3;" />
-                                    <Border
-                                        x:Name="ColorSwatch"
-                                        Height="3"
-                                        VerticalAlignment="Bottom"
-                                        Background="{ThemeResource TextFillColorPrimaryBrush}"
-                                        CornerRadius="1" />
-                                </Grid>
-                                <Button.Flyout>
-                                    <Flyout>
-                                        <ScrollViewer MaxHeight="330" VerticalScrollBarVisibility="Auto">
-                                            <GridView
-                                                x:Name="ColorGrid"
-                                                Width="288"
-                                                IsItemClickEnabled="True"
-                                                ItemClick="ColorGrid_ItemClick"
-                                                SelectionMode="None">
-                                                <GridView.ItemTemplate>
-                                                    <DataTemplate x:DataType="controls:PaletteColor">
-                                                        <Border
-                                                            Width="24"
-                                                            Height="24"
-                                                            Margin="2"
-                                                            AutomationProperties.Name="{x:Bind Name}"
-                                                            Background="{x:Bind Brush}"
-                                                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                                                            BorderThickness="1"
-                                                            CornerRadius="4"
-                                                            ToolTipService.ToolTip="{x:Bind Name}" />
-                                                    </DataTemplate>
-                                                </GridView.ItemTemplate>
-                                            </GridView>
-                                        </ScrollViewer>
-                                    </Flyout>
-                                </Button.Flyout>
-                            </Button>
+                        <AppBarButton
+                            x:Name="ColorButton"
+                            AutomationProperties.Name="文字颜色"
+                            DynamicOverflowOrder="10"
+                            Style="{StaticResource EditorToolbarAppBarButtonStyle}"
+                            Label="文字颜色"
+                            ToolTipService.ToolTip="文字颜色">
+                            <AppBarButton.Icon>
+                                <!-- Current text color rides the icon's Foreground (set in
+                                     UpdateToolbarState) — the FontColor glyph is an "A" over a
+                                     bar, so a colored glyph preserves the old swatch cue.
+                                     No explicit Foreground here: it must inherit the themed
+                                     button foreground until a color is applied. -->
+                                <FontIcon x:Name="ColorButtonIcon" Glyph="&#xE8D3;" />
+                            </AppBarButton.Icon>
+                            <AppBarButton.Flyout>
+                                <Flyout>
+                                    <ScrollViewer MaxHeight="330" VerticalScrollBarVisibility="Auto">
+                                        <GridView
+                                            x:Name="ColorGrid"
+                                            Width="288"
+                                            IsItemClickEnabled="True"
+                                            ItemClick="ColorGrid_ItemClick"
+                                            SelectionMode="None">
+                                            <GridView.ItemTemplate>
+                                                <DataTemplate x:DataType="controls:PaletteColor">
+                                                    <Border
+                                                        Width="24"
+                                                        Height="24"
+                                                        Margin="2"
+                                                        AutomationProperties.Name="{x:Bind Name}"
+                                                        Background="{x:Bind Brush}"
+                                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="4"
+                                                        ToolTipService.ToolTip="{x:Bind Name}" />
+                                                </DataTemplate>
+                                            </GridView.ItemTemplate>
+                                        </GridView>
+                                    </ScrollViewer>
+                                </Flyout>
+                            </AppBarButton.Flyout>
+                        </AppBarButton>
 
-                            <AppBarSeparator />
+                        <AppBarSeparator DynamicOverflowOrder="9" Margin="3,0" />
 
-                            <ToggleButton
-                                x:Name="AlignLeftButton"
-                                AutomationProperties.Name="左对齐"
-                                Click="AlignLeftButton_Click"
-                                Style="{StaticResource EditorToolbarToggleButtonStyle}"
-                                ToolTipService.ToolTip="左对齐">
-                                <FontIcon FontSize="14" Glyph="&#xE8E4;" />
-                            </ToggleButton>
-                            <ToggleButton
-                                x:Name="AlignCenterButton"
-                                AutomationProperties.Name="居中对齐"
-                                Click="AlignCenterButton_Click"
-                                Style="{StaticResource EditorToolbarToggleButtonStyle}"
-                                ToolTipService.ToolTip="居中对齐">
-                                <FontIcon FontSize="14" Glyph="&#xE8E3;" />
-                            </ToggleButton>
-                            <ToggleButton
-                                x:Name="AlignRightButton"
-                                AutomationProperties.Name="右对齐"
-                                Click="AlignRightButton_Click"
-                                Style="{StaticResource EditorToolbarToggleButtonStyle}"
-                                ToolTipService.ToolTip="右对齐">
-                                <FontIcon FontSize="14" Glyph="&#xE8E2;" />
-                            </ToggleButton>
+                        <AppBarToggleButton
+                            x:Name="AlignLeftButton"
+                            AutomationProperties.Name="左对齐"
+                            DynamicOverflowOrder="8"
+                            Style="{StaticResource EditorToolbarAppBarToggleButtonStyle}"
+                            Label="左对齐"
+                            Click="AlignLeftButton_Click"
+                            ToolTipService.ToolTip="左对齐">
+                            <AppBarToggleButton.Icon>
+                                <FontIcon Glyph="&#xE8E4;" />
+                            </AppBarToggleButton.Icon>
+                        </AppBarToggleButton>
+                        <AppBarToggleButton
+                            x:Name="AlignCenterButton"
+                            AutomationProperties.Name="居中对齐"
+                            DynamicOverflowOrder="7"
+                            Style="{StaticResource EditorToolbarAppBarToggleButtonStyle}"
+                            Label="居中对齐"
+                            Click="AlignCenterButton_Click"
+                            ToolTipService.ToolTip="居中对齐">
+                            <AppBarToggleButton.Icon>
+                                <FontIcon Glyph="&#xE8E3;" />
+                            </AppBarToggleButton.Icon>
+                        </AppBarToggleButton>
+                        <AppBarToggleButton
+                            x:Name="AlignRightButton"
+                            AutomationProperties.Name="右对齐"
+                            DynamicOverflowOrder="6"
+                            Style="{StaticResource EditorToolbarAppBarToggleButtonStyle}"
+                            Label="右对齐"
+                            Click="AlignRightButton_Click"
+                            ToolTipService.ToolTip="右对齐">
+                            <AppBarToggleButton.Icon>
+                                <FontIcon Glyph="&#xE8E2;" />
+                            </AppBarToggleButton.Icon>
+                        </AppBarToggleButton>
 
-                            <AppBarSeparator />
+                        <AppBarSeparator DynamicOverflowOrder="5" Margin="3,0" />
 
-                            <ToggleButton
-                                x:Name="BulletListButton"
-                                AutomationProperties.Name="无序列表"
-                                IsThreeState="True"
-                                Click="BulletListButton_Click"
-                                Style="{StaticResource EditorToolbarToggleButtonStyle}"
-                                ToolTipService.ToolTip="无序列表">
-                                <FontIcon FontSize="14" Glyph="&#xE8FD;" />
-                            </ToggleButton>
-                            <ToggleButton
-                                x:Name="NumberListButton"
-                                AutomationProperties.Name="有序列表"
-                                IsThreeState="True"
-                                Click="NumberListButton_Click"
-                                Style="{StaticResource EditorToolbarToggleButtonStyle}"
-                                ToolTipService.ToolTip="有序列表">
-                                <FontIcon FontSize="14" Glyph="&#xE8FC;" />
-                            </ToggleButton>
+                        <AppBarToggleButton
+                            x:Name="BulletListButton"
+                            AutomationProperties.Name="无序列表"
+                            DynamicOverflowOrder="4"
+                            Style="{StaticResource EditorToolbarAppBarToggleButtonStyle}"
+                            IsThreeState="True"
+                            Label="无序列表"
+                            Click="BulletListButton_Click"
+                            ToolTipService.ToolTip="无序列表">
+                            <AppBarToggleButton.Icon>
+                                <FontIcon Glyph="&#xE8FD;" />
+                            </AppBarToggleButton.Icon>
+                        </AppBarToggleButton>
+                        <AppBarToggleButton
+                            x:Name="NumberListButton"
+                            AutomationProperties.Name="有序列表"
+                            DynamicOverflowOrder="3"
+                            Style="{StaticResource EditorToolbarAppBarToggleButtonStyle}"
+                            IsThreeState="True"
+                            Label="有序列表"
+                            Click="NumberListButton_Click"
+                            ToolTipService.ToolTip="有序列表">
+                            <AppBarToggleButton.Icon>
+                                <FontIcon Glyph="&#xE8FC;" />
+                            </AppBarToggleButton.Icon>
+                        </AppBarToggleButton>
 
-                            <AppBarSeparator />
+                        <AppBarSeparator DynamicOverflowOrder="2" Margin="3,0" />
 
-                            <Button
-                                x:Name="InsertImageButton"
-                                AutomationProperties.Name="插入图片"
-                                Click="InsertImageButton_Click"
-                                Style="{StaticResource EditorToolbarButtonStyle}"
-                                ToolTipService.ToolTip="插入图片">
-                                <FontIcon FontSize="14" Glyph="&#xEB9F;" />
-                            </Button>
-                        </StackPanel>
-                    </ScrollViewer>
+                        <AppBarButton
+                            x:Name="InsertImageButton"
+                            AutomationProperties.Name="插入图片"
+                            DynamicOverflowOrder="1"
+                            Style="{StaticResource EditorToolbarAppBarButtonStyle}"
+                            Label="插入图片"
+                            Click="InsertImageButton_Click"
+                            ToolTipService.ToolTip="插入图片">
+                            <AppBarButton.Icon>
+                                <FontIcon Glyph="&#xEB9F;" />
+                            </AppBarButton.Icon>
+                        </AppBarButton>
+                    </CommandBar>
 
                     <Border
                         Grid.Row="3"
