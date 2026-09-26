@@ -15,6 +15,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!--
+      Disable the XAML compiler's generated Program.Main (it is guarded by a C#
+      preprocessor symbol in the generated App.g.i.cs, so this must go into
+      DefineConstants): Program.cs provides the entry point so the
+      single-instance guard (AppLifecycle) runs BEFORE Application.Start.
+    -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -102,4 +109,29 @@
     SelfContained=true). Keeping them here would fire NETSDK1102 on a plain Release
     BUILD in VS (trimming requires self-contained publish).
   -->
+
+  <!--
+    LibArchive.Net runtime trim (msix-packaging task): the NuGet bundles native
+    libarchive for EVERY platform under runtimes/ (~33 MB; linux*/osx*/win-x86/
+    win-arm64 are dead weight — QNote ships win-x64 MSIX only). The runtimes/
+    subtree enters the output as RuntimeTargetsCopyLocalItems from
+    ResolvePackageAssets — directly in this project (transitive package) AND
+    via QNote.Core's project-reference output group — so filtering
+    ResolvedFileToPublish at publish time does NOT catch it (verified
+    empirically 2026-09-26). Strip every LibArchive.Net runtime-target asset
+    that is not win-x64 at resolution time instead; the flattened win-x64
+    archive.dll at the publish root (NativeCopyLocalItems) is unaffected.
+    This is the single point of trim: QNote.Core builds RID-less and never
+    surfaces RuntimeTargetsCopyLocalItems (verified 2026-09-26 — its output
+    carries no native payload once ExcludeAssets="build;buildTransitive" shuts
+    off the package's own copy targets), so no filter is needed there.
+  -->
+  <Target Name="TrimLibArchiveNonWinX64Natives" BeforeTargets="ResolveLockFileCopyLocalFiles">
+    <ItemGroup>
+      <RuntimeTargetsCopyLocalItems
+          Remove="@(RuntimeTargetsCopyLocalItems)"
+          Condition="$([System.String]::Copy('%(RuntimeTargetsCopyLocalItems.Identity)').Replace('\', '/').Contains('/libarchive.net/'))
+                     and !$([System.String]::Copy('%(RuntimeTargetsCopyLocalItems.Identity)').Replace('\', '/').Contains('/runtimes/win-x64/'))" />
+    </ItemGroup>
+  </Target>
 </Project>

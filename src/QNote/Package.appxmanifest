@@ -9,16 +9,22 @@
   xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
   IgnorableNamespaces="uap rescap systemai uap5">
 
+  <!--
+    Publisher must match the subject of the QNote signing certificate exactly
+    (certs/qnote.pfx, generated via winapp cert generate with publisher CN=QNote).
+    Changing the publisher changes package identity: installs signed with the old
+    CN=AppPublisher dev cert must be uninstalled first (no cross-publisher upgrade).
+  -->
   <Identity
     Name="71E74B05-BE20-45DC-B948-E90C0A09B4F8"
-    Publisher="CN=AppPublisher"
-    Version="1.0.0.0" />
+    Publisher="CN=QNote"
+    Version="1.0.1.0" />
 
   <mp:PhoneIdentity PhoneProductId="71E74B05-BE20-45DC-B948-E90C0A09B4F8" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
     <DisplayName>QNote</DisplayName>
-    <PublisherDisplayName>AppPublisher</PublisherDisplayName>
+    <PublisherDisplayName>QNote</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 

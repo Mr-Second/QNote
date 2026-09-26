@@ -39,6 +39,7 @@ Generated Files/
 *.appxupload
 *.msix
 *.msixbundle
+*.appxsym
 *.pfx
 *.cer
 

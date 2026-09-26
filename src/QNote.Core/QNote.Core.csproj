@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -12,11 +12,17 @@
       LibArchive.Net: managed wrapper over native libarchive for the .qns backup
       container (ZIP + AES-256). Chosen by the backup-library spike (both headless
       and packaged-WinUI layers PASS). The NuGet bundles native libarchive for ALL
-      platforms under runtimes/ — TODO(packaging): trim the non-Windows natives
-      (linux/osx, unused win-x86) out of the MSIX payload or the package grows by
-      several MB of dead native code (research/backup-library-spike.md).
+      platforms under runtimes/ (~33 MB), copied into every consumer's output by
+      the package's own buildTransitive targets — ExcludeAssets="build;buildTransitive"
+      shuts that channel off (verified: it also suppresses the transitive flow into
+      the app/test projects, and Core's own RID-less output carries no native
+      payload at all). The remaining NuGet runtimeTargets copy-local channel only
+      surfaces in the RID-specific app project; it is trimmed to win-x64 there
+      (see TrimLibArchiveNonWinX64Natives in src/QNote/QNote.csproj). Native loading
+      at runtime uses the flattened win-x64 archive.dll that RID-specific
+      build/publish places at the app root (plus the kept runtimes/win-x64 probe path).
     -->
-    <PackageReference Include="LibArchive.Net" Version="0.3.1" />
+    <PackageReference Include="LibArchive.Net" Version="0.3.1" ExcludeAssets="build;buildTransitive" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
   </ItemGroup>
