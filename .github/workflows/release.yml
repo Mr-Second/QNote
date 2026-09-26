@@ -239,9 +239,13 @@ jobs:
       - name: SHA256 checksums
         shell: pwsh
         run: |
+          # Checksum the primary downloadable: the Installer.zip in self-signed
+          # mode, the bare signed MSIX in SignPath mode.
+          $zip  = "dist/QNote_${{ steps.version.outputs.version }}_x64_Installer.zip"
           $msix = "dist/QNote_${{ steps.version.outputs.version }}_x64.msix"
-          $hash = (Get-FileHash $msix -Algorithm SHA256).Hash.ToLower()
-          "$hash  $(Split-Path $msix -Leaf)" | Out-File 'dist/SHA256SUMS.txt' -Encoding utf8
+          $main = if (Test-Path $zip) { $zip } else { $msix }
+          $hash = (Get-FileHash $main -Algorithm SHA256).Hash.ToLower()
+          "$hash  $(Split-Path $main -Leaf)" | Out-File 'dist/SHA256SUMS.txt' -Encoding utf8
           Get-Content 'dist/SHA256SUMS.txt'
 
       # On tag pushes the tag already exists; on workflow_dispatch gh creates
@@ -254,10 +258,10 @@ jobs:
         run: |
           $version = '${{ steps.version.outputs.version }}'
           $tag = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME } else { "v$version" }
-          $assets = @("dist/QNote_${version}_x64.msix", 'dist/SHA256SUMS.txt')
-          if (Test-Path 'dist/qnote.cer') { $assets += 'dist/qnote.cer' }
-          # Self-signed mode also ships the one-click installer (trust cert + install)
-          # and the all-in-one ZIP bundle (install.ps1 + cer + msix).
-          if (Test-Path 'dist/qnote.cer') { $assets += 'install.ps1' }
-          if (Test-Path "dist/QNote_${version}_x64_Installer.zip") { $assets += "dist/QNote_${version}_x64_Installer.zip" }
+          # Self-signed mode ships ONLY the all-in-one Installer.zip (+ sums) —
+          # bare msix/cer/ps1 stay inside the zip to keep the asset list clean.
+          # SignPath mode ships the bare signed MSIX (+ sums).
+          $assets = @('dist/SHA256SUMS.txt')
+          $zip = "dist/QNote_${version}_x64_Installer.zip"
+          if (Test-Path $zip) { $assets += $zip } else { $assets += "dist/QNote_${version}_x64.msix" }
           gh release create $tag --target $env:GITHUB_SHA --title "QNote $version" --generate-notes @assets

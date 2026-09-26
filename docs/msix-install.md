@@ -2,22 +2,21 @@
 
 QNote 以自签名证书签名的 MSIX 包分发。首次安装前需要信任一次证书。
 
-## 一键安装（推荐）
+## 一键安装（推荐，唯一的下载项）
 
 下载 Release 页的 **`QNote_<版本>_x64_Installer.zip`**（内含安装脚本 + 证书 + MSIX），
 解压后右键 `install.ps1` →“使用 PowerShell 运行”。脚本会自动请求管理员权限、
-信任证书（一次性）并安装 MSIX，全程无需手动操作。手动安装方式见下文。
+信任证书（一次性）并安装 MSIX，全程无需手动操作。
 
-> 也可以分开下载 `install.ps1`、`qnote.cer`、`QNote_<版本>_x64.msix` 放入同一目录后运行脚本，效果相同。
+校验：下载后可用 `Get-FileHash .\QNote_<版本>_x64_Installer.zip` 对比 Release 页
+`SHA256SUMS.txt` 中的哈希值。
 
 ## 产物
 
 | 文件 | 说明 |
 |---|---|
-| `QNote_<版本>_x64_Installer.zip` | **一键安装包**（install.ps1 + 证书 + MSIX，推荐） |
-| `QNote_<版本>_x64.msix` | 安装包（仅 x64，自包含 .NET 运行时 + R2R） |
-| `qnote.cer` | 签名证书公钥（用于信任，随包分发） |
-| `install.ps1` | 一键安装脚本（可选，导证书 + 装包一步完成） |
+| `QNote_<版本>_x64_Installer.zip` | 一键安装包（install.ps1 + qnote.cer + MSIX） |
+| `SHA256SUMS.txt` | 上述 zip 的 SHA256 校验值 |
 
 签名证书：Subject `CN=QNote`，Thumbprint `8125C390B50D7D2D0B9AC1FD0C80030F78CEE9BA`，
 有效期至 2031-09-25。签名带 DigiCert 时间戳，证书过期后已安装的包仍有效。
@@ -26,27 +25,13 @@ QNote 以自签名证书签名的 MSIX 包分发。首次安装前需要信任�
 （Windows 11 通常已自带；缺失时安装包会提示，或从微软官网下载安装：
 https://aka.ms/windowsappsdk/2.3/latest/windowsappruntimeinstall-x64.exe）。
 
-## 第一步：信任证书（一次性，需要管理员）
+## 手动安装（不使用脚本时）
 
-方式 A — 图形界面：
+从 zip 中取出 `qnote.cer` 和 `.msix`：
 
-1. 双击 `qnote.cer` → “安装证书”
-2. 选择“本地计算机”（需管理员权限）→ 下一步
-3. 选择“将所有的证书都放入下列存储” → 浏览 → “受信任的根证书颁发机构” → 完成
-
-方式 B — PowerShell（管理员）：
-
-```powershell
-Import-Certificate -FilePath .\qnote.cer -CertStoreLocation Cert:\LocalMachine\Root
-```
-
-## 第二步：安装
-
-双击 `QNote_<版本>_x64.msix`，或 PowerShell：
-
-```powershell
-Add-AppxPackage .\QNote_1.0.0.0_x64.msix
-```
+1. 双击 `qnote.cer` → “安装证书” → 选择“本地计算机”（需管理员权限）
+   → “将所有的证书都放入下列存储” → 浏览 → “受信任的根证书颁发机构” → 完成
+2. 双击 `QNote_<版本>_x64.msix` 安装，或 PowerShell：`Add-AppxPackage .\QNote_<版本>_x64.msix`
 
 安装后从开始菜单启动 “QNote”。
 
