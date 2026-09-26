@@ -51,6 +51,11 @@ public partial class App : Application
         Services.GetRequiredService<ILogger<App>>()
             .LogInformation("QNote starting. Data root: {Root}", paths.Root);
 
+        // Startup milestone (perf R1): process start ≈ Main entry (see StartupClock).
+        Services.GetRequiredService<ILogger<App>>()
+            .LogInformation("Startup milestone: OnLaunched at {ElapsedMs:0} ms since process start.",
+                StartupClock.ElapsedMs);
+
         // Startup self-check: log the OS StartupTask state (the single source of
         // truth for 开机自启动) — first thing to read when diagnosing startup issues.
         _ = LogStartupTaskStateAsync(Services);
@@ -70,9 +75,19 @@ public partial class App : Application
         // tray icon explicitly — it only registers on Load/ForceCreate otherwise.
         var settings = await Services.GetRequiredService<ISettingsService>().LoadAsync();
         if (settings.StartMinimized)
-            ((MainWindow)Window).ForceCreateTrayIcon();
+        {
+            var mainWindow = (MainWindow)Window;
+            mainWindow.ForceCreateTrayIcon();
+            // Hidden since launch: engage the tiered working-set trim (perf R2).
+            mainWindow.NotifyHiddenSinceLaunch();
+            Services.GetRequiredService<ILogger<App>>()
+                .LogInformation("Startup milestone: tray icon ready (StartMinimized) at {ElapsedMs:0} ms since process start.",
+                    StartupClock.ElapsedMs);
+        }
         else
+        {
             Window.Activate();
+        }
     }
 
     private static IServiceProvider ConfigureServices()

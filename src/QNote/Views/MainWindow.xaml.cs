@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using QNote.Controls;
+using QNote.Memory;
 using QNote.Models;
 using QNote.Services;
 using Windows.Graphics;
@@ -30,6 +31,7 @@ public sealed partial class MainWindow : Window
     private readonly ISettingsService _settings;
     private readonly DispatcherQueueTimer _geometrySaveTimer;
     private readonly EdgeHideController _edgeHide;
+    private readonly WorkingSetTrimController _workingSetTrim;
     private readonly IGlobalHotkey _hotkey;
     private AppSettings _snapshot = new();
 
@@ -48,6 +50,17 @@ public sealed partial class MainWindow : Window
         // Edge-hide: view-side controller owns polling/animation; judgment is in Core.
         _edgeHide = new EdgeHideController(this,
             App.Services.GetRequiredService<ILogger<EdgeHideController>>());
+
+        // Tray-hide working-set trim (perf R2): timing/judgment in Core, only the
+        // hide/show signals are fed from here. Engaged by the tray-hide and
+        // StartMinimized paths ONLY — never by edge-hide (instant reveal there).
+        _workingSetTrim = new WorkingSetTrimController(
+            new WorkingSetInterop(),
+            new ThreadingOneShotTimer(),
+            App.Services.GetRequiredService<ILogger<WorkingSetTrimController>>());
+
+        // Startup milestone (perf R1): one-shot window-activated timestamp.
+        Activated += OnFirstActivated;
 
         // Global hotkey (ADR D6): subclass the HWND for WM_HOTKEY; registration
         // happens once settings load (below) and on every change from the panel.
@@ -189,6 +202,7 @@ public sealed partial class MainWindow : Window
             await page.ViewModel.FlushAsync();
 
         AppWindow.Hide();
+        _workingSetTrim.OnHidden();
     }
 
     /// <summary>
@@ -198,6 +212,33 @@ public sealed partial class MainWindow : Window
     /// is later shown. (ponytail: revisit per-hide EcoQoS if idle memory matters.)
     /// </summary>
     public void ForceCreateTrayIcon() => TrayIcon.ForceCreate(enablesEfficiencyMode: false);
+
+    /// <summary>
+    /// One-shot startup milestone (perf R1): window-activated time is the externally
+    /// visible cold-start number. StartMinimized launches never activate, so they
+    /// log the tray-icon milestone in <see cref="App.OnLaunched"/> instead.
+    /// </summary>
+    private void OnFirstActivated(object sender, WindowActivatedEventArgs args)
+    {
+        if (args.WindowActivationState == WindowActivationState.Deactivated)
+            return;
+        Activated -= OnFirstActivated;
+        App.Services.GetRequiredService<ILogger<MainWindow>>()
+            .LogInformation("Startup milestone: window activated at {ElapsedMs:0} ms since process start.",
+                StartupClock.ElapsedMs);
+    }
+
+    /// <summary>
+    /// StartMinimized launch: the window starts hidden to tray, so the tiered
+    /// working-set trim engages exactly like a tray hide (perf R2). Also drop the
+    /// window-activated startup milestone — it must measure COLD START only, not
+    /// the first tray show hours later.
+    /// </summary>
+    public void NotifyHiddenSinceLaunch()
+    {
+        Activated -= OnFirstActivated;
+        _workingSetTrim.OnHidden();
+    }
 
     private void TrayShow_Click(object sender, RoutedEventArgs e) => ShowFromTray();
 
@@ -240,6 +281,9 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public void ShowFromTray()
     {
+        // Cancel any pending deep working-set trim — the window is coming back.
+        _workingSetTrim.OnShown();
+
         // An edge-hidden window slides back first (ADR D5); SW_RESTORE alone would
         // foreground it at its off-screen position.
         _edgeHide.RevealFromTray();
