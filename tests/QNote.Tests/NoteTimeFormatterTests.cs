@@ -9,7 +9,12 @@ namespace QNote.Tests;
 /// </summary>
 public sealed class NoteTimeFormatterTests
 {
-    private static readonly DateTimeOffset Now = new(2026, 7, 26, 15, 30, 0, TimeSpan.FromHours(8));
+    // Machine-local offset for a given date — keeps the tests timezone-independent
+    // (the formatter renders in machine-local time; CI runners are UTC, dev is UTC+8).
+    private static TimeSpan LocalOffset(int year, int month, int day) =>
+        TimeZoneInfo.Local.GetUtcOffset(new DateTime(year, month, day));
+
+    private static readonly DateTimeOffset Now = new(2026, 7, 26, 15, 30, 0, LocalOffset(2026, 7, 26));
 
     [Theory]
     [InlineData(10, "刚刚")]            // 10 seconds ago
@@ -31,17 +36,17 @@ public sealed class NoteTimeFormatterTests
 
     [Fact]
     public void Format_Tiered_Today_ShowsTimeOnly() =>
-        Assert.Equal("09:05", NoteTimeFormatter.Format(new DateTimeOffset(2026, 7, 26, 9, 5, 0, TimeSpan.FromHours(8)), NoteTimeFormat.Tiered, Now));
+        Assert.Equal("09:05", NoteTimeFormatter.Format(new DateTimeOffset(2026, 7, 26, 9, 5, 0, LocalOffset(2026, 7, 26)), NoteTimeFormat.Tiered, Now));
 
     [Fact]
     public void Format_Tiered_SameYear_ShowsMonthDayTime() =>
-        Assert.Equal("03-02 09:05", NoteTimeFormatter.Format(new DateTimeOffset(2026, 3, 2, 9, 5, 0, TimeSpan.FromHours(8)), NoteTimeFormat.Tiered, Now));
+        Assert.Equal("03-02 09:05", NoteTimeFormatter.Format(new DateTimeOffset(2026, 3, 2, 9, 5, 0, LocalOffset(2026, 3, 2)), NoteTimeFormat.Tiered, Now));
 
     [Fact]
     public void Format_Tiered_OtherYear_ShowsDateOnly() =>
-        Assert.Equal("2025-12-31", NoteTimeFormatter.Format(new DateTimeOffset(2025, 12, 31, 23, 59, 0, TimeSpan.FromHours(8)), NoteTimeFormat.Tiered, Now));
+        Assert.Equal("2025-12-31", NoteTimeFormatter.Format(new DateTimeOffset(2025, 12, 31, 23, 59, 0, LocalOffset(2025, 12, 31)), NoteTimeFormat.Tiered, Now));
 
     [Fact] // Qt renders 12-hour "hh" — treated as a bug; we emit 24-hour.
     public void Format_Full_AlwaysComplete24H() =>
-        Assert.Equal("2026-07-26 09:05", NoteTimeFormatter.Format(new DateTimeOffset(2026, 7, 26, 9, 5, 0, TimeSpan.FromHours(8)), NoteTimeFormat.Full, Now));
+        Assert.Equal("2026-07-26 09:05", NoteTimeFormatter.Format(new DateTimeOffset(2026, 7, 26, 9, 5, 0, LocalOffset(2026, 7, 26)), NoteTimeFormat.Full, Now));
 }
