@@ -233,7 +233,12 @@ public sealed partial class MainWindow : Window
         Application.Current.Exit();
     }
 
-    private void ShowFromTray()
+    /// <summary>
+    /// Reveal and foreground the window from any state (hidden / minimized /
+    /// edge-hidden). Used by the tray icon, the tray menu, and the single-instance
+    /// redirected-activation path in <see cref="App"/>.
+    /// </summary>
+    public void ShowFromTray()
     {
         // An edge-hidden window slides back first (ADR D5); SW_RESTORE alone would
         // foreground it at its off-screen position.

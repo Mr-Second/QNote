@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
+using Microsoft.Windows.AppLifecycle;
 using QNote.Data;
 using QNote.Data.Schema;
 using QNote.Infrastructure;
@@ -61,6 +62,10 @@ public partial class App : Application
         Window = new MainWindow();
         DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
 
+        // Single-instance (guard in Program): a second launch redirects its
+        // activation here; surface the window exactly like the tray "show" path.
+        AppInstance.GetCurrent().Activated += OnRedirectedActivation;
+
         // StartMinimized: skip Activate (window stays hidden) and register the
         // tray icon explicitly — it only registers on Load/ForceCreate otherwise.
         var settings = await Services.GetRequiredService<ISettingsService>().LoadAsync();
@@ -115,6 +120,23 @@ public partial class App : Application
         services.AddTransient<SettingsViewModel>();
 
         return services.BuildServiceProvider();
+    }
+
+    /// <summary>
+    /// Redirected activation from a second launch (see <see cref="Program"/>).
+    /// Raised off the UI thread — marshal to the DispatcherQueue and show the
+    /// window the same way the tray "show" command does (covers hidden /
+    /// minimized / edge-hidden / StartMinimized states).
+    /// </summary>
+    private static void OnRedirectedActivation(object? sender, AppActivationArguments args)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            Services.GetRequiredService<ILogger<App>>()
+                .LogInformation("Activation redirected from a second launch (kind: {Kind}).", args.Kind);
+            if (Window is MainWindow mainWindow)
+                mainWindow.ShowFromTray();
+        });
     }
 
     private static async Task LogStartupTaskStateAsync(IServiceProvider services)
