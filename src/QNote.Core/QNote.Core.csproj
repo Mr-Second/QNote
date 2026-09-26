@@ -24,6 +24,13 @@
     -->
     <PackageReference Include="LibArchive.Net" Version="0.3.1" ExcludeAssets="build;buildTransitive" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
+    <!--
+      Transitive override: Microsoft.Data.Sqlite 10.0.10 pulls SQLitePCLRaw
+      2.1.11, whose bundled e_sqlite3 native has a known high-severity
+      vulnerability (GHSA-2m69-gcr7-jv3q, NU1903). Pin the bundle to the
+      patched 2.1.x line. Drop this pin once Microsoft.Data.Sqlite updates.
+    -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.13" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
   </ItemGroup>
 
