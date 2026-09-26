@@ -294,8 +294,25 @@ public partial class NotesPageViewModel : ObservableObject
             await FlushAsync();
 
             var selected = SelectedNote;
+
+            // Same-note echo (e.g. the selection restored after our own re-sort):
+            // the note is already in the editor — flushing is done above, and
+            // reloading would only wipe the caret/scroll for nothing.
+            if (selected is not null && _loaded is not null && selected.Id == _loaded.Id)
+                return;
+
             if (selected is null)
             {
+                // Transient deselection from our own list surgery (the re-sort Move):
+                // the loaded note is still in the list, so this is not a real
+                // "nothing selected" — pin the selection back (the echo returns
+                // above) and leave the editor untouched. Genuine nulls (empty list,
+                // deleted note) still blank the editor.
+                if (_loaded is not null && Notes.FirstOrDefault(n => n.Id == _loaded.Id) is { } still)
+                {
+                    SelectedNote = still;
+                    return;
+                }
                 SetEditor(null, string.Empty, string.Empty);
                 return;
             }
