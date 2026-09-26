@@ -1,3 +1,6 @@
+using System.Runtime.InteropServices;
+using System.Text;
+using Microsoft.Extensions.Logging;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 
@@ -20,7 +23,7 @@ public sealed record ClipboardImageSource(byte[]? Bytes, string Extension, strin
 public static class ClipboardImageReader
 {
     /// <summary>Returns clipboard image sources in priority order (files before a loose bitmap).</summary>
-    public static async Task<IReadOnlyList<ClipboardImageSource>> ReadAsync()
+    public static async Task<IReadOnlyList<ClipboardImageSource>> ReadAsync(ILogger? log = null)
     {
         var result = new List<ClipboardImageSource>();
         DataPackageView content;
@@ -28,8 +31,9 @@ public static class ClipboardImageReader
         {
             content = Clipboard.GetContent();
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            log?.LogWarning(ex, "Clipboard read failed; treated as no image");
             return result; // clipboard busy/closed — treated as "no image"
         }
 
@@ -43,9 +47,27 @@ public static class ClipboardImageReader
                         result.Add(new ClipboardImageSource(null, Normalize(file.FileType), file.Path));
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                log?.LogWarning(ex, "Reading clipboard StorageItems failed; falling back to bitmap");
                 // fall through to a bitmap attempt
+            }
+
+            // WinRT's GetStorageItemsAsync can throw RPC_E_WRONG_THREAD (0x8001010E)
+            // for clipboards produced by some apps (observed with a WinForms
+            // SetFileDropList clipboard; the async OLE read is apartment-sensitive).
+            // The raw Win32 clipboard APIs are apartment-free, so retry there before
+            // giving up on the file list.
+            if (result.Count == 0)
+            {
+                foreach (var path in Win32Clipboard.ReadFileDrop())
+                {
+                    var ext = Normalize(Path.GetExtension(path));
+                    if (WicImageNormalizer.IsSupported(ext))
+                        result.Add(new ClipboardImageSource(null, ext, path));
+                }
+                if (result.Count > 0)
+                    log?.LogInformation("Clipboard file list recovered via the Win32 fallback ({Count} image(s))", result.Count);
             }
         }
 
@@ -59,9 +81,24 @@ public static class ClipboardImageReader
                 var bytes = await WicImageNormalizer.ReadAllAsync(stream);
                 result.Add(new ClipboardImageSource(bytes, ExtensionFor(stream.ContentType), null));
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // no usable bitmap
+                log?.LogWarning(ex, "Reading clipboard bitmap via WinRT failed");
+                // no usable bitmap — try the raw DIB below
+            }
+
+            // Same apartment story as the file list: a plain CF_DIB/CF_DIBV5 from an
+            // app whose DIB shape WinRT rejects (e.g. WinForms Clipboard.SetImage)
+            // silently yields nothing above. Read the raw DIB and wrap it in a BMP
+            // file header — WIC's BMP decoder handles the variants WinRT will not.
+            if (result.Count == 0)
+            {
+                var bmp = Win32Clipboard.ReadDibAsBmp();
+                if (bmp is not null)
+                {
+                    result.Add(new ClipboardImageSource(bmp, "bmp", null));
+                    log?.LogInformation("Clipboard bitmap recovered via the Win32 DIB fallback ({Bytes} bytes)", bmp.Length);
+                }
             }
         }
 

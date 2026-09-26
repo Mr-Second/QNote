@@ -59,6 +59,16 @@ public sealed class RichTextEditorController
     /// <summary>RTF as RichEdit re-emits it right after a load — the no-op baseline.</summary>
     private string _baselineRtf = string.Empty;
 
+    /// <summary>
+    /// Ordered <c>qnote:</c> shas of the picts as loaded (or inserted since), used as
+    /// the double-click fallback when RichEdit strips the alt on an RTF reload: the
+    /// in-memory pict then reports the generic "Image" alt and the sha can only be
+    /// recovered by the pict's ordinal in the document. Known residual: deleting a
+    /// pict since load shifts later ordinals — the alt-preservation follow-up
+    /// replaces this heuristic with a content-keyed mapping.
+    /// </summary>
+    private readonly List<string?> _pictShas = [];
+
     public RichTextEditorController(
         RichEditBox box,
         ILogger<RichTextEditorController>? log = null,
@@ -109,6 +119,10 @@ public sealed class RichTextEditorController
         _interactedSinceLoad = false;
         _loadGeneration++;
         _suppressChange++;
+        // Capture the ordered image links BEFORE RichEdit can normalize them away —
+        // the loaded RTF still carries the qnote: alts written at save time.
+        _pictShas.Clear();
+        _pictShas.AddRange(RtfPictInspector.FindPicts(rtf).Select(p => p.Sha256));
         try
         {
             if (string.IsNullOrWhiteSpace(rtf))
@@ -313,7 +327,7 @@ public sealed class RichTextEditorController
     /// </summary>
     public async Task<bool> InsertClipboardImagesAsync()
     {
-        var sources = await ClipboardImageReader.ReadAsync();
+        var sources = await ClipboardImageReader.ReadAsync(_log);
         if (sources.Count == 0)
             return false;
 
@@ -399,10 +413,37 @@ public sealed class RichTextEditorController
 
         MarkInteracted();
         using var stream = await WicImageNormalizer.ToInMemoryStreamAsync(imported.DisplayBytes);
+        var insertPosition = _box.Document.Selection.StartPosition;
         _box.Document.Selection.InsertImage(
             widthDip, heightDip, 0, VerticalCharacterAlignment.Baseline,
             ImageAltCodec.Encode(imported.Sha256), stream);
+        _pictShas.Insert(CountPictPlaceholdersBefore(insertPosition), imported.Sha256);
         ContentChanged?.Invoke();
+    }
+
+    /// <summary>Number of embedded-image placeholders (U+FFFC) before a story position.</summary>
+    private int CountPictPlaceholdersBefore(int storyPosition)
+    {
+        _box.Document.GetText(TextGetOptions.None, out var text);
+        var end = Math.Min(storyPosition, text.Length);
+        var count = 0;
+        for (var i = 0; i < end; i++)
+        {
+            if (text[i] == '￼')
+                count++;
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// The load-time <c>qnote:</c> sha for the pict at <paramref name="storyPosition"/>,
+    /// matched by ordinal (U+FFFC count). <c>null</c> when the ordinal is out of range
+    /// or the loaded pict never carried a link.
+    /// </summary>
+    private string? GetLoadedShaByPictOrdinal(int storyPosition)
+    {
+        var ordinal = CountPictPlaceholdersBefore(storyPosition);
+        return ordinal >= 0 && ordinal < _pictShas.Count ? _pictShas[ordinal] : null;
     }
 
     // ---------- Double-click image hit-test ----------
@@ -493,6 +534,13 @@ public sealed class RichTextEditorController
             sha256 = RtfPictInspector.FindPicts(pictRtf)
                 .Select(p => p.Sha256)
                 .FirstOrDefault(s => s is not null);
+
+            // RichEdit rewrites the qnote: alt to "Image" when a note RTF is RELOADED
+            // (verified 2026-09-26, msftedit in WinAppSDK 2.3.1), so a pict inserted
+            // before the last reload has no alt in the live document. Recover the sha
+            // by the pict's ordinal against the links captured at load time. Residual:
+            // a pict deleted since load shifts later ordinals (follow-up task).
+            sha256 ??= GetLoadedShaByPictOrdinal(range.StartPosition);
             return sha256 is not null;
         }
         catch (Exception ex)
@@ -559,7 +607,23 @@ public sealed class RichTextEditorController
             {
                 // Keep embedded pictures verbatim (PRD "QNote 内复制图片再粘贴不丢图").
                 // No more RtfPictStripper on this path — picts are now first-class content.
-                var rtf = await data.GetRtfAsync();
+                // WinRT GetRtfAsync is apartment-sensitive (RPC_E_WRONG_THREAD for some
+                // producers); fall back to the raw CF_RTF read, which has no apartment.
+                string? rtf;
+                try
+                {
+                    rtf = await data.GetRtfAsync();
+                }
+                catch (Exception ex)
+                {
+                    _log?.LogWarning(ex, "Reading clipboard RTF via WinRT failed; trying Win32 fallback");
+                    rtf = Win32Clipboard.ReadRtfText();
+                }
+                if (rtf is null)
+                {
+                    ImportFailed?.Invoke("无法读取剪贴板中的内容");
+                    return;
+                }
                 MarkInteracted();
                 _box.Document.Selection.SetText(TextSetOptions.FormatRtf, rtf);
                 ContentChanged?.Invoke();
@@ -570,9 +634,33 @@ public sealed class RichTextEditorController
             }
             else if (handlesText)
             {
+                // Same apartment story as RTF: WinRT GetTextAsync can fail for
+                // producer-specific clipboards; CF_UNICODETEXT is always readable.
+                string? text;
+                try
+                {
+                    text = await data.GetTextAsync();
+                }
+                catch (Exception ex)
+                {
+                    _log?.LogWarning(ex, "Reading clipboard text via WinRT failed; trying Win32 fallback");
+                    text = Win32Clipboard.ReadUnicodeText();
+                }
+                if (text is null)
+                {
+                    ImportFailed?.Invoke("无法读取剪贴板中的内容");
+                    return;
+                }
                 MarkInteracted();
-                _box.Document.Selection.SetText(TextSetOptions.None, await data.GetTextAsync());
+                _box.Document.Selection.SetText(TextSetOptions.None, text);
                 ContentChanged?.Invoke();
+            }
+            else if (handlesImages)
+            {
+                // The paste was claimed synchronously for the image formats, but every
+                // read path came back empty (and there is no text to fall back on).
+                // Surface the failure — a silent no-op reads as "paste is broken".
+                ImportFailed?.Invoke("无法读取剪贴板中的图片");
             }
         }
         catch (Exception ex)

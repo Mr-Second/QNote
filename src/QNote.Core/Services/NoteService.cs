@@ -66,7 +66,12 @@ public sealed class NoteService : INoteService
 
     public async Task SyncNoteImagesAsync(long noteId, string? rtf, CancellationToken ct = default)
     {
-        var referenced = RtfPictInspector.ReferencedSha256(rtf);
+        var picts = RtfPictInspector.FindPicts(rtf);
+        var referenced = picts
+            .Where(p => p.Sha256 is not null)
+            .Select(p => p.Sha256!)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
 
         // Adopt images that arrived via paste/copy rather than import: they carry a
         // qnote:<sha> alt but may have no row for THIS note. Reuse metadata another
@@ -97,6 +102,21 @@ public sealed class NoteService : INoteService
                 }
             }
             await _repo.AddNoteImagesAsync(noteId, toAdd, ct);
+        }
+
+        // Non-destructive guard (2026-09-26): RichEdit strips the qnote: alt when a
+        // note RTF is LOADED (msftedit rewrites wzDescription to "Image" on parse),
+        // so a note reloaded since its images were inserted saves with fewer alts
+        // than picts. Pruning on that incomplete reference list would unlink every
+        // stripped image and delete originals that are still visibly in the note —
+        // observed on real data. Only prune when every pict still carries its alt
+        // (or none remain); the alt-preservation follow-up makes this precise.
+        if (picts.Any(p => p.Sha256 is null))
+        {
+            _log.LogWarning(
+                "Note {NoteId}: {Stripped}/{Total} embedded image(s) have no qnote: alt (RichEdit reload strip); skipping unlink/prune to protect originals",
+                noteId, picts.Count(p => p.Sha256 is null), picts.Count);
+            return;
         }
 
         var orphans = await _repo.SyncNoteImagesAsync(noteId, referenced, ct);
