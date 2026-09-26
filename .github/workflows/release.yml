@@ -250,4 +250,6 @@ jobs:
           $tag = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME } else { "v$version" }
           $assets = @("dist/QNote_${version}_x64.msix", 'dist/SHA256SUMS.txt')
           if (Test-Path 'dist/qnote.cer') { $assets += 'dist/qnote.cer' }
+          # Self-signed mode also ships the one-click installer (trust cert + install).
+          if (Test-Path 'dist/qnote.cer') { $assets += 'install.ps1' }
           gh release create $tag --target $env:GITHUB_SHA --title "QNote $version" --generate-notes @assets
