@@ -124,6 +124,11 @@ public static class RtfEmitter
         var buffer = new StringBuilder(512);
 
         buffer.Append(@"{\rtf1\ansi\deff0{\fonttbl{\f0\fswiss Segoe UI;}}");
+        // Empty colour table: the first entry (before the ';') is the AUTO colour.
+        // Without it msftedit pins the character colour to literal black on load,
+        // which breaks dark mode (the theme foreground never comes back). Runs emit
+        // no \cf, so they inherit colour-table entry 0 = auto / theme-following.
+        buffer.Append(@"{\colortbl;}");
         buffer.Append(@"\uc1\pard\fs").Append(BodyFontHalfPoints);
 
         foreach (var block in content.Blocks)

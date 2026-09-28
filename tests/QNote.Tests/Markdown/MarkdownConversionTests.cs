@@ -265,7 +265,7 @@ public class RtfEmitterTests
     public void EmitsValidHeaderAndFooter()
     {
         var rtf = RtfEmitter.Emit(Parse("hi"));
-        Assert.StartsWith(@"{\rtf1\ansi\deff0{\fonttbl{\f0\fswiss Segoe UI;}}", rtf);
+        Assert.StartsWith(@"{\rtf1\ansi\deff0{\fonttbl{\f0\fswiss Segoe UI;}}{\colortbl;}", rtf);
         Assert.EndsWith("}", rtf);
     }
 
