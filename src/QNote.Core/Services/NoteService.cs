@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using QNote.Data;
+using QNote.Markdown;
 using QNote.Models;
-using QNote.Text;
 
 namespace QNote.Services;
 
@@ -49,7 +49,13 @@ public sealed class NoteService : INoteService
 
     public async Task<Note> UpdateAsync(Note note, CancellationToken ct = default)
     {
-        var updated = note with { UpdatedAt = DateTimeOffset.UtcNow };
+        // PlainText is derived from the Markdown content here — a single authority,
+        // so every save path (editor save, VM, future importers) projects identically.
+        var updated = note with
+        {
+            PlainText = MarkdownText.ToPlainText(note.Content),
+            UpdatedAt = DateTimeOffset.UtcNow,
+        };
         await _repo.UpdateAsync(updated, ct);
         return updated;
     }
@@ -64,18 +70,16 @@ public sealed class NoteService : INoteService
     public Task AddNoteImagesAsync(long noteId, IReadOnlyList<NoteImage> images, CancellationToken ct = default) =>
         _repo.AddNoteImagesAsync(noteId, images, ct);
 
-    public async Task SyncNoteImagesAsync(long noteId, string? rtf, CancellationToken ct = default)
+    public async Task SyncNoteImagesAsync(long noteId, string? markdown, CancellationToken ct = default)
     {
-        var picts = RtfPictInspector.FindPicts(rtf);
-        var referenced = picts
-            .Where(p => p.Sha256 is not null)
-            .Select(p => p.Sha256!)
+        var referenced = MarkdownParser.ReferencedImageShas(markdown ?? string.Empty)
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
         // Adopt images that arrived via paste/copy rather than import: they carry a
-        // qnote:<sha> alt but may have no row for THIS note. Reuse metadata another
-        // note already recorded, or a minimal row when the original file is on disk.
+        // qnote-img:<sha> reference but may have no row for THIS note. Reuse metadata
+        // (incl. the display copy) another note already recorded, or a minimal row
+        // when only the original file is on disk.
         var existing = (await _repo.GetNoteImagesAsync(noteId, ct)).Select(i => i.Sha256)
             .ToHashSet(StringComparer.Ordinal);
         var missing = referenced.Where(sha => !existing.Contains(sha)).ToList();
@@ -104,22 +108,10 @@ public sealed class NoteService : INoteService
             await _repo.AddNoteImagesAsync(noteId, toAdd, ct);
         }
 
-        // Non-destructive guard (2026-09-26): RichEdit strips the qnote: alt when a
-        // note RTF is LOADED (msftedit rewrites wzDescription to "Image" on parse),
-        // so a note reloaded since its images were inserted saves with fewer alts
-        // than picts. Pruning on that incomplete reference list would unlink every
-        // stripped image and delete originals that are still visibly in the note —
-        // observed on real data. Only prune when every pict still carries its alt
-        // (or none remain); the alt-preservation follow-up makes this precise.
-        if (picts.Any(p => p.Sha256 is null))
-        {
-            _log.LogWarning(
-                "Note {NoteId}: {Stripped}/{Total} embedded image(s) have no qnote: alt (RichEdit reload strip); skipping unlink/prune to protect originals",
-                noteId, picts.Count(p => p.Sha256 is null), picts.Count);
-            return;
-        }
-
         var orphans = await _repo.SyncNoteImagesAsync(noteId, referenced, ct);
         await _images.DeleteOriginalsAsync(orphans, ct);
     }
+
+    public Task<IReadOnlyList<NoteImage>> GetNoteImagesWithDisplayAsync(long noteId, CancellationToken ct = default) =>
+        _repo.GetNoteImagesWithDisplayAsync(noteId, ct);
 }

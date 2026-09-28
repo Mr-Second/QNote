@@ -33,9 +33,17 @@ public interface INoteService
     Task AddNoteImagesAsync(long noteId, IReadOnlyList<NoteImage> images, CancellationToken ct = default);
 
     /// <summary>
-    /// Reconciles a note's <c>note_images</c> rows with the images its current RTF
-    /// actually references (parsed from the <c>qnote:&lt;sha256&gt;</c> alt marker) and
-    /// deletes originals that became unreferenced by any note.
+    /// Reconciles a note's <c>note_images</c> rows with the images its current
+    /// Markdown actually references (<c>![alt](qnote-img:&lt;sha256&gt;)</c>) and
+    /// deletes originals that became unreferenced by any note. Images referenced
+    /// without a row for this note are adopted from other notes' metadata (or the
+    /// original file on disk) so pasted copies stay linked.
     /// </summary>
-    Task SyncNoteImagesAsync(long noteId, string? rtf, CancellationToken ct = default);
+    Task SyncNoteImagesAsync(long noteId, string? markdown, CancellationToken ct = default);
+
+    /// <summary>
+    /// Full image-link rows including display bytes — the editor load path (MD→RTF
+    /// rendering resolves <c>qnote-img:</c> references to these).
+    /// </summary>
+    Task<IReadOnlyList<NoteImage>> GetNoteImagesWithDisplayAsync(long noteId, CancellationToken ct = default);
 }

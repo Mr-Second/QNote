@@ -1,8 +1,9 @@
 namespace QNote.Models;
 
 /// <summary>
-/// A sticky note. <see cref="Content"/> holds RTF (parity-map decision ④:
-/// RichEditBox + RTF). Timestamps are stored UTC and presented local.
+/// A sticky note. <see cref="Content"/> holds the Markdown source (schema v6,
+/// Markdown-storage B2); the editor renders it through the MD→RTF conversion layer.
+/// Timestamps are stored UTC and presented local.
 /// </summary>
 public sealed record Note
 {
@@ -13,12 +14,13 @@ public sealed record Note
 
     public string Title { get; init; } = string.Empty;
 
-    /// <summary>RTF document text.</summary>
+    /// <summary>Markdown document text (schema v6).</summary>
     public string Content { get; init; } = string.Empty;
 
     /// <summary>
-    /// Plain-text projection of <see cref="Content"/>, filled on save. Source for
-    /// list previews and the FTS corpus (keeps RTF control words out of both).
+    /// Plain-text projection of <see cref="Content"/>, derived by
+    /// <c>NoteService.UpdateAsync</c> on every save. Source for list previews and
+    /// the FTS corpus (keeps Markdown syntax out of both).
     /// </summary>
     public string PlainText { get; init; } = string.Empty;
 

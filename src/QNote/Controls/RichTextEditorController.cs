@@ -3,43 +3,32 @@ using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using QNote.Markdown;
 using QNote.Models;
 using QNote.Services;
 using QNote.Text;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Storage;
-using Windows.UI;
-
 namespace QNote.Controls;
-
-/// <summary>Snapshot of the current selection's formatting, for toolbar state sync.
-/// <c>null</c> means "mixed / unknown" (three-state UI).</summary>
-public sealed record EditorFormatState
-{
-    public bool? Bold { get; init; }
-    public bool? Italic { get; init; }
-    public bool? Underline { get; init; }
-    public bool? Strikethrough { get; init; }
-    public string? FontFamily { get; init; }
-    public int? FontSizePx { get; init; }
-    public Color? ForegroundColor { get; init; }
-    public ParagraphAlignment? Alignment { get; init; }
-    public bool? BulletedList { get; init; }
-    public bool? NumberedList { get; init; }
-}
 
 /// <summary>
 /// View-side wrapper around a <see cref="RichEditBox"/> (NOT a view-model — it holds
-/// the control, so it lives in code-behind wiring per mvvm-guidelines). Owns RTF in/
-/// out, all formatting ops, selection-state reads, paste/drag image import, and the
-/// double-click "open original" hit-test.
+/// the control, so it lives in code-behind wiring per mvvm-guidelines). Owns content
+/// in/out (<see cref="SetMarkdownAsync"/> / <see cref="GetMarkdown"/>), all formatting
+/// ops, selection-state reads, paste/drag image import, and the double-click "open
+/// original" hit-test.
 ///
-/// Image model (PRD D1/D2): the inline copy is a compressed PNG/JPEG inside the RTF;
-/// the original is content-addressed on disk by <see cref="IImageService"/> and linked
-/// to the note via the <c>qnote:&lt;sha256&gt;</c> alt text. The controller keeps an RTF
-/// baseline captured right after a load so the save guard can tell a real edit
-/// (including a format-only one) from RichEdit's normalization noise.
+/// Image model (schema B2): storage is Markdown with
+/// <c>![alt](qnote-img:&lt;sha256&gt;)</c> references; the RichEdit document only ever
+/// holds the compressed display copies. Load resolves references from
+/// <c>note_images.display_bytes</c>; save re-identifies each inline pict by hashing
+/// its bytes against those same rows — byte identity survives RichEdit reloads,
+/// deletions, reordering and undo, none of which the alt marker survives (msftedit
+/// rewrites it to "Image" on RTF parse; it stays only as the in-session fallback for
+/// freshly inserted picts). The controller keeps an RTF baseline captured right after
+/// a load so the save guard can tell a real edit (including a format-only one) from
+/// RichEdit's normalization noise.
 /// </summary>
 public sealed class RichTextEditorController
 {
@@ -56,18 +45,28 @@ public sealed class RichTextEditorController
     /// <summary>Generation the current baseline was captured in.</summary>
     private int _baselineGeneration;
 
+    /// <summary>Bumped on every <see cref="SetMarkdownAsync"/>; stale loads abort at their await.</summary>
+    private int _markdownLoadGeneration;
+
     /// <summary>RTF as RichEdit re-emits it right after a load — the no-op baseline.</summary>
     private string _baselineRtf = string.Empty;
 
     /// <summary>
-    /// Ordered <c>qnote:</c> shas of the picts as loaded (or inserted since), used as
-    /// the double-click fallback when RichEdit strips the alt on an RTF reload: the
-    /// in-memory pict then reports the generic "Image" alt and the sha can only be
-    /// recovered by the pict's ordinal in the document. Known residual: deleting a
-    /// pict since load shifts later ordinals — the alt-preservation follow-up
-    /// replaces this heuristic with a content-keyed mapping.
+    /// Ordered <c>qnote-img:</c> shas of the picts as loaded from the note's Markdown
+    /// references (or inserted since), by U+FFFC ordinal — the double-click fallback
+    /// when RichEdit strips the alt on an RTF reload. <see cref="GetMarkdown"/>
+    /// refreshes it with the byte-identity-resolved ordinals, so deletions since load
+    /// stop shifting the mapping at the next save.
     /// </summary>
     private readonly List<string?> _pictShas = [];
+
+    /// <summary>
+    /// SHA256(display bytes) → original sha, filled at load from
+    /// <c>note_images.display_bytes</c> and extended at insert. The save path
+    /// resolves each inline pict by hashing its bytes against this map — its
+    /// content-addressed identity, independent of RichEdit's alt handling.
+    /// </summary>
+    private readonly Dictionary<string, string> _displayBytesSha = new(StringComparer.Ordinal);
 
     public RichTextEditorController(
         RichEditBox box,
@@ -113,16 +112,13 @@ public sealed class RichTextEditorController
     // ---------- RTF in/out ----------
 
     /// <summary>Loads RTF into the document. Invalid RTF falls back to a blank document
-    /// (logged, never crashes); empty content → blank document.</summary>
+    /// (logged, never crashes); empty content → blank document. Internal engine of
+    /// <see cref="SetMarkdownAsync"/> — image bookkeeping is owned by the MD path.</summary>
     public void SetRtf(string? rtf)
     {
         _interactedSinceLoad = false;
         _loadGeneration++;
         _suppressChange++;
-        // Capture the ordered image links BEFORE RichEdit can normalize them away —
-        // the loaded RTF still carries the qnote: alts written at save time.
-        _pictShas.Clear();
-        _pictShas.AddRange(RtfPictInspector.FindPicts(rtf).Select(p => p.Sha256));
         try
         {
             if (string.IsNullOrWhiteSpace(rtf))
@@ -181,6 +177,111 @@ public sealed class RichTextEditorController
         }
     }
 
+    // ---------- Markdown in/out (schema B2) ----------
+
+    /// <summary>
+    /// Loads the note's Markdown: <see cref="MarkdownParser"/> → neutral document →
+    /// <see cref="RtfEmitter"/> (resolving <c>qnote-img:</c> references to the note's
+    /// display copies) → <see cref="SetRtf"/>. Display geometry fits the note's
+    /// ORIGINAL dimensions (stored on the image rows) into the editor width — the
+    /// display bytes themselves are already the compressed copy. References with no
+    /// resolvable row (legacy rows without a blob) degrade to the alt text.
+    /// </summary>
+    public async Task SetMarkdownAsync(string? markdown)
+    {
+        var md = markdown ?? string.Empty;
+
+        _displayBytesSha.Clear();
+        _pictShas.Clear();
+
+        // Fast note switching: two loads can interleave at the image-row await;
+        // the stale one must not overwrite the newer document.
+        var generation = ++_markdownLoadGeneration;
+
+        Dictionary<string, RtfImagePayload> payloads = new(StringComparer.Ordinal);
+        if (_notes is not null && CurrentNoteIdProvider?.Invoke() is { } noteId &&
+            md.Contains(MarkdownParser.ImageSchemePrefix, StringComparison.Ordinal))
+        {
+            IReadOnlyList<NoteImage> rows;
+            try
+            {
+                rows = await _notes.GetNoteImagesWithDisplayAsync(noteId);
+            }
+            catch (Exception ex)
+            {
+                // Degrade: render the text without images rather than failing the load.
+                _log?.LogWarning(ex, "Loading display copies for note {NoteId} failed", noteId);
+                rows = [];
+            }
+
+            if (generation != _markdownLoadGeneration)
+                return;
+
+            foreach (var row in rows)
+            {
+                if (row.DisplayBytes is { } displayBytes)
+                    _displayBytesSha[Sha256Hex(displayBytes)] = row.Sha256;
+                if (row.DisplayBytes is { } bytes && RtfImagePayload.FromBytes(bytes) is { } payload)
+                {
+                    // Display size comes from the ORIGINAL dimensions (row.Width/Height),
+                    // not the compressed copy's pixels — the compressed copy may be
+                    // downscaled by policy, and the note should still show the same
+                    // layout it had in the RTF era.
+                    var (widthDip, heightDip) = ImageDisplaySize.Fit(row.Width, row.Height, AvailableImageWidth);
+                    payloads[row.Sha256] = payload with { DisplayWidthDip = widthDip, DisplayHeightDip = heightDip };
+                }
+            }
+        }
+
+        _pictShas.AddRange(MarkdownParser.ReferencedImageShas(md));
+
+        var content = MarkdownParser.Parse(md);
+        SetRtf(string.IsNullOrWhiteSpace(md) ? null : RtfEmitter.Emit(content, sha =>
+            payloads.TryGetValue(sha, out var payload) ? payload : null));
+    }
+
+    /// <summary>
+    /// Saves the document as Markdown: TOM walk (<see cref="TomDocumentWalker"/>)
+    /// → neutral document → <see cref="MarkdownEmitter"/>. Each inline pict is
+    /// re-identified by hashing its display bytes against <c>note_images</c> (the
+    /// in-memory map built at load and extended at insert), falling back to the
+    /// pict's alt — freshly inserted picts carry a <c>qnote:</c> alt until the next
+    /// reload strips it. Unresolvable picts are dropped rather than written with a
+    /// bogus reference.
+    /// </summary>
+    public string GetMarkdown()
+    {
+        if (IsEmpty)
+            return string.Empty;
+
+        var rtf = GetRtf();
+        var picts = RtfPictInspector.FindPicts(rtf);
+        var resolved = new List<string?>(picts.Count);
+        foreach (var pict in picts)
+        {
+            var sha = pict.Bytes is { } bytes && _displayBytesSha.TryGetValue(Sha256Hex(bytes), out var byBytes)
+                ? byBytes
+                : pict.Sha256;
+            resolved.Add(sha);
+        }
+
+        var content = TomDocumentWalker.Walk(_box, resolved);
+
+        // Self-heal the double-click map with the authoritative ordinals — deletes
+        // that happened since load stop shifting the mapping from here on.
+        _pictShas.Clear();
+        _pictShas.AddRange(resolved);
+
+        return MarkdownEmitter.Emit(content);
+    }
+
+    /// <summary>Lowercase hex SHA256 of the given bytes (identity key for pict matching).</summary>
+    private static string Sha256Hex(byte[] bytes)
+    {
+        var hash = System.Security.Cryptography.SHA256.HashData(bytes);
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
     /// <summary>
     /// True when the document differs from the post-load baseline. Catches format-only
     /// edits (bold/colour/alignment), which the plain-text compare in the save guard
@@ -200,7 +301,7 @@ public sealed class RichTextEditorController
         }
     }
 
-    // ---------- Formatting ops ----------
+    // ---------- Formatting ops (the locked Markdown subset) ----------
 
     public void ToggleBold() => MarkInteracted(() => _box.Document.Selection.CharacterFormat.Bold = FormatEffect.Toggle);
 
@@ -209,28 +310,71 @@ public sealed class RichTextEditorController
     public void ToggleStrikethrough() =>
         MarkInteracted(() => _box.Document.Selection.CharacterFormat.Strikethrough = FormatEffect.Toggle);
 
-    public void ToggleUnderline()
+    /// <summary>Body text size in points — matches the RTF emitter's <c>\fs22</c>.</summary>
+    private const float BodyFontPoints = 11f;
+
+    /// <summary>Heading sizes in points — must stay inside the walker's classification bands
+    /// (H1 ≥ 18, H2 ≥ 15, H3 ≥ 12; body 11 falls below all of them).</summary>
+    private static readonly Dictionary<int, float> HeadingSizesPt = new()
+    {
+        [1] = 20f,
+        [2] = 16f,
+        [3] = 13f,
+    };
+
+    /// <summary>
+    /// Applies (or removes) a heading level to every paragraph the selection touches.
+    /// The range is first expanded to whole paragraphs — the TOM walker classifies a
+    /// paragraph by its leading character, so partial-paragraph formatting would
+    /// produce a heading whose tail still renders as body text. Applying the level the
+    /// first touched paragraph already carries clears it back to body (toggle
+    /// semantics, like Word's Ctrl+Alt+N styles).
+    /// </summary>
+    public void ApplyHeading(int level)
     {
         MarkInteracted(() =>
         {
-            var format = _box.Document.Selection.CharacterFormat;
-            format.Underline = format.Underline == UnderlineType.Single
-                ? UnderlineType.None
-                : UnderlineType.Single;
+            _box.Document.GetText(TextGetOptions.None, out var text);
+            var start = _box.Document.Selection.StartPosition;
+            var end = _box.Document.Selection.EndPosition;
+
+            // Expand to whole paragraphs [paraStart, paraEnd), including the trailing
+            // paragraph mark, so typing at the paragraph end inherits the new format.
+            var paraStart = start;
+            while (paraStart > 0 && text[paraStart - 1] != '\r')
+                paraStart--;
+            var paraEnd = end;
+            while (paraEnd < text.Length && text[paraEnd] != '\r')
+                paraEnd++;
+            if (paraEnd < text.Length)
+                paraEnd++; // the '\r' itself
+            if (paraEnd <= paraStart)
+                return;
+
+            var headingSize = HeadingSizesPt[level];
+            var clear = IsParagraphAtHeading(text, paraStart, paraEnd, headingSize);
+
+            var format = _box.Document.GetRange(paraStart, paraEnd).CharacterFormat;
+            format.Size = clear ? BodyFontPoints : headingSize;
+            format.Bold = clear ? FormatEffect.Off : FormatEffect.On;
         });
     }
 
-    public void SetFontFamily(string family) =>
-        MarkInteracted(() => _box.Document.Selection.CharacterFormat.Name = family);
+    /// <summary>True when the paragraph's leading character is bold at exactly the given size.</summary>
+    private bool IsParagraphAtHeading(string text, int start, int end, float sizePt)
+    {
+        for (var i = start; i < end; i++)
+        {
+            var c = text[i];
+            if (c == '\uFFFC' || char.IsWhiteSpace(c))
+                continue;
 
-    public void SetFontSizePx(int px) =>
-        MarkInteracted(() => _box.Document.Selection.CharacterFormat.Size = RtfFontSize.PxToPt(px));
-
-    public void SetForegroundColor(Color color) =>
-        MarkInteracted(() => _box.Document.Selection.CharacterFormat.ForegroundColor = color);
-
-    public void SetAlignment(ParagraphAlignment alignment) =>
-        MarkInteracted(() => _box.Document.Selection.ParagraphFormat.Alignment = alignment);
+            var format = _box.Document.GetRange(i, i + 1).CharacterFormat;
+            return format.Bold is FormatEffect.On or FormatEffect.Toggle
+                && Math.Abs(format.Size - sizePt) < 0.5f;
+        }
+        return false;
+    }
 
     public void ToggleList(MarkerType listType) =>
         MarkInteracted(() =>
@@ -238,48 +382,6 @@ public sealed class RichTextEditorController
             var format = _box.Document.Selection.ParagraphFormat;
             format.ListType = format.ListType == listType ? MarkerType.None : listType;
         });
-
-    // ---------- Selection state ----------
-
-    public EditorFormatState GetSelectionState()
-    {
-        var character = _box.Document.Selection.CharacterFormat;
-        var paragraph = _box.Document.Selection.ParagraphFormat;
-
-        return new EditorFormatState
-        {
-            Bold = FromEffect(character.Bold),
-            Italic = FromEffect(character.Italic),
-            Strikethrough = FromEffect(character.Strikethrough),
-            Underline = character.Underline switch
-            {
-                UnderlineType.Single => true,
-                UnderlineType.None => false,
-                _ => null,
-            },
-            FontFamily = string.IsNullOrEmpty(character.Name) ? null : character.Name,
-            FontSizePx = character.Size > 0 ? RtfFontSize.PtToPx(character.Size) : null,
-            ForegroundColor = character.ForegroundColor,
-            Alignment = paragraph.Alignment == ParagraphAlignment.Undefined ? null : paragraph.Alignment,
-            BulletedList = FromListType(paragraph.ListType, MarkerType.Bullet),
-            // "Arabic" is the decimal-numbered list marker (1. 2. 3. …).
-            NumberedList = FromListType(paragraph.ListType, MarkerType.Arabic),
-        };
-    }
-
-    private static bool? FromEffect(FormatEffect effect) => effect switch
-    {
-        FormatEffect.On => true,
-        FormatEffect.Off => false,
-        _ => null,
-    };
-
-    private static bool? FromListType(MarkerType actual, MarkerType wanted) => actual switch
-    {
-        _ when actual == wanted => true,
-        MarkerType.None => false,
-        _ => null,
-    };
 
     // ---------- Image insertion ----------
 
@@ -403,6 +505,9 @@ public sealed class RichTextEditorController
         ByteSize = image.ByteSize,
         Width = image.PixelWidth,
         Height = image.PixelHeight,
+        // Schema v6: the display copy lives in note_images now (not inside RTF) —
+        // persisted at import time so MD loads can resolve qnote-img: references.
+        DisplayBytes = image.DisplayBytes,
         CreatedAt = DateTimeOffset.UtcNow,
     };
 
@@ -418,6 +523,10 @@ public sealed class RichTextEditorController
             widthDip, heightDip, 0, VerticalCharacterAlignment.Baseline,
             ImageAltCodec.Encode(imported.Sha256), stream);
         _pictShas.Insert(CountPictPlaceholdersBefore(insertPosition), imported.Sha256);
+        // Register the display-copy identity so GetMarkdown can byte-match this pict
+        // even after a reload strips its alt; the row persisted above is the same map
+        // entry on the next load.
+        _displayBytesSha[Sha256Hex(imported.DisplayBytes)] = imported.Sha256;
         ContentChanged?.Invoke();
     }
 

@@ -86,16 +86,26 @@ public interface INoteRepository
 
     /// <summary>
     /// Reconciles a note's <c>note_images</c> rows with the content addresses its
-    /// current RTF actually references: rows for dropped images are deleted, kept
-    /// (and still-present) addresses are left alone. Returns the addresses that became
-    /// unreferenced by ANY note — the caller prunes those original files. Metadata for
-    /// newly referenced addresses must already have been inserted via
+    /// current Markdown actually references: rows for dropped images are deleted,
+    /// kept (and still-present) addresses are left alone. Returns the addresses that
+    /// became unreferenced by ANY note — the caller prunes those original files.
+    /// Metadata for newly referenced addresses must already have been inserted via
     /// <see cref="AddNoteImagesAsync"/> at import time.
     /// </summary>
     Task<IReadOnlyList<string>> SyncNoteImagesAsync(long noteId, IReadOnlyList<string> referencedSha256, CancellationToken ct = default);
 
-    /// <summary>The original-image links for a note, newest first.</summary>
+    /// <summary>
+    /// The original-image links for a note, newest first — WITHOUT
+    /// <see cref="NoteImage.DisplayBytes"/> (the sync/prune paths only need the
+    /// metadata; blob reads are reserved for the editor load path).
+    /// </summary>
     Task<IReadOnlyList<NoteImage>> GetNoteImagesAsync(long noteId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Full link rows INCLUDING <see cref="NoteImage.DisplayBytes"/> — the editor
+    /// load path (MD→RTF rendering resolves <c>qnote-img:</c> references to these).
+    /// </summary>
+    Task<IReadOnlyList<NoteImage>> GetNoteImagesWithDisplayAsync(long noteId, CancellationToken ct = default);
 
     /// <summary>
     /// Known metadata for the given content addresses, from any note that already

@@ -1,3 +1,4 @@
+using QNote.Markdown;
 using QNote.Models;
 using QNote.Services;
 
@@ -28,6 +29,55 @@ public sealed class NoteImageRepositoryTests
         Assert.Equal(640, link.ByteSize);
         Assert.Equal(100, link.Width);
         Assert.Equal(50, link.Height);
+    }
+
+    [Fact]
+    public async Task DisplayBytes_RoundTrips_AndMetadataQueryStaysBlobFree()
+    {
+        using var db = new TestDatabase();
+        var repo = db.NewRepository();
+        var note = await repo.CreateAsync(NewNote());
+        await repo.AddNoteImagesAsync(note.Id,
+            [Image(note.Id, ShaA) with { DisplayBytes = [0x89, 0x50, 0x4E, 0x47, 0x0D] }]);
+
+        // Blob-free query (sync paths) must not materialize the display copy.
+        Assert.Null(Assert.Single(await repo.GetNoteImagesAsync(note.Id)).DisplayBytes);
+
+        // Editor-load query carries it.
+        var withDisplay = Assert.Single(await repo.GetNoteImagesWithDisplayAsync(note.Id));
+        Assert.Equal([0x89, 0x50, 0x4E, 0x47, 0x0D], withDisplay.DisplayBytes);
+    }
+
+    [Fact]
+    public async Task AddNoteImagesAsync_ReUpsert_BackfillsBlobOntoLegacyRow()
+    {
+        using var db = new TestDatabase();
+        var repo = db.NewRepository();
+        var note = await repo.CreateAsync(NewNote());
+        await repo.AddNoteImagesAsync(note.Id, [Image(note.Id, ShaA)]); // legacy, no blob
+
+        await repo.AddNoteImagesAsync(note.Id,
+            [Image(note.Id, ShaA) with { DisplayBytes = [0xFF, 0xD8] }]);
+
+        var row = Assert.Single(await repo.GetNoteImagesWithDisplayAsync(note.Id));
+        Assert.Equal([0xFF, 0xD8], row.DisplayBytes);
+    }
+
+    [Fact]
+    public async Task AddNoteImagesAsync_ReUpsert_NullBlob_DoesNotClobberExistingBytes()
+    {
+        using var db = new TestDatabase();
+        var repo = db.NewRepository();
+        var note = await repo.CreateAsync(NewNote());
+        await repo.AddNoteImagesAsync(note.Id,
+            [Image(note.Id, ShaA) with { DisplayBytes = [0xFF, 0xD8] }]);
+
+        // A later metadata-only upsert (e.g. adoption copy without a copy) must
+        // not wipe the display bytes the row already has.
+        await repo.AddNoteImagesAsync(note.Id, [Image(note.Id, ShaA)]);
+
+        var row = Assert.Single(await repo.GetNoteImagesWithDisplayAsync(note.Id));
+        Assert.Equal([0xFF, 0xD8], row.DisplayBytes);
     }
 
     [Fact]
@@ -126,14 +176,32 @@ public sealed class NoteImageRepositoryTests
         var target = await noteService.CreateAsync();
         await noteService.AddNoteImagesAsync(source.Id, [Image(source.Id, ShaA)]);
 
-        // Target note's RTF now references the copied image (alt carries the sha).
-        var rtf = @"{\rtf1\ansi {\pict{\*\picprop{\sp{\sn wzDescription}{\sv qnote:" + ShaA + @"}}}\pngblip 4142}}";
-        await noteService.SyncNoteImagesAsync(target.Id, rtf);
+        // Target note's Markdown now references the copied image.
+        var md = $"![图]({MarkdownParser.ImageSchemePrefix}{ShaA})";
+        await noteService.SyncNoteImagesAsync(target.Id, md);
 
         var adopted = Assert.Single(await db.NewRepository().GetNoteImagesAsync(target.Id));
         Assert.Equal(ShaA, adopted.Sha256);
         Assert.Equal(640, adopted.ByteSize); // metadata inherited from the source note
         Assert.Equal(100, adopted.Width);
+    }
+
+    [Fact]
+    public async Task SyncNoteImagesAsync_Adoption_CarriesDisplayBytes()
+    {
+        using var db = new TestDatabase();
+        var noteService = db.NewNoteService();
+        var source = await noteService.CreateAsync();
+        var target = await noteService.CreateAsync();
+        await noteService.AddNoteImagesAsync(source.Id,
+            [Image(source.Id, ShaA) with { DisplayBytes = [0x89, 0x50, 0x4E, 0x47] }]);
+
+        var md = $"![]({MarkdownParser.ImageSchemePrefix}{ShaA})";
+        await noteService.SyncNoteImagesAsync(target.Id, md);
+
+        var adopted = Assert.Single(await db.NewRepository().GetNoteImagesWithDisplayAsync(target.Id));
+        Assert.NotNull(adopted.DisplayBytes);
+        Assert.Equal([0x89, 0x50, 0x4E, 0x47], adopted.DisplayBytes);
     }
 
     [Fact]
@@ -143,8 +211,8 @@ public sealed class NoteImageRepositoryTests
         var noteService = db.NewNoteService();
         var note = await noteService.CreateAsync();
 
-        var rtf = @"{\rtf1\ansi {\pict{\*\picprop{\sp{\sn wzDescription}{\sv qnote:" + ShaA + @"}}}\pngblip 4142}}";
-        await noteService.SyncNoteImagesAsync(note.Id, rtf);
+        var md = $"![]({MarkdownParser.ImageSchemePrefix}{ShaA})";
+        await noteService.SyncNoteImagesAsync(note.Id, md);
 
         Assert.Empty(await db.NewRepository().GetNoteImagesAsync(note.Id));
     }

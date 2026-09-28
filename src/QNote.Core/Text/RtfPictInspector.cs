@@ -6,14 +6,21 @@ namespace QNote.Text;
 /// <param name="Alt">The <c>wzDescription</c> alt text, if any (empty otherwise).</param>
 /// <param name="Sha256">Sha256 decoded from a <c>qnote:</c> alt, or <c>null</c>.</param>
 /// <param name="Blip">Blip keyword (<c>pngblip</c>/<c>jpegblip</c>/…), or <c>null</c>.</param>
-public sealed record RtfPict(string Alt, string? Sha256, string? Blip);
+/// <param name="Bytes">
+/// The decoded hex payload, or <c>null</c> when the group carries no recognizable
+/// hex data (e.g. <c>\bin</c> raw runs). The save path hashes these bytes and
+/// matches them against <c>note_images.display_bytes</c> — byte identity survives
+/// RichEdit reloads, deletions, reordering and undo, none of which the alt marker
+/// survives (msftedit rewrites it to "Image" on RTF parse).
+/// </param>
+public sealed record RtfPict(string Alt, string? Sha256, string? Blip, byte[]? Bytes);
 
 /// <summary>
-/// Extracts the embedded images from an RTF document so the save path can keep
-/// <c>note_images</c> in sync with the note's actual content (PRD D2). The image
-/// bytes are never needed here — only the <c>qnote:&lt;sha256&gt;</c> alt marker is the
-/// link back to the original on disk (see <see cref="ImageAltCodec"/>), and it round-
-/// trips through RichEdit (spike E4/E2).
+/// Extracts the embedded images from an RTF document. The save path hashes each
+/// pict's bytes and matches them against <c>note_images.display_bytes</c> (byte
+/// identity survives RichEdit reloads, unlike the <c>qnote:</c> alt marker, which
+/// msftedit rewrites to "Image" on RTF parse); the alt remains the in-session
+/// fallback for freshly inserted images.
 ///
 /// Brace matching mirrors <see cref="RtfPictStripper"/> (escaped braces and
 /// <c>\bin</c> raw-byte runs are honoured). Pure function — Core, unit-testable.
@@ -61,7 +68,98 @@ public static class RtfPictInspector
     private static RtfPict Parse(string rtf, int start, int groupEndExclusive)
     {
         var alt = ExtractAlt(rtf, start, groupEndExclusive);
-        return new RtfPict(alt, ImageAltCodec.TryDecode(alt), FindBlip(rtf, start, groupEndExclusive));
+        var blip = FindBlip(rtf, start, groupEndExclusive);
+        return new RtfPict(alt, ImageAltCodec.TryDecode(alt), blip,
+            ExtractHexBytes(rtf, start, groupEndExclusive, blip));
+    }
+
+    /// <summary>
+    /// Decodes the hex image data of a pict group. Only direct children of the pict
+    /// group count (depth 1): nested groups like <c>{\*\blipuid 123}</c> and the
+    /// <c>{\*\picprop}</c> shape properties must not pollute the bytes. Control
+    /// words at depth 1 (e.g. <c>\picw100</c> before the data) are skipped with
+    /// their numeric parameter. A <c>\bin</c> raw run bails out with null.
+    /// </summary>
+    private static byte[]? ExtractHexBytes(string rtf, int start, int end, string? blip)
+    {
+        if (blip is null)
+            return null;
+
+        var idx = rtf.IndexOf('\\' + blip, start, StringComparison.Ordinal);
+        if (idx < 0 || idx >= end)
+            return null;
+
+        var i = idx + 1 + blip.Length;
+        var depth = 1; // inside the pict group
+        var nibbles = new List<byte>(256);
+        var nibble = (byte)0;
+        var hasNibble = false;
+
+        while (i < end)
+        {
+            var c = rtf[i];
+            if (IsEscapeAt(rtf, i))
+            {
+                i += 2;
+                continue;
+            }
+
+            if (c == '\\')
+            {
+                // \binN is followed by raw bytes — not hex-scannable.
+                if (IsBinRun(rtf, i, out _))
+                    return null;
+
+                // Skip a control word: \ + letters + optional digits + one delimiter.
+                i++;
+                while (i < end && char.IsAsciiLetter(rtf[i]))
+                    i++;
+                while (i < end && char.IsAsciiDigit(rtf[i]))
+                    i++;
+                if (i < end && rtf[i] == ' ')
+                    i++;
+                continue;
+            }
+
+            if (c == '{')
+            {
+                depth++;
+                i++;
+                continue;
+            }
+
+            if (c == '}')
+            {
+                depth--;
+                if (depth == 0)
+                    break;
+                i++;
+                continue;
+            }
+
+            if (depth == 1 && Uri.IsHexDigit(c))
+            {
+                var value = (byte)Uri.FromHex(c);
+                if (hasNibble)
+                {
+                    nibbles.Add((byte)(nibble << 4 | value));
+                    hasNibble = false;
+                }
+                else
+                {
+                    nibble = value;
+                    hasNibble = true;
+                }
+            }
+
+            // Whitespace and anything else at depth 1 is skipped (hex payloads are
+            // commonly wrapped across lines).
+            i++;
+        }
+
+        if (hasNibble || nibbles.Count == 0)
+            return null; // odd nibble count or no data at all — not a valid payload
+        return nibbles.ToArray();
     }
 
     /// <summary>

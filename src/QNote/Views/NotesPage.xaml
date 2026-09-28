@@ -12,14 +12,6 @@
 
     <Page.Resources>
         <ThemeShadow x:Key="PanelShadow" />
-        <!-- Native color picker for the editor context menu's 文字颜色 item. -->
-        <Flyout x:Name="ColorFlyout">
-            <ColorPicker
-                x:Name="NativeColorPicker"
-                Margin="4"
-                ColorChanged="NativeColorPicker_ColorChanged"
-                IsAlphaEnabled="False" />
-        </Flyout>
     </Page.Resources>
 
     <Page.KeyboardAccelerators>
@@ -493,32 +485,74 @@
                             Drop="ContentEditor_Drop"
                             ScrollViewer.VerticalScrollBarVisibility="Auto"
                             SelectionFlyout="{x:Null}">
+                            <!-- Markdown-subset shortcuts, active while the editor has
+                                 focus; the context menu items carry the same gestures
+                                 as KeyboardAcceleratorTextOverride annotations. -->
+                            <RichEditBox.KeyboardAccelerators>
+                                <KeyboardAccelerator Key="B" Modifiers="Control" Invoked="FormatAccelerator_Invoked" />
+                                <KeyboardAccelerator Key="I" Modifiers="Control" Invoked="FormatAccelerator_Invoked" />
+                                <KeyboardAccelerator Key="D" Modifiers="Control,Shift" Invoked="FormatAccelerator_Invoked" />
+                                <KeyboardAccelerator Key="Number1" Modifiers="Control,Menu" Invoked="FormatAccelerator_Invoked" />
+                                <KeyboardAccelerator Key="Number2" Modifiers="Control,Menu" Invoked="FormatAccelerator_Invoked" />
+                                <KeyboardAccelerator Key="Number3" Modifiers="Control,Menu" Invoked="FormatAccelerator_Invoked" />
+                            </RichEditBox.KeyboardAccelerators>
                             <!-- Formatting lives here now (toolbar deleted): clipboard +
-                                 the format commands the toolbar used to host. -->
+                                 the Markdown-subset format commands (B2: bold/italic/
+                                 strikethrough, headings, lists, images; colour/font/size/
+                                 underline/alignment retired). -->
                             <RichEditBox.ContextFlyout>
                                 <MenuFlyout>
                                     <MenuFlyoutItem Click="CutMenuItem_Click" Text="剪切" />
                                     <MenuFlyoutItem Click="CopyMenuItem_Click" Text="复制" />
                                     <MenuFlyoutItem Click="PasteMenuItem_Click" Text="粘贴" />
                                     <MenuFlyoutSeparator />
-                                    <MenuFlyoutItem Click="BoldMenuItem_Click" Text="粗体">
+                                    <MenuFlyoutItem
+                                        Click="BoldMenuItem_Click"
+                                        KeyboardAcceleratorTextOverride="Ctrl+B"
+                                        Text="粗体">
                                         <MenuFlyoutItem.Icon>
                                             <FontIcon FontSize="14" Glyph="&#xE8DD;" />
                                         </MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
-                                    <MenuFlyoutItem Click="ItalicMenuItem_Click" Text="斜体">
+                                    <MenuFlyoutItem
+                                        Click="ItalicMenuItem_Click"
+                                        KeyboardAcceleratorTextOverride="Ctrl+I"
+                                        Text="斜体">
                                         <MenuFlyoutItem.Icon>
                                             <FontIcon FontSize="14" Glyph="&#xE8DB;" />
                                         </MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
-                                    <MenuFlyoutItem Click="UnderlineMenuItem_Click" Text="下划线">
-                                        <MenuFlyoutItem.Icon>
-                                            <FontIcon FontSize="14" Glyph="&#xE8DC;" />
-                                        </MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutItem Click="StrikethroughMenuItem_Click" Text="删除线">
+                                    <MenuFlyoutItem
+                                        Click="StrikethroughMenuItem_Click"
+                                        KeyboardAcceleratorTextOverride="Ctrl+Shift+D"
+                                        Text="删除线">
                                         <MenuFlyoutItem.Icon>
                                             <FontIcon FontSize="14" Glyph="&#xEDE0;" />
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutSeparator />
+                                    <MenuFlyoutItem
+                                        Click="Heading1MenuItem_Click"
+                                        KeyboardAcceleratorTextOverride="Ctrl+Alt+1"
+                                        Text="标题 1">
+                                        <MenuFlyoutItem.Icon>
+                                            <FontIcon FontFamily="Segoe UI" FontSize="13" FontWeight="SemiBold" Glyph="H1" />
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem
+                                        Click="Heading2MenuItem_Click"
+                                        KeyboardAcceleratorTextOverride="Ctrl+Alt+2"
+                                        Text="标题 2">
+                                        <MenuFlyoutItem.Icon>
+                                            <FontIcon FontFamily="Segoe UI" FontSize="13" FontWeight="SemiBold" Glyph="H2" />
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem
+                                        Click="Heading3MenuItem_Click"
+                                        KeyboardAcceleratorTextOverride="Ctrl+Alt+3"
+                                        Text="标题 3">
+                                        <MenuFlyoutItem.Icon>
+                                            <FontIcon FontFamily="Segoe UI" FontSize="13" FontWeight="SemiBold" Glyph="H3" />
                                         </MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
                                     <MenuFlyoutSeparator />
@@ -530,38 +564,6 @@
                                     <MenuFlyoutItem Click="NumberListMenuItem_Click" Text="有序列表">
                                         <MenuFlyoutItem.Icon>
                                             <FontIcon FontFamily="Segoe UI" FontSize="13" FontWeight="SemiBold" Glyph="1." />
-                                        </MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutSeparator />
-                                    <MenuFlyoutItem Click="AlignLeftMenuItem_Click" Text="左对齐">
-                                        <MenuFlyoutItem.Icon>
-                                            <FontIcon FontSize="14" Glyph="&#xE8E4;" />
-                                        </MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutItem Click="AlignCenterMenuItem_Click" Text="居中对齐">
-                                        <MenuFlyoutItem.Icon>
-                                            <FontIcon FontSize="14" Glyph="&#xE8E3;" />
-                                        </MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutItem Click="AlignRightMenuItem_Click" Text="右对齐">
-                                        <MenuFlyoutItem.Icon>
-                                            <FontIcon FontSize="14" Glyph="&#xE8E2;" />
-                                        </MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutSeparator />
-                                    <MenuFlyoutSubItem x:Name="FontFamilySubMenu" Text="字体">
-                                        <MenuFlyoutSubItem.Icon>
-                                            <FontIcon FontSize="14" Glyph="&#xE8D2;" />
-                                        </MenuFlyoutSubItem.Icon>
-                                    </MenuFlyoutSubItem>
-                                    <MenuFlyoutSubItem x:Name="FontSizeSubMenu" Text="字号">
-                                        <MenuFlyoutSubItem.Icon>
-                                            <FontIcon FontSize="14" Glyph="&#xE8E9;" />
-                                        </MenuFlyoutSubItem.Icon>
-                                    </MenuFlyoutSubItem>
-                                    <MenuFlyoutItem Click="ColorMenuItem_Click" Text="文字颜色">
-                                        <MenuFlyoutItem.Icon>
-                                            <FontIcon FontSize="14" Glyph="&#xE8D3;" />
                                         </MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
                                     <MenuFlyoutSeparator />

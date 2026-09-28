@@ -1,3 +1,4 @@
+using QNote.Markdown;
 using QNote.Models;
 using QNote.Services;
 
@@ -51,12 +52,30 @@ public sealed class NoteServiceTests
     }
 
     /// <summary>
-    /// RichEdit strips the qnote: alt on RTF reload (2026-09-26), so a reloaded note
-    /// saves with picts that carry no link. Sync must NOT unlink/prune then — the
-    /// originals are still visibly in the note.
+    /// PlainText is derived from the Markdown content on save — one authority, so
+    /// previews and the FTS corpus never see syntax markers.
     /// </summary>
     [Fact]
-    public async Task SyncNoteImagesAsync_PictWithoutAlt_KeepsRowAndOriginal()
+    public async Task UpdateAsync_DerivesPlainTextFromMarkdown()
+    {
+        using var db = new TestDatabase();
+        var service = NewService(db);
+        var created = await service.CreateAsync();
+
+        var saved = await service.UpdateAsync(created with
+        {
+            Title = "t",
+            Content = "# 标题\n**粗** *斜* ~~删~~ 正文\n- 列表项",
+        });
+
+        var loaded = await service.GetByIdAsync(created.Id);
+        Assert.Equal("标题\n粗 斜 删 正文\n列表项", loaded!.PlainText);
+        Assert.Equal("标题\n粗 斜 删 正文\n列表项", saved.PlainText);
+    }
+
+    /// <summary>A Markdown reference keeps the row and the original on disk.</summary>
+    [Fact]
+    public async Task SyncNoteImagesAsync_MarkdownReference_KeepsRowAndOriginal()
     {
         using var db = new TestDatabase();
         var service = NewService(db);
@@ -66,18 +85,17 @@ public sealed class NoteServiceTests
         await service.AddNoteImagesAsync(note.Id,
             [new NoteImage { NoteId = note.Id, Sha256 = imported.Sha256, Ext = "png", ByteSize = 3, CreatedAt = DateTimeOffset.UtcNow }]);
 
-        // One pict whose alt was rewritten to "Image" by a RichEdit reload strip.
-        var strippedRtf = @"{\rtf1 {\pict{\*\picprop{\sp{\sn wzDescription}{\sv Image}}}\pngblip\picw1\pich1 89504e47}}";
-        await service.SyncNoteImagesAsync(note.Id, strippedRtf);
+        var md = $"![图]({MarkdownParser.ImageSchemePrefix}{imported.Sha256})";
+        await service.SyncNoteImagesAsync(note.Id, md);
 
         var rows = await db.NewRepository().GetNoteImagesAsync(note.Id);
         Assert.Contains(rows, r => r.Sha256 == imported.Sha256);
         Assert.True(File.Exists(imported.OriginalPath));
     }
 
-    /// <summary>When every pict still carries its alt, unreferenced originals prune as before.</summary>
+    /// <summary>References removed from the Markdown prune the row and the original.</summary>
     [Fact]
-    public async Task SyncNoteImagesAsync_AllPictsLinked_PrunesUnreferenced()
+    public async Task SyncNoteImagesAsync_RemovedReference_PrunesUnreferenced()
     {
         using var db = new TestDatabase();
         var service = NewService(db);
@@ -88,13 +106,31 @@ public sealed class NoteServiceTests
         await service.AddNoteImagesAsync(note.Id,
             [new NoteImage { NoteId = note.Id, Sha256 = stale.Sha256, Ext = "png", ByteSize = 3, CreatedAt = DateTimeOffset.UtcNow }]);
 
-        var linkedRtf = @"{\rtf1 {\pict{\*\picprop{\sp{\sn wzDescription}{\sv qnote:" + kept.Sha256 + @"}}}\pngblip\picw1\pich1 89504e47}}";
-        await service.SyncNoteImagesAsync(note.Id, linkedRtf);
+        var md = $"![]({MarkdownParser.ImageSchemePrefix}{kept.Sha256})";
+        await service.SyncNoteImagesAsync(note.Id, md);
 
         var rows = await db.NewRepository().GetNoteImagesAsync(note.Id);
         Assert.DoesNotContain(rows, r => r.Sha256 == stale.Sha256);
         Assert.False(File.Exists(stale.OriginalPath));
         Assert.Contains(rows, r => r.Sha256 == kept.Sha256);
+    }
+
+    /// <summary>Null/empty Markdown references nothing — every row is a prune candidate.</summary>
+    [Fact]
+    public async Task SyncNoteImagesAsync_EmptyMarkdown_PrunesAll()
+    {
+        using var db = new TestDatabase();
+        var service = NewService(db);
+        var images = db.NewImageService();
+        var note = await service.CreateAsync();
+        var imported = await images.ImportAsync([1, 2, 3], "png", [4, 5, 6], "pngblip", 1, 1);
+        await service.AddNoteImagesAsync(note.Id,
+            [new NoteImage { NoteId = note.Id, Sha256 = imported.Sha256, Ext = "png", ByteSize = 3, CreatedAt = DateTimeOffset.UtcNow }]);
+
+        await service.SyncNoteImagesAsync(note.Id, null);
+
+        Assert.Empty(await db.NewRepository().GetNoteImagesAsync(note.Id));
+        Assert.False(File.Exists(imported.OriginalPath));
     }
 
     private static NoteService NewService(TestDatabase db) => db.NewNoteService();

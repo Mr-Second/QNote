@@ -11,12 +11,12 @@ namespace QNote.ViewModels;
 /// <summary>
 /// The notes screen (three-pane) view-model. Owns the summary list, the current
 /// selection, and the editor data flow. The editor itself is a RichEditBox driven by
-/// a view-side controller (the VM never touches UI types — mvvm-guidelines), so RTF
-/// content crosses the boundary as plain strings: <see cref="EditingContentRtf"/>
-/// carries a freshly loaded note's RTF to the view (via <see cref="ContentReloadRequested"/>),
-/// and <see cref="EditorContentProvider"/> lets the VM pull current RTF/plain text from
-/// the view at flush time. Save model: flush on navigate-away / close / Ctrl+S,
-/// surfaced by <see cref="IsDirty"/>.
+/// a view-side controller (the VM never touches UI types — mvvm-guidelines), so
+/// content crosses the boundary as plain Markdown strings (schema B2):
+/// <see cref="EditingContent"/> carries a freshly loaded note's Markdown to the view
+/// (via <see cref="ContentReloadRequested"/>), and <see cref="EditorContentProvider"/>
+/// lets the VM pull the current Markdown from the view at flush time. Save model:
+/// flush on navigate-away / close / Ctrl+S, surfaced by <see cref="IsDirty"/>.
 ///
 /// Search state lives here too: <see cref="SearchText"/> feeds a debounced query to
 /// <see cref="ISearchService"/>; while searching, <see cref="Notes"/> mirrors the
@@ -63,7 +63,7 @@ public partial class NotesPageViewModel : ObservableObject
 
     /// <summary>
     /// Raised after the editor fields were (re)loaded — the view should push
-    /// <see cref="EditingContentRtf"/> into the RichEditBox.
+    /// <see cref="EditingContent"/> into the RichEditBox.
     /// </summary>
     public event Action? ContentReloadRequested;
 
@@ -81,14 +81,13 @@ public partial class NotesPageViewModel : ObservableObject
     public event Action<IReadOnlyList<NoteSummary>>? SearchCleared;
 
     /// <summary>Editor content captured by the view for a flush.</summary>
-    /// <param name="Rtf">Current RTF (persisted to <c>notes.Content</c>).</param>
-    /// <param name="Plain">Current plain text (persisted to <c>notes.PlainText</c>).</param>
-    /// <param name="RtfChanged">
+    /// <param name="Markdown">Current Markdown (persisted to <c>notes.Content</c>).</param>
+    /// <param name="Changed">
     /// True when the editor's RTF differs from the post-load baseline. Catches
-    /// format-only and image-only edits the plain-text compare cannot see, while
-    /// staying immune to RichEdit's load normalization noise.
+    /// format-only and image-only edits, while staying immune to RichEdit's load
+    /// normalization noise.
     /// </param>
-    public readonly record struct EditorSnapshot(string Rtf, string Plain, bool RtfChanged);
+    public readonly record struct EditorSnapshot(string Markdown, bool Changed);
 
     /// <summary>
     /// Set by the view: returns the editor's current state so flushes always persist
@@ -105,8 +104,8 @@ public partial class NotesPageViewModel : ObservableObject
     [ObservableProperty]
     public partial string EditingTitle { get; set; } = string.Empty;
 
-    /// <summary>RTF of the note currently loaded in the editor (set on load; read by the view).</summary>
-    public string EditingContentRtf { get; private set; } = string.Empty;
+    /// <summary>Markdown of the note currently loaded in the editor (set on load; read by the view).</summary>
+    public string EditingContent { get; private set; } = string.Empty;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
@@ -337,18 +336,20 @@ public partial class NotesPageViewModel : ObservableObject
 
         try
         {
-            var snapshot = EditorContentProvider?.Invoke() ?? new EditorSnapshot(EditingContentRtf, string.Empty, false);
+            var snapshot = EditorContentProvider?.Invoke() ?? new EditorSnapshot(EditingContent, false);
 
             // No-op guard. Previously this compared only title + plain text, so a
-            // format-only edit (bold/colour/alignment — which leaves the plain text
-            // identical) was silently dropped, and an image-only edit could be lost
-            // too. The editor now supplies an RTF-vs-baseline flag: it is true for any
-            // real content or formatting change and false for RichEdit's load/render
+            // format-only edit (bold/list — which leaves the plain text identical)
+            // was silently dropped, and an image-only edit could be lost too. The
+            // editor now supplies a vs-baseline flag: it is true for any real content
+            // or formatting change and false for RichEdit's load/render
             // normalization (which refreshes the baseline instead of flagging dirty).
+            // The Markdown compare is the secondary guard (matches the baseline flag
+            // because emitted Markdown is idempotent through a load).
             if (!NoteEditComparer.HasChanges(
                     _loaded.Title, EditingTitle,
-                    _loaded.PlainText, snapshot.Plain,
-                    snapshot.RtfChanged))
+                    _loaded.Content, snapshot.Markdown,
+                    snapshot.Changed))
             {
                 IsDirty = false;
                 return;
@@ -357,8 +358,7 @@ public partial class NotesPageViewModel : ObservableObject
             var saved = await _notes.UpdateAsync(_loaded with
             {
                 Title = EditingTitle,
-                Content = snapshot.Rtf,
-                PlainText = snapshot.Plain,
+                Content = snapshot.Markdown,
             });
             _loaded = saved;
             IsDirty = false;
@@ -697,12 +697,12 @@ public partial class NotesPageViewModel : ObservableObject
         }
     }
 
-    private void SetEditor(Note? loaded, string title, string contentRtf)
+    private void SetEditor(Note? loaded, string title, string content)
     {
         _loaded = loaded;
         _suppressDirty = true;
         EditingTitle = title;
-        EditingContentRtf = contentRtf;
+        EditingContent = content;
         _suppressDirty = false;
         IsDirty = false;
         ContentReloadRequested?.Invoke();

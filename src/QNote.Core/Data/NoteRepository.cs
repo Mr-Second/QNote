@@ -426,8 +426,10 @@ public sealed class NoteRepository : INoteRepository
         await using var conn = _factory.OpenRead();
         await using var cmd = conn.CreateCommand();
         var parameters = string.Join(", ", distinct.Select((_, i) => $"$sha{i}"));
+        // Includes display_bytes: the paste-adoption path copies this row (with its
+        // blob) onto the adopting note, so the copied image renders without a WIC pass.
         cmd.CommandText =
-            "SELECT note_id, sha256, ext, byte_size, width, height, created_at " +
+            "SELECT note_id, sha256, ext, byte_size, width, height, created_at, display_bytes " +
             $"FROM note_images WHERE sha256 IN ({parameters});";
         for (var i = 0; i < distinct.Count; i++)
             cmd.Parameters.AddWithValue($"$sha{i}", distinct[i]);
@@ -436,7 +438,7 @@ public sealed class NoteRepository : INoteRepository
         while (await reader.ReadAsync(ct))
         {
             // Any note's row carries the same content-addressed metadata; first wins.
-            map.TryAdd(reader.GetString(1), MapNoteImage(reader));
+            map.TryAdd(reader.GetString(1), MapNoteImage(reader, withDisplay: true));
         }
         return map;
     }
@@ -458,15 +460,38 @@ public sealed class NoteRepository : INoteRepository
         return list;
     }
 
+    public async Task<IReadOnlyList<NoteImage>> GetNoteImagesWithDisplayAsync(
+        long noteId, CancellationToken ct = default)
+    {
+        await using var conn = _factory.OpenRead();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT note_id, sha256, ext, byte_size, width, height, created_at, display_bytes " +
+            "FROM note_images WHERE note_id = $id ORDER BY created_at DESC;";
+        cmd.Parameters.AddWithValue("$id", noteId);
+
+        var list = new List<NoteImage>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+            list.Add(MapNoteImage(reader, withDisplay: true));
+        return list;
+    }
+
     private static async Task UpsertNoteImageAsync(
         SqliteConnection conn, SqliteTransaction tx, long noteId, NoteImage image, CancellationToken ct)
     {
         await using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
+        // DO UPDATE (not DO NOTHING): a re-import of the same (note, sha) refreshes
+        // metadata and backfills a display copy onto a legacy blob-less row; the
+        // COALESCE never lets a null overwrite bytes we already have.
         cmd.CommandText =
-            "INSERT INTO note_images (note_id, sha256, ext, byte_size, width, height, created_at) " +
-            "VALUES ($id, $sha, $ext, $size, $w, $h, $created) " +
-            "ON CONFLICT(note_id, sha256) DO NOTHING;";
+            "INSERT INTO note_images (note_id, sha256, ext, byte_size, width, height, created_at, display_bytes) " +
+            "VALUES ($id, $sha, $ext, $size, $w, $h, $created, $display) " +
+            "ON CONFLICT(note_id, sha256) DO UPDATE SET " +
+            "ext = excluded.ext, byte_size = excluded.byte_size, " +
+            "width = excluded.width, height = excluded.height, " +
+            "display_bytes = COALESCE(excluded.display_bytes, note_images.display_bytes);";
         cmd.Parameters.AddWithValue("$id", noteId);
         cmd.Parameters.AddWithValue("$sha", image.Sha256);
         cmd.Parameters.AddWithValue("$ext", image.Ext);
@@ -474,6 +499,7 @@ public sealed class NoteRepository : INoteRepository
         cmd.Parameters.AddWithValue("$w", image.Width);
         cmd.Parameters.AddWithValue("$h", image.Height);
         cmd.Parameters.AddWithValue("$created", ToDbString(image.CreatedAt));
+        cmd.Parameters.AddWithValue("$display", (object?)image.DisplayBytes ?? DBNull.Value);
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
@@ -498,6 +524,7 @@ public sealed class NoteRepository : INoteRepository
         return orphans;
     }
 
+    /// <summary>Maps the 7-column projection (no display_bytes).</summary>
     private static NoteImage MapNoteImage(DbDataReader reader) => new()
     {
         NoteId = reader.GetInt64(0),
@@ -508,6 +535,24 @@ public sealed class NoteRepository : INoteRepository
         Height = reader.GetInt32(5),
         CreatedAt = ParseUtc(reader.GetString(6)),
     };
+
+    /// <summary>Maps the 8-column projection (created_at, then display_bytes).</summary>
+    private static NoteImage MapNoteImage(DbDataReader reader, bool withDisplay)
+    {
+        if (!withDisplay)
+            return MapNoteImage(reader);
+        return new NoteImage
+        {
+            NoteId = reader.GetInt64(0),
+            Sha256 = reader.GetString(1),
+            Ext = reader.GetString(2),
+            ByteSize = reader.GetInt64(3),
+            Width = reader.GetInt32(4),
+            Height = reader.GetInt32(5),
+            CreatedAt = ParseUtc(reader.GetString(6)),
+            DisplayBytes = reader.IsDBNull(7) ? null : (byte[])reader[7],
+        };
+    }
 
     /// <summary>
     /// Upsert one row into <c>notes_fts</c> (delete-by-rowid + insert) inside the

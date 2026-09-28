@@ -97,4 +97,54 @@ public sealed class RtfPictInspectorTests
         var pict = Assert.Single(RtfPictInspector.FindPicts(fragment));
         Assert.Equal(Sha, pict.Sha256);
     }
+
+    // ---------- hex byte extraction (schema B2 save path: byte identity) ----------
+
+    [Fact]
+    public void FindPicts_DecodesHexPayload_WithControlWordsSkipped()
+    {
+        // \picw3175 etc. sit between the blip keyword and the hex data — their
+        // numeric parameters must not leak into the payload.
+        var rtf = @"{\rtf1 " + PictWithAlt("qnote:" + Sha) + "}";
+
+        var pict = Assert.Single(RtfPictInspector.FindPicts(rtf));
+
+        Assert.Equal(
+            new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52 },
+            pict.Bytes);
+    }
+
+    [Fact]
+    public void FindPicts_HexDigitsInsideNestedGroups_DoNotPolluteBytes()
+    {
+        // {\*\blipuid 123} and the picprop alt (which carries the hex-looking sha) are
+        // at depth ≥ 2 — only direct pict children count.
+        var rtf = @"{\pict{\*\blipuid 123}\pngblip{\*\picprop{\sp{\sn wzDescription}{\sv qnote:"
+            + Sha + "}}} 89504e}";
+
+        var pict = Assert.Single(RtfPictInspector.FindPicts(rtf));
+
+        Assert.Equal(new byte[] { 0x89, 0x50, 0x4E }, pict.Bytes);
+        Assert.Equal(Sha, pict.Sha256);
+    }
+
+    [Fact]
+    public void FindPicts_BinRun_YieldsNoBytes()
+    {
+        // \binN carries raw bytes, not hex — bail out with null instead of garbage.
+        var rtf = @"{\rtf1 {\pict\pngblip\bin4 \}ab} tail}";
+
+        var pict = Assert.Single(RtfPictInspector.FindPicts(rtf));
+        Assert.Equal("pngblip", pict.Blip);
+        Assert.Null(pict.Bytes);
+    }
+
+    [Fact]
+    public void FindPicts_OddNibbleCount_YieldsNoBytes()
+    {
+        var rtf = @"{\rtf1 {\pict\pngblip 89504} tail}";
+
+        var pict = Assert.Single(RtfPictInspector.FindPicts(rtf));
+        Assert.Null(pict.Bytes);
+    }
 }

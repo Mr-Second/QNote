@@ -23,6 +23,7 @@
       build/publish places at the app root (plus the kept runtimes/win-x64 probe path).
     -->
     <PackageReference Include="LibArchive.Net" Version="0.3.1" ExcludeAssets="build;buildTransitive" />
+    <PackageReference Include="Markdig" Version="1.4.0" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
     <!--
       Transitive override: Microsoft.Data.Sqlite 10.0.10 pulls SQLitePCLRaw

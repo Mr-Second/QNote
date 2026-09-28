@@ -10,7 +10,7 @@ namespace QNote.Data.Schema;
 public sealed class SchemaInitializer
 {
     /// <summary>Current schema version. Bump when adding a migration step.</summary>
-    public const long CurrentVersion = 5;
+    public const long CurrentVersion = 6;
 
     private readonly DbConnectionFactory _factory;
 
@@ -38,6 +38,8 @@ public sealed class SchemaInitializer
             MigrateV3ToV4(conn);
         if (version < 5)
             MigrateV4ToV5(conn);
+        if (version < 6)
+            MigrateV5ToV6(conn);
         SetUserVersion(conn, CurrentVersion);
         tx.Commit();
     }
@@ -203,6 +205,19 @@ public sealed class SchemaInitializer
             );
             """);
         Execute(conn, "CREATE INDEX IF NOT EXISTS idx_note_images_sha256 ON note_images (sha256);");
+    }
+
+    // v6 (Markdown storage B2): notes.Content semantics flip from RTF to Markdown —
+    // NO notes DDL and no data migration (the app was never released; old RTF rows
+    // simply parse as their literal text). The compressed display copy that used to
+    // live inside the RTF gets a persistent home instead: note_images gains a
+    // display_bytes BLOB, resolved back into {\pict} bytes when the editor renders
+    // ![alt](qnote-img:<sha>) references. Nullable: legacy rows and adopted links
+    // without a copy degrade to the alt-text placeholder.
+    private static void MigrateV5ToV6(SqliteConnection conn)
+    {
+        if (!ColumnExists(conn, "note_images", "display_bytes"))
+            Execute(conn, "ALTER TABLE note_images ADD COLUMN display_bytes BLOB;");
     }
 
     private static bool ColumnExists(SqliteConnection conn, string table, string column)

@@ -24,5 +24,14 @@ public sealed record NoteImage
 
     public int Height { get; init; }
 
+    /// <summary>
+    /// Compressed display copy bytes (schema v6) — what the editor inlines when
+    /// rendering the note's <c>qnote-img:</c> reference. Null on legacy rows or
+    /// adopted links without a copy; the editor then degrades to the alt-text
+    /// placeholder. Dimensions/blip are sniffed from the bytes at load (PNG IHDR /
+    /// JPEG SOF), so no extra columns are stored.
+    /// </summary>
+    public byte[]? DisplayBytes { get; init; }
+
     public DateTimeOffset CreatedAt { get; init; }
 }

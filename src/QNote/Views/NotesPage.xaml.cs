@@ -12,6 +12,7 @@ using QNote.ViewModels;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 using Windows.Storage.Pickers;
+using Windows.System;
 
 namespace QNote.Views;
 
@@ -19,8 +20,8 @@ namespace QNote.Views;
 /// The three-pane notes screen. Code-behind is UI wiring only: it resolves the VM
 /// from DI, forwards the ListView selection / Loaded / Ctrl+S to the VM, hosts the
 /// delete-confirmation dialog (UI types stay out of the VM), and glues the
-/// <see cref="RichTextEditorController"/> (view-side RichEditBox wrapper) to the VM's
-/// RTF data flow.
+/// <see cref="RichTextEditorController"/> (view-side RichEditBox wrapper) to the
+/// VM's Markdown data flow.
 /// </summary>
 public sealed partial class NotesPage : Page
 {
@@ -42,7 +43,7 @@ public sealed partial class NotesPage : Page
             App.Services.GetService<IImageService>(),
             App.Services.GetService<INoteService>());
         ViewModel.EditorContentProvider = () =>
-            new NotesPageViewModel.EditorSnapshot(_editor.GetRtf(), _editor.GetPlainText(), _editor.IsRtfChangedFromBaseline());
+            new NotesPageViewModel.EditorSnapshot(_editor.GetMarkdown(), _editor.IsRtfChangedFromBaseline());
         _editor.CurrentNoteIdProvider = () => ViewModel.SelectedNote?.Id;
         _editor.OpenImageRequested += OnOpenImageRequested;
         _editor.ImportFailed += OnImageError;
@@ -54,20 +55,6 @@ public sealed partial class NotesPage : Page
         ViewModel.SearchCleared += OnSearchCleared;
         _editor.ContentChanged += OnEditorContentChanged;
         _editor.SelectionChanged += OnEditorSelectionChanged;
-
-        // Populate the context menu's font family / size submenus from the catalog.
-        foreach (var font in FontCatalog.Families)
-        {
-            var item = new MenuFlyoutItem { Text = font.Display, Tag = font.Family };
-            item.Click += FontFamilyMenuItem_Click;
-            FontFamilySubMenu.Items.Add(item);
-        }
-        foreach (var px in FontCatalog.SizesPx)
-        {
-            var item = new MenuFlyoutItem { Text = px.ToString(), Tag = px };
-            item.Click += FontSizeMenuItem_Click;
-            FontSizeSubMenu.Items.Add(item);
-        }
 
         Loaded += OnLoaded;
     }
@@ -175,11 +162,12 @@ public sealed partial class NotesPage : Page
         });
     }
 
-    // VM finished loading a note → push its RTF into the editor (suppressed inside
-    // SetRtf, so this never marks the note dirty).
-    private void OnContentReloadRequested()
+    // VM finished loading a note → render its Markdown into the editor (suppressed
+    // inside the load path, so this never marks the note dirty). Async: image
+    // references resolve to note_images display copies before the RTF load.
+    private async void OnContentReloadRequested()
     {
-        _editor.SetRtf(ViewModel.EditingContentRtf);
+        await _editor.SetMarkdownAsync(ViewModel.EditingContent);
         UpdatePlaceholder();
         UpdateEditorStatus();
     }
@@ -546,18 +534,13 @@ public sealed partial class NotesPage : Page
 
     private void ItalicMenuItem_Click(object sender, RoutedEventArgs e) => ApplyFormat(_editor.ToggleItalic);
 
-    private void UnderlineMenuItem_Click(object sender, RoutedEventArgs e) => ApplyFormat(_editor.ToggleUnderline);
-
     private void StrikethroughMenuItem_Click(object sender, RoutedEventArgs e) => ApplyFormat(_editor.ToggleStrikethrough);
 
-    private void AlignLeftMenuItem_Click(object sender, RoutedEventArgs e) =>
-        ApplyFormat(() => _editor.SetAlignment(ParagraphAlignment.Left));
+    private void Heading1MenuItem_Click(object sender, RoutedEventArgs e) => ApplyFormat(() => _editor.ApplyHeading(1));
 
-    private void AlignCenterMenuItem_Click(object sender, RoutedEventArgs e) =>
-        ApplyFormat(() => _editor.SetAlignment(ParagraphAlignment.Center));
+    private void Heading2MenuItem_Click(object sender, RoutedEventArgs e) => ApplyFormat(() => _editor.ApplyHeading(2));
 
-    private void AlignRightMenuItem_Click(object sender, RoutedEventArgs e) =>
-        ApplyFormat(() => _editor.SetAlignment(ParagraphAlignment.Right));
+    private void Heading3MenuItem_Click(object sender, RoutedEventArgs e) => ApplyFormat(() => _editor.ApplyHeading(3));
 
     private void BulletListMenuItem_Click(object sender, RoutedEventArgs e) =>
         ApplyFormat(() => _editor.ToggleList(MarkerType.Bullet));
@@ -567,28 +550,36 @@ public sealed partial class NotesPage : Page
 
     private void InsertImageMenuItem_Click(object sender, RoutedEventArgs e) => InsertImageButton_Click(sender, e);
 
-    private void FontFamilyMenuItem_Click(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// One handler for every <see cref="RichEditBox"/> format accelerator — dispatched
+    /// by (key, modifiers). Gestures mirror the context-menu annotations
+    /// (Ctrl+B/I, Ctrl+Shift+D strikethrough, Ctrl+Alt+1/2/3 headings).
+    /// </summary>
+    private void FormatAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        if (sender is MenuFlyoutItem { Tag: string family })
-            ApplyFormat(() => _editor.SetFontFamily(family));
+        switch (sender.Modifiers, sender.Key)
+        {
+            case (VirtualKeyModifiers.Control, VirtualKey.B):
+                _editor.ToggleBold();
+                break;
+            case (VirtualKeyModifiers.Control, VirtualKey.I):
+                _editor.ToggleItalic();
+                break;
+            case (VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift, VirtualKey.D):
+                _editor.ToggleStrikethrough();
+                break;
+            case (VirtualKeyModifiers.Control | VirtualKeyModifiers.Menu, VirtualKey.Number1):
+                _editor.ApplyHeading(1);
+                break;
+            case (VirtualKeyModifiers.Control | VirtualKeyModifiers.Menu, VirtualKey.Number2):
+                _editor.ApplyHeading(2);
+                break;
+            case (VirtualKeyModifiers.Control | VirtualKeyModifiers.Menu, VirtualKey.Number3):
+                _editor.ApplyHeading(3);
+                break;
+        }
+        args.Handled = true;
     }
-
-    private void FontSizeMenuItem_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is MenuFlyoutItem { Tag: int px })
-            ApplyFormat(() => _editor.SetFontSizePx(px));
-    }
-
-    // 文字颜色 → native ColorPicker in a flyout (initialized from the current selection).
-    private void ColorMenuItem_Click(object sender, RoutedEventArgs e)
-    {
-        if (_editor.GetSelectionState().ForegroundColor is { } color && color.A >= 128)
-            NativeColorPicker.Color = color;
-        ColorFlyout.ShowAt(ContentEditor);
-    }
-
-    private void NativeColorPicker_ColorChanged(ColorPicker sender, ColorChangedEventArgs args) =>
-        _editor.SetForegroundColor(args.NewColor);
 
     private void ApplyFormat(Action apply)
     {
