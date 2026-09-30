@@ -36,6 +36,10 @@ public partial class App : Application
         // Register the zh-Hans string table for the vendored editor's chrome before
         // any editor is built (QNote UI is zh-Hans source — see project-context).
         QNote.Controls.EditorLocalization.Register();
+        // Install QNote's Lucide icon provider for the vendored editor chrome (toolbar
+        // buttons; the context menu keeps its Segoe glyphs). Must run before the first
+        // toolbar is built — same timing as the localization table above.
+        WinUIRichEditor.Controls.RichEditorIcons.Provider = icon => QNote.Controls.QNoteIcons.Create(icon);
         Services = ConfigureServices();
     }
 

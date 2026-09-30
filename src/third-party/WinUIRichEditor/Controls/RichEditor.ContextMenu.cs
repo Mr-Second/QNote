@@ -29,9 +29,11 @@ public partial class RichEditor
     private const double MenuFontSize = 12;
 
     // Built-in icon for a menu slot (host override > Segoe Fluent FontIcon). Only IconElements fit the
-    // MenuFlyoutItem.Icon slot, so a non-icon host element is ignored.
+    // MenuFlyoutItem.Icon slot, so a non-icon host element is ignored (QNOTE VENDORED PATCH P2: a host
+    // provider that returns a toolbar Viewbox — not an IconElement — must NOT blank the menu icon; fall
+    // through to the Segoe glyph instead of letting the failed cast yield null).
     private static IconElement? MenuIcon(RichEditorIcon icon)
-        => (RichEditorIcons.TryCreate(icon) ?? ToolbarIcons.Create(icon)) as IconElement;
+        => (RichEditorIcons.TryCreate(icon) as IconElement) ?? ToolbarIcons.Create(icon) as IconElement;
 
     private static MenuFlyoutItem Mi(string text, Action act, bool enabled = true, RichEditorIcon? icon = null, string? accel = null)
     {

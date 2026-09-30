@@ -87,3 +87,16 @@ WinUIRichEditor.Controls.RichEditorShortcutId.SelectCell = 34 -> WinUIRichEditor
 WinUIRichEditor.Controls.RichEditorShortcuts
 static WinUIRichEditor.Controls.RichEditorShortcuts.All.get -> System.Collections.Generic.IReadOnlyList<WinUIRichEditor.Controls.RichEditorShortcut>!
 static WinUIRichEditor.Controls.RichEditorShortcuts.Display(WinUIRichEditor.Controls.RichEditorShortcutId id) -> string!
+WinUIRichEditor.Controls.RichEditorIcon.More = 51 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.AlignJustify = 52 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.MoreVertical = 53 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.IconLayer
+WinUIRichEditor.Controls.IconLayer.Data.get -> string!
+WinUIRichEditor.Controls.IconLayer.Data.init -> void
+WinUIRichEditor.Controls.IconLayer.Fill.get -> bool
+WinUIRichEditor.Controls.IconLayer.Fill.init -> void
+WinUIRichEditor.Controls.IconLayer.IconLayer() -> void
+WinUIRichEditor.Controls.IconLayer.IconLayer(string! Data, bool Fill) -> void
+WinUIRichEditor.Controls.RichEditorIconRenderer
+static WinUIRichEditor.Controls.RichEditorIconRenderer.Create(double box, WinUIRichEditor.Controls.IconLayer[]! layers) -> Microsoft.UI.Xaml.UIElement!
+static WinUIRichEditor.Controls.RichEditorIconRenderer.Create(double box, double strokeThickness, WinUIRichEditor.Controls.IconLayer[]! layers) -> Microsoft.UI.Xaml.UIElement!
