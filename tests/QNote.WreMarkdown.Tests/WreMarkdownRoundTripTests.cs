@@ -10,10 +10,10 @@ namespace QNote.WreMarkdown.Tests;
 /// <summary>
 /// MD→WRE→MD round-trip matrix for <see cref="MarkdownDocumentFormatter"/> — the
 /// headless half of the WRE adoption acceptance (PRD step ②). The md subset: flat
-/// bullet/ordered lists, headings, bold/italic/strikethrough, inline links and
-/// <c>qnote-img:</c> image references; the case battery mirrors
+/// bullet/ordered lists, headings, bold/italic/strikethrough, inline links,
+/// <c>qnote-img:</c> image references and GFM pipe tables; the case battery mirrors
 /// <c>tests/QNote.Tests/Markdown/MarkdownConversionTests.cs</c> (the B2 matrix)
-/// plus the new link axis.
+/// plus the link and table axes.
 /// </summary>
 public class WreMarkdownRoundTripTests
 {
@@ -63,7 +63,23 @@ public class WreMarkdownRoundTripTests
         $"![截图](qnote-img:{PngSha})",
         $"前 ![行内图](qnote-img:{PngSha}) 后",
         $"![乱字节](qnote-img:{JunkSha})",
-        "# 一级\n正文 **粗** 和 [链接](https://example.com/a?b=1)\n- 无序 **粗项**\n- 第二项\n1. 第一项\n2. 第二项\n结尾",
+        // GFM pipe tables (joined the subset 2026-10-01) — the canonical emit form is
+        // the full "| x |" padding, `---` delimiter, and one blank line each side.
+        "| a | b |\n| --- | --- |\n| c | d |",
+        "| 甲 | 乙 |\n| --- | --- |\n| 一 | 二 |",
+        $"| **粗** | ![图](qnote-img:{PngSha}) |\n| --- | --- |\n| 普通 | b |",
+        "|  | b |\n| --- | --- |\n|  |  |",
+        "- 列表项\n\n| a | b |\n| --- | --- |\n| c | d |",
+        "1. 第一\n2. 第二\n\n| a | b |\n| --- | --- |",
+        "| a | b |\n| --- | --- |\n| c | d |\n\n表格后的段落",
+        "| a |\n| --- |\n\n| b |\n| --- |",
+        "# 一级\n正文 **粗** 和 [链接](https://example.com/a?b=1)\n- 无序 **粗项**\n- 第二项\n1. 第一项\n2. 第二项\n结尾\n\n| 表头 | 列二 |\n| --- | --- |\n| 项 | 值 |",
+        // Thematic breaks (joined the subset 2026-10-01): blank line before each
+        // divider (setext + pipe-table hazards), nothing needed after.
+        "---",
+        "para\n\n---\n后段",
+        "- 项\n\n---\n结尾",
+        "| a | b |\n| --- | --- |\n\n---\n后段",
     };
 
     [Theory]
@@ -268,16 +284,42 @@ public class WreMarkdownRoundTripTests
     [Fact]
     public void DroppedBlocksStayTransparentForNumbering()
     {
-        // Dividers and empty paragraphs emit nothing, so they must not break the
-        // list the way a real block would (else the numbers shift on next save).
+        // Empty paragraphs and byte-less/alt-less images emit nothing, so they must
+        // not break the list the way a real block would (else the numbers shift on
+        // the next save). (Dividers left this set 2026-10-01: they now EMIT as ---
+        // and, like any block that emits, correctly restart the numbering — see
+        // DividerBreaksListNumberingLikeAnyBlockThatEmits.)
+        var hostless = new Paragraph();
+        hostless.Inlines.Add(new InlineImage()); // no bytes, no alt -> drops entirely
+
         var blocks = Save(Document(
             Para(list: ListKind.Ordered, runs: Text("a")),
-            new DividerBlock(),
-            new Paragraph(),
+            new Paragraph(), // empty -> transparent
+            hostless,
             Para(list: ListKind.Ordered, runs: Text("b"))));
 
         var items = blocks.Where(b => b.Kind == BlockKind.ListItem).ToList();
         Assert.Equal([1, 2], items.Select(b => b.ListNumber));
+    }
+
+    [Fact]
+    public void DividerBreaksListNumberingLikeAnyBlockThatEmits()
+    {
+        // Dividers emit as --- now (subset 2026-10-01) — the md list run ends at the
+        // break, so the second item restarts at 1, exactly as re-parsing the emitted
+        // "1. a\n\n---\n1. b" numbers it.
+        var blocks = Save(Document(
+            Para(list: ListKind.Ordered, runs: Text("a")),
+            new DividerBlock(),
+            Para(list: ListKind.Ordered, runs: Text("b"))));
+
+        var items = blocks.Where(b => b.Kind == BlockKind.ListItem).ToList();
+        Assert.Equal([1, 1], items.Select(b => b.ListNumber));
+
+        var md = MarkdownEmitter.Emit(new DocumentContent(blocks));
+        Assert.Equal("1. a\n\n---\n1. b\n", md);
+        Assert.Equal([1, 1],
+            Parse(md).Blocks.Where(b => b.Kind == BlockKind.ListItem).Select(b => b.ListNumber));
     }
 
     [Fact]
@@ -377,7 +419,7 @@ public class WreMarkdownRoundTripTests
     }
 
     [Fact]
-    public void TableFlattensCellTextWithoutTheGrid()
+    public void TableKeepsTheGridAsABlockLevelTable()
     {
         var table = new TableBlock(2, 1);
         for (var r = 0; r < 2; r++)
@@ -387,12 +429,18 @@ public class WreMarkdownRoundTripTests
         }
 
         var blocks = Save(Document(Para(runs: Text("head")), table));
-        Assert.Equal(["head", "cell-0", "cell-1"],
-            blocks.SelectMany(b => b.Inlines.OfType<DocumentRun>()).Select(r => r.Text).ToArray());
+        Assert.Equal(2, blocks.Count);
+        Assert.Equal(BlockKind.Paragraph, blocks[0].Kind);
+
+        var tableBlock = blocks[1];
+        Assert.Equal(BlockKind.Table, tableBlock.Kind);
+        Assert.Empty(tableBlock.Inlines); // table content lives in TableCells only
+        Assert.Equal("cell-0", CellText(tableBlock, 0, 0));
+        Assert.Equal("cell-1", CellText(tableBlock, 1, 0));
     }
 
     [Fact]
-    public void InlineTableContentLandsAfterItsHostParagraph()
+    public void InlineTableIsPromotedToABlockLevelTable()
     {
         var table = new TableBlock(1, 1);
         table.Cells[0][0].Blocks.Clear();
@@ -401,10 +449,175 @@ public class WreMarkdownRoundTripTests
         var host = Para(runs: Text("host"));
         host.Inlines.Add(new InlineTable { Table = table });
 
+        // The grid survives as a Table block right after its host paragraph (GFM
+        // tables are block constructs); the mid-paragraph position degrades.
         var blocks = Save(Document(host));
-        Assert.Equal(["host", "cell"],
-            blocks.SelectMany(b => b.Inlines.OfType<DocumentRun>()).Select(r => r.Text).ToArray());
+        Assert.Equal(2, blocks.Count);
+        Assert.Equal(BlockKind.Paragraph, blocks[0].Kind);
+        Assert.Equal("host", Assert.IsType<DocumentRun>(Assert.Single(blocks[0].Inlines)).Text);
+        Assert.Equal(BlockKind.Table, blocks[1].Kind);
+        Assert.Equal("cell", CellText(blocks[1], 0, 0));
     }
+
+    [Fact]
+    public void LoadDirectionBuildsATableBlockFromTheModel()
+    {
+        var flow = MarkdownDocumentFormatter.ToFlowDocument(
+            Parse("| a | b |\n| --- | --- |\n| c | d |"), Provider);
+
+        var table = Assert.IsType<TableBlock>(Assert.Single(flow.Blocks));
+        Assert.Equal(2, table.Rows);
+        Assert.Equal(2, table.Columns);
+        Assert.Equal("a", WreCellText(table, 0, 0));
+        Assert.Equal("b", WreCellText(table, 0, 1));
+        Assert.Equal("c", WreCellText(table, 1, 0));
+        Assert.Equal("d", WreCellText(table, 1, 1));
+    }
+
+    [Fact]
+    public void MergedCellsKeepAnchorTextAndEmptyTheCoveredSlots()
+    {
+        // GFM has no merge syntax: the covered slot's content already lives in the
+        // anchor (MergeCells moved it), so the covered cell collects as empty and
+        // the grid shape survives as a plain rectangle.
+        var table = new TableBlock(2, 2);
+        table.Cells[0][0].Blocks.Clear();
+        table.Cells[0][0].Blocks.Add(Para(runs: [Text("a", weight: 700), Text("b")]));
+        table.Cells[0][1].Blocks.Clear();
+        table.Cells[0][1].Blocks.Add(Para(runs: Text("gone")));
+        table.Cells[1][0].Blocks.Clear();
+        table.Cells[1][0].Blocks.Add(Para(runs: Text("c")));
+        table.Cells[1][1].Blocks.Clear();
+        table.Cells[1][1].Blocks.Add(Para(runs: Text("d")));
+        table.MergeCells(0, 0, 0, 1);
+
+        var blocks = Save(Document(table));
+        var tableBlock = Assert.Single(blocks);
+        Assert.Equal(BlockKind.Table, tableBlock.Kind);
+        // MergeCells moved the covered cell's text into the anchor — the text
+        // survives there, the merge itself does not (GFM has no merge syntax).
+        Assert.Equal("ab gone", CellText(tableBlock, 0, 0));
+        Assert.Empty(CellText(tableBlock, 0, 1));
+        Assert.Equal("c", CellText(tableBlock, 1, 0));
+        Assert.Equal("d", CellText(tableBlock, 1, 1));
+
+        // And the degraded shape is round-trip stable from the first save.
+        var md = MarkdownEmitter.Emit(new DocumentContent(blocks));
+        Assert.Equal("| **a**b gone |  |\n| --- | --- |\n| c | d |\n", md);
+        var reparsed = Parse(md).Blocks;
+        Assert.Equal(CellText(tableBlock, 0, 0), CellText(reparsed[0], 0, 0));
+        Assert.Empty(CellText(reparsed[0], 0, 1));
+    }
+
+    [Fact]
+    public void CellSoftBreaksAndEdgePaddingNormalizeToMatchTheParser()
+    {
+        // Markdig trims cell content and cells cannot hold line breaks, so the
+        // collect side normalizes the same way — the first save equals the reload.
+        var cell = new TableCell();
+        cell.Blocks.Clear();
+        cell.Blocks.Add(Para(runs: [Text(" a"), Text("\n"), Text("b ")]));
+
+        var table = new TableBlock(1, 1);
+        table.Cells[0][0] = cell;
+
+        var blocks = Save(Document(table));
+        var run = Assert.IsType<DocumentRun>(Assert.Single(Assert.Single(Assert.Single(blocks).TableCells!)[0]));
+        Assert.Equal("a b", run.Text);
+    }
+
+    [Fact]
+    public void CellPipeCharactersSurviveThroughEscaping()
+    {
+        var table = new TableBlock(1, 1);
+        table.Cells[0][0].Blocks.Clear();
+        table.Cells[0][0].Blocks.Add(Para(runs: Text("a | b")));
+
+        var md = MarkdownEmitter.Emit(new DocumentContent(Save(Document(table))));
+        Assert.Equal("| a \\| b |\n| --- |\n", md);
+        Assert.Equal("a | b", CellText(Parse(md).Blocks[0], 0, 0));
+    }
+
+    [Fact]
+    public void NestedTableInsideACellFlattensToItsCellsText()
+    {
+        var nested = new TableBlock(1, 2);
+        nested.Cells[0][0].Blocks.Clear();
+        nested.Cells[0][0].Blocks.Add(Para(runs: Text("x")));
+        nested.Cells[0][1].Blocks.Clear();
+        nested.Cells[0][1].Blocks.Add(Para(runs: Text("y")));
+
+        var cell = new TableCell();
+        cell.Blocks.Clear();
+        cell.Blocks.Add(Para(runs: Text("before")));
+        cell.Blocks.Add(nested);
+
+        var table = new TableBlock(1, 1);
+        table.Cells[0][0] = cell;
+
+        var blocks = Save(Document(table));
+        var run = Assert.IsType<DocumentRun>(Assert.Single(Assert.Single(Assert.Single(blocks).TableCells!)[0]));
+        Assert.Equal("before x y", run.Text);
+    }
+
+    [Fact]
+    public void ImagesInsideCellsKeepTheirReferencesThroughTheHop()
+    {
+        var md = $"| 图 | b |\n| --- | --- |\n| ![截图](qnote-img:{PngSha}) | d |";
+        var once = RoundTrip(md);
+        Assert.Equal(md + "\n", once);
+
+        // The image lives in the cell — the model shape pins that.
+        var model = MarkdownDocumentFormatter.ToDocumentContent(
+            MarkdownDocumentFormatter.ToFlowDocument(Parse(md), Provider));
+        var table = Assert.Single(model.Blocks);
+        var image = Assert.IsType<DocumentImage>(Assert.Single(table.TableCells![1][0]));
+        Assert.Equal(PngSha, image.Sha256);
+    }
+
+    [Fact]
+    public void DividersRoundTripBothDirections()
+    {
+        // Load: model divider → a real WRE DividerBlock.
+        var flow = MarkdownDocumentFormatter.ToFlowDocument(Parse("p\n\n---\n后段"), Provider);
+        Assert.Equal(3, flow.Blocks.Count);
+        Assert.IsType<Paragraph>(flow.Blocks[0]);
+        Assert.IsType<DividerBlock>(flow.Blocks[1]);
+        Assert.IsType<Paragraph>(flow.Blocks[2]);
+
+        // Save: a WRE divider → the model → "---" with the blank-line discipline.
+        var blocks = Save(Document(Para(runs: Text("p")), new DividerBlock()));
+        Assert.Equal(2, blocks.Count);
+        Assert.Equal(BlockKind.Divider, blocks[1].Kind);
+        Assert.Equal("p\n\n---\n", MarkdownEmitter.Emit(new DocumentContent(blocks)));
+    }
+
+    [Fact]
+    public void DividerInsideACellDropsBecauseCellsAreInlineOnly()
+    {
+        // GFM cells hold inline content only — a divider inside a cell has no storage
+        // form. It drops silently (the toolbar greys the button there; this pins the
+        // storage side of that contract).
+        var cell = new TableCell();
+        cell.Blocks.Clear();
+        cell.Blocks.Add(new DividerBlock());
+
+        var table = new TableBlock(1, 1);
+        table.Cells[0][0] = cell;
+
+        var blocks = Save(Document(table));
+        var tableBlock = Assert.Single(blocks);
+        Assert.Equal(BlockKind.Table, tableBlock.Kind);
+        Assert.Empty(tableBlock.TableCells![0][0]);
+    }
+
+    private static string CellText(DocumentBlock block, int row, int column) =>
+        string.Concat(block.TableCells![row][column].OfType<DocumentRun>().Select(r => r.Text));
+
+    /// <summary>The visible text of one WRE table cell (its paragraphs' runs).</summary>
+    private static string WreCellText(TableBlock table, int row, int column) =>
+        string.Concat(table.Cells[row][column].Blocks.OfType<Paragraph>()
+            .SelectMany(p => p.Inlines.OfType<Run>().Select(r => r.Text ?? "")));
 
     [Fact]
     public void BlockImageBecomesAReferenceParagraph()

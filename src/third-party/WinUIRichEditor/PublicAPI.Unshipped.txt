@@ -100,3 +100,4 @@ WinUIRichEditor.Controls.IconLayer.IconLayer(string! Data, bool Fill) -> void
 WinUIRichEditor.Controls.RichEditorIconRenderer
 static WinUIRichEditor.Controls.RichEditorIconRenderer.Create(double box, WinUIRichEditor.Controls.IconLayer[]! layers) -> Microsoft.UI.Xaml.UIElement!
 static WinUIRichEditor.Controls.RichEditorIconRenderer.Create(double box, double strokeThickness, WinUIRichEditor.Controls.IconLayer[]! layers) -> Microsoft.UI.Xaml.UIElement!
+static WinUIRichEditor.Controls.RichEditorIconRenderer.CreatePathIcon(string! data, double box = 18) -> Microsoft.UI.Xaml.Controls.PathIcon!

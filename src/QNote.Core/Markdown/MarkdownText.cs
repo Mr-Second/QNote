@@ -8,12 +8,15 @@ namespace QNote.Markdown;
 /// <summary>
 /// Extracts plain, syntax-free text from stored Markdown — the PlainText/FTS corpus
 /// and list-preview source once content is Markdown (replaces the RTF-strip +
-/// U+FFFC cleanup path of the RTF era). Images contribute nothing.
+/// U+FFFC cleanup path of the RTF era). Images contribute nothing; GFM pipe tables
+/// descend through their container hierarchy so each cell's text is kept without
+/// the pipes or the delimiter row.
 /// </summary>
 public static class MarkdownText
 {
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
         .UseEmphasisExtras(Markdig.Extensions.EmphasisExtras.EmphasisExtraOptions.Strikethrough)
+        .UsePipeTables()
         .Build();
 
     /// <summary>Full plain text: blocks joined by newlines, inlines by nothing.</summary>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Windows.Foundation;
 using Windows.UI;
+using Windows.UI.ViewManagement;
 using Windows.ApplicationModel.DataTransfer;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
@@ -347,8 +348,13 @@ public partial class RichEditor
 
         // Inserts (gated by feature flags)
         if (AllowTables || AllowImages) Item(Sep());
-        if (AllowTables) Item(Mi(Loc("InsertTable"), () => ShowInsertTableGrid(_ctxMenuPos), true, RichEditorIcon.InsertTable));
-        if (AllowTables || AllowImages) Item(Mi(Loc("InsertDivider"), InsertDivider, true, RichEditorIcon.InsertDivider));
+        // QNOTE VENDORED PATCH (P3): grey the item inside a table cell — QNote's GFM storage
+        // keeps cells inline-only, so a nested table could not survive a save/reload.
+        if (AllowTables) Item(Mi(Loc("InsertTable"), () => ShowInsertTableGrid(_ctxMenuPos), !CaretInTableCell, RichEditorIcon.InsertTable));
+        // QNOTE VENDORED PATCH (P3): grey the item inside a table cell, matching the
+        // toolbar's divider button — QNote's GFM storage keeps cells inline-only, so
+        // a divider there could not survive a save/reload.
+        if (AllowTables || AllowImages) Item(Mi(Loc("InsertDivider"), InsertDivider, !CaretInTableCell, RichEditorIcon.InsertDivider));
 
         // Inside a cell: the table-structure operations in a "Table" submenu.
         var cellLoc = _caret.Paragraph != null ? FindCell(_caret.Paragraph) : null;
@@ -425,9 +431,21 @@ public partial class RichEditor
         for (int c = 0; c < cols; c++) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         for (int r = 0; r < rows; r++) grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-        var idle = new SolidColorBrush(Color.FromArgb(255, 0xE4, 0xE4, 0xE4));
-        var hot = new SolidColorBrush(Color.FromArgb(255, 0x60, 0xA0, 0xE0));
-        var border = new SolidColorBrush(Color.FromArgb(255, 0xAA, 0xAA, 0xAA));
+        // QNOTE VENDORED PATCH (P2 + high-contrast): the picker squares were hardcoded
+        // light grays (invisible on dark chrome, alpha-less in contrast themes) — the
+        // same fix as the toolbar's grid picker (RichEditorToolbar.BuildTableGridPicker).
+        bool isDark = ActualTheme == ElementTheme.Dark;
+        bool isHighContrast = new AccessibilitySettings().HighContrast;
+        Color SystemColor(UIElementType kind) => new UISettings().UIElementColor(kind);
+        var idle = new SolidColorBrush(isHighContrast
+            ? SystemColor(UIElementType.ButtonFace)
+            : isDark ? Color.FromArgb(255, 0x45, 0x45, 0x4A) : Color.FromArgb(255, 0xE4, 0xE4, 0xE4));
+        var hot = new SolidColorBrush(isHighContrast
+            ? SystemColor(UIElementType.Highlight)
+            : Color.FromArgb(255, 0x60, 0xA0, 0xE0)); // the accent blue reads on both themes
+        var border = new SolidColorBrush(isHighContrast
+            ? SystemColor(UIElementType.WindowText)
+            : isDark ? Color.FromArgb(255, 0x60, 0x60, 0x64) : Color.FromArgb(255, 0xAA, 0xAA, 0xAA));
         var cells = new Border[rows, cols];
 
         void Highlight(int rr, int cc)
@@ -450,8 +468,9 @@ public partial class RichEditor
                 Grid.SetColumn(cell, c);
                 int rr = r, cc = c;
                 cell.PointerEntered += (_, _) => Highlight(rr, cc);
-                // Pick rows×cols here; then drag from the caret on the document to set the table's size.
-                cell.Tapped += (_, _) => { BeginTableDraw(rr + 1, cc + 1); flyout.Hide(); };
+                // QNOTE VENDORED PATCH (P3): direct at the caret when one is established
+                // (the WPS-style flow), draw-to-place only for a note never clicked into.
+                cell.Tapped += (_, _) => { InsertOrDrawTable(rr + 1, cc + 1); flyout.Hide(); };
                 cells[r, c] = cell;
                 grid.Children.Add(cell);
             }
@@ -760,12 +779,11 @@ public partial class RichEditor
         Add(Loc("InsertColumnRight"), () => TableInsertColumn(tb, ColumnRightIndex(tb, r, c)), c >= 0, RichEditorIcon.InsertColumnRight);
         Add(Loc("DeleteColumn"), () => TableDeleteColumn(tb, c), c >= 0 && tb.Columns > 1, RichEditorIcon.DeleteColumn);
         items.Add(Sep());
-        // ── Merge / split ──
-        bool canMerge = SelectedCellRange(tb) is { } rg && IsCleanRect(tb, rg.r0, rg.c0, rg.r1, rg.c1);
-        Add(Loc("MergeCells"), () => TableMergeSelected(tb), canMerge, RichEditorIcon.MergeCells);
-        bool canUnmerge = onCell && (tb.SpanOf(r, c).cs > 1 || tb.SpanOf(r, c).rs > 1);
-        Add(Loc("UnmergeCells"), () => TableUnmergeCell(tb, r, c), canUnmerge, RichEditorIcon.UnmergeCells);
-        items.Add(Sep());
+        // QNOTE VENDORED PATCH (P3): merge/unmerge removed — QNote's GFM storage has no
+        // merge syntax, so a merge silently reverted to a plain grid on the next
+        // load (user decision 2026-10-01). MergeCells/UnmergeCells stay on the model
+        // (HTML paste with rowspan still produces them; the save side degrades them
+        // to a dense grid, keeping the text).
         // ── 표 모양 (table shape): cell vertical alignment + background + margin + 글자처럼 취급 ──
         items.Add(onCell ? BuildCellVAlignSub(tb, r, c)
                          : new MenuFlyoutSubItem { Text = Loc("CellVerticalAlign"), FontSize = MenuFontSize, IsEnabled = false });

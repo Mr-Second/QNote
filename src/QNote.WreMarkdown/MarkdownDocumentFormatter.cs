@@ -14,10 +14,11 @@ namespace QNote.WreMarkdown;
 /// <para>The mappable subset is exactly what the QNote model can express: paragraphs,
 /// headings (model carries H1–H3; deeper WRE levels clamp the way the Markdown
 /// parser clamps), flat bullet/ordered lists, bold/italic/strikethrough, inline
-/// links and <c>qnote-img:</c> image references. Everything else WRE can hold
-/// (colors, fonts, underline, alignment, block quotes, tables, dividers, nesting)
-/// degrades the same way the Markdown parser degrades out-of-subset input: content
-/// survives, the construct does not.</para>
+/// links, <c>qnote-img:</c> image references, GFM pipe tables (plain 1×1 grids) and
+/// thematic breaks. Everything else WRE can hold (colors, fonts, underline,
+/// alignment, block quotes, merges, cell nesting) degrades the same way the
+/// Markdown parser degrades out-of-subset input: content survives, the construct
+/// does not.</para>
 /// <para>Soft line breaks map without loss — WRE stores Shift+Enter breaks as
 /// <c>'\n'</c> inside <c>Run.Text</c>, the same convention the QNote model uses.</para>
 /// </summary>
@@ -43,6 +44,18 @@ public static class MarkdownDocumentFormatter
 
         foreach (var block in content.Blocks)
         {
+            if (block.Kind == BlockKind.Table && block.TableCells is { Count: > 0 } cells)
+            {
+                document.Blocks.Add(CreateTable(cells, imageProvider));
+                continue;
+            }
+
+            if (block.Kind == BlockKind.Divider)
+            {
+                document.Blocks.Add(new DividerBlock());
+                continue;
+            }
+
             var paragraph = new Paragraph
             {
                 HeadingLevel = block.Kind == BlockKind.Heading ? (int)block.Level : 0,
@@ -52,35 +65,74 @@ public static class MarkdownDocumentFormatter
             };
 
             foreach (var inline in block.Inlines)
-            {
-                switch (inline)
-                {
-                    case DocumentRun run:
-                        paragraph.Inlines.Add(new Run
-                        {
-                            Text = run.Text,
-                            // Plain struct values (not the FontWeights WinRT static) so the
-                            // model builds without activating the WinUI runtime — the same
-                            // headless-construction rule the WRE model itself follows.
-                            FontWeight = new FontWeight { Weight = (ushort)(run.Bold ? 700 : 400) },
-                            FontStyle = run.Italic ? FontStyle.Italic : FontStyle.Normal,
-                            TextDecorations = run.Strikethrough
-                                ? TextDecorationFlags.Strikethrough
-                                : TextDecorationFlags.None,
-                            NavigateUri = run.NavigateUri,
-                        });
-                        break;
-
-                    case DocumentImage image:
-                        paragraph.Inlines.Add(CreateImage(image, imageProvider));
-                        break;
-                }
-            }
+                AppendInline(paragraph, inline, imageProvider);
 
             document.Blocks.Add(paragraph);
         }
 
         return document;
+    }
+
+    /// <summary>Map one model inline into the WRE paragraph (shared by body and cells).</summary>
+    private static void AppendInline(Paragraph paragraph, DocumentInline inline,
+        ImageBytesProvider? imageProvider)
+    {
+        switch (inline)
+        {
+            case DocumentRun run:
+                paragraph.Inlines.Add(new Run
+                {
+                    Text = run.Text,
+                    // Plain struct values (not the FontWeights WinRT static) so the
+                    // model builds without activating the WinUI runtime — the same
+                    // headless-construction rule the WRE model itself follows.
+                    FontWeight = new FontWeight { Weight = (ushort)(run.Bold ? 700 : 400) },
+                    FontStyle = run.Italic ? FontStyle.Italic : FontStyle.Normal,
+                    TextDecorations = run.Strikethrough
+                        ? TextDecorationFlags.Strikethrough
+                        : TextDecorationFlags.None,
+                    NavigateUri = run.NavigateUri,
+                });
+                break;
+
+            case DocumentImage image:
+                paragraph.Inlines.Add(CreateImage(image, imageProvider));
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Build a WRE table from the model's dense cell grid. Every cell holds one
+    /// paragraph of inline content (the GFM subset keeps plain 1×1 grids — merges are
+    /// not expressible); an empty model cell keeps WRE's own empty-cell shape (a
+    /// paragraph with one empty run, the TableCell constructor's convention).
+    /// </summary>
+    private static TableBlock CreateTable(
+        IReadOnlyList<IReadOnlyList<IReadOnlyList<DocumentInline>>> cells,
+        ImageBytesProvider? imageProvider)
+    {
+        var rows = cells.Count;
+        var columns = Math.Max(1, cells.Max(row => row.Count));
+        var table = new TableBlock(rows, columns);
+
+        for (var r = 0; r < rows; r++)
+        {
+            var row = cells[r];
+            for (var c = 0; c < columns; c++)
+            {
+                var paragraph = new Paragraph();
+                foreach (var inline in c < row.Count ? row[c] : [])
+                    AppendInline(paragraph, inline, imageProvider);
+                if (paragraph.Inlines.Count == 0)
+                    paragraph.Inlines.Add(new Run { Text = "" });
+
+                var cell = table.Cells[r][c];
+                cell.Blocks.Clear();
+                cell.Blocks.Add(paragraph);
+            }
+        }
+
+        return table;
     }
 
     /// <summary>
@@ -144,17 +196,21 @@ public static class MarkdownDocumentFormatter
                 break;
 
             case TableBlock table:
-                // Out of the md subset (QNote keeps AllowTables off): flatten the
-                // cells' paragraphs so the text survives — the grid does not. Cells
-                // share the numbering state like any sibling blocks would.
-                foreach (var (_, _, cell) in table.LogicalCells())
-                    foreach (var cellBlock in cell.Blocks)
-                        CollectBlock(cellBlock, blocks, numbering);
+                // GFM pipe tables joined the md subset (2026-10-01): the grid is
+                // preserved as a Table block. Out-of-subset bits degrade the same way
+                // the parser degrades loaded files: merges (covered cells are empty —
+                // MergeCells already moved their content into the anchor), cell
+                // backgrounds/alignment, and block-level nesting inside a cell.
+                CollectTable(table, blocks, numbering);
                 break;
 
             case DividerBlock:
-                // Thematic breaks carry no content and are dropped by the Markdown
-                // parser too — emitting one could not survive its own reload.
+                // Thematic breaks joined the md subset (2026-10-01): pure structure,
+                // no inline content — the emitter writes --- with its own blank-line
+                // discipline. Emits, so the list-numbering run ends here like any
+                // other block.
+                blocks.Add(new DocumentBlock(BlockKind.Divider, []));
+                numbering.Break();
                 break;
         }
     }
@@ -199,8 +255,10 @@ public static class MarkdownDocumentFormatter
                     break;
 
                 case InlineTable inlineTable:
-                    // Out of the md subset: the cells land after the host paragraph,
-                    // flat (grid lost) — content survives.
+                    // A table inside a paragraph is promoted to the block level right
+                    // after its host (GFM tables are block constructs) — the grid now
+                    // survives; host-internal position degrades (the inline table was
+                    // mid-paragraph, md can only carry it after the text).
                     pendingTables.Add(inlineTable.Table);
                     break;
             }
@@ -210,12 +268,187 @@ public static class MarkdownDocumentFormatter
             isListItem ? BlockKind.ListItem : isHeading ? BlockKind.Heading : BlockKind.Paragraph,
             level, ordered, blocks, numbering);
 
-        // The inline tables flattened behind the emitted paragraph; the shared
-        // numbering state keeps a numbered list running through the cells sequential.
+        // Inline tables land as block-level Tables behind their host paragraph (the
+        // shared numbering state keeps a numbered list running through the cells sequential).
         foreach (var table in pendingTables)
-            foreach (var (_, _, cell) in table.LogicalCells())
-                foreach (var cellBlock in cell.Blocks)
-                    CollectBlock(cellBlock, blocks, numbering);
+            CollectTable(table, blocks, numbering);
+    }
+
+    /// <summary>
+    /// Collect one WRE table into the model's dense cell grid. Covered slots of merged
+    /// cells carry an empty inline list (their content moved to the anchor); a
+    /// degenerate grid (no rows/columns) stays transparent like any other empty block.
+    /// </summary>
+    private static void CollectTable(TableBlock table, List<DocumentBlock> blocks,
+        ListNumbering numbering)
+    {
+        if (table.Rows <= 0 || table.Columns <= 0)
+            return;
+
+        var rows = new List<IReadOnlyList<IReadOnlyList<DocumentInline>>>(table.Rows);
+        for (var r = 0; r < table.Rows; r++)
+        {
+            var rowCells = new List<IReadOnlyList<DocumentInline>>(table.Columns);
+            for (var c = 0; c < table.Columns; c++)
+            {
+                // Dense-grid invariant, guarded: any covered or out-of-range slot
+                // reads as an empty cell.
+                if (table.IsCovered(r, c) ||
+                    r >= table.Cells.Count || c >= table.Cells[r].Count)
+                {
+                    rowCells.Add([]);
+                }
+                else
+                {
+                    rowCells.Add(CollectCellInlines(table.Cells[r][c]));
+                }
+            }
+            rows.Add(rowCells);
+        }
+
+        blocks.Add(new DocumentBlock(BlockKind.Table, [])
+        {
+            TableCells = rows,
+        });
+
+        // The table emits as md — any list run around it restarts (same rule as
+        // every other block that emits).
+        numbering.Break();
+    }
+
+    /// <summary>
+    /// Collect one cell's content as inline list. GFM cells hold inline content only:
+    /// multiple paragraphs join with a space, images keep their reference, dividers
+    /// drop, and nested tables degrade to their cells' text (the grid is not
+    /// expressible inside a cell).
+    /// </summary>
+    private static List<DocumentInline> CollectCellInlines(TableCell cell)
+    {
+        var inlines = new List<DocumentInline>();
+        var first = true;
+
+        foreach (var block in cell.Blocks)
+        {
+            switch (block)
+            {
+                case Paragraph paragraph:
+                    if (!first && inlines.Count > 0)
+                        AppendRun(inlines, new DocumentRun(" "));
+                    first = false;
+                    CollectCellParagraph(paragraph, inlines);
+                    break;
+
+                case ImageBlock image:
+                    if (!first && inlines.Count > 0)
+                        AppendRun(inlines, new DocumentRun(" "));
+                    first = false;
+                    AppendCellInlines(inlines, ImageInlines(image.RawBytes, image.AltText));
+                    break;
+
+                case TableBlock nested:
+                    if (!first && inlines.Count > 0)
+                        AppendRun(inlines, new DocumentRun(" "));
+                    first = false;
+                    AppendNestedTable(nested, inlines);
+                    break;
+
+                case DividerBlock:
+                    // No content to keep (the parser drops thematic breaks too).
+                    break;
+            }
+        }
+
+        return NormalizeCell(inlines);
+    }
+
+    /// <summary>A cell paragraph's inlines — lists/headings inside a cell are not
+    /// expressible in GFM, so the list/heading semantics degrade to plain runs.</summary>
+    private static void CollectCellParagraph(Paragraph paragraph, List<DocumentInline> inlines)
+    {
+        foreach (var inline in paragraph.Inlines)
+        {
+            switch (inline)
+            {
+                case Run run when (run.Text ?? string.Empty).Length > 0:
+                    AppendRun(inlines, new DocumentRun(
+                        run.Text!,
+                        Bold: run.FontWeight.Weight >= 600,
+                        Italic: run.FontStyle == FontStyle.Italic,
+                        Strikethrough: run.TextDecorations.HasFlag(TextDecorationFlags.Strikethrough),
+                        NavigateUri: run.NavigateUri is { Length: > 0 } uri ? uri : null));
+                    break;
+
+                case InlineImage image:
+                    AppendCellInlines(inlines, ImageInlines(image.RawBytes, image.AltText));
+                    break;
+
+                case InlineTable inlineTable:
+                    AppendNestedTable(inlineTable.Table, inlines);
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Append a collected inline list into a cell being built, keeping the parser's
+    /// merge rule: adjacent same-format runs must join (a bare <c>AddRange</c> would
+    /// leave "before" + "x" as two runs and emit as "beforex").
+    /// </summary>
+    private static void AppendCellInlines(List<DocumentInline> target,
+        IReadOnlyList<DocumentInline> source)
+    {
+        foreach (var inline in source)
+        {
+            if (inline is DocumentRun run)
+                AppendRun(target, run);
+            else
+                target.Add(inline);
+        }
+    }
+
+    /// <summary>A nested table inside a cell: keep the cells' text, lose the grid.</summary>
+    private static void AppendNestedTable(TableBlock table, List<DocumentInline> inlines)
+    {
+        var first = true;
+        foreach (var (_, _, cell) in table.LogicalCells())
+        {
+            var nested = CollectCellInlines(cell);
+            if (nested.Count == 0)
+                continue;
+            if (!first && inlines.Count > 0)
+                AppendRun(inlines, new DocumentRun(" "));
+            first = false;
+            AppendCellInlines(inlines, nested);
+        }
+    }
+
+    /// <summary>
+    /// Canonicalize a cell's inline list so the first save already equals the
+    /// reloaded parse (the emitter pads each cell with <c>| … |</c> spaces and
+    /// Markdig trims cell content): soft breaks become spaces (GFM cells cannot hold
+    /// line breaks) and leading/trailing whitespace is trimmed from the cell edges.
+    /// </summary>
+    private static List<DocumentInline> NormalizeCell(List<DocumentInline> inlines)
+    {
+        for (var i = 0; i < inlines.Count; i++)
+            if (inlines[i] is DocumentRun r && r.Text.AsSpan().IndexOf('\n') >= 0)
+                inlines[i] = r with { Text = r.Text.Replace("\n", " ") };
+
+        if (inlines.Count > 0 && inlines[0] is DocumentRun first)
+        {
+            var text = first.Text.TrimStart();
+            if (text.Length == 0) inlines.RemoveAt(0);
+            else inlines[0] = first with { Text = text };
+        }
+
+        if (inlines.Count > 0 && inlines[^1] is DocumentRun last)
+        {
+            var text = last.Text.TrimEnd();
+            if (text.Length == 0) inlines.RemoveAt(inlines.Count - 1);
+            else inlines[^1] = last with { Text = text };
+        }
+
+        return inlines;
     }
 
     /// <summary>

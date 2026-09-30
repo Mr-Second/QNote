@@ -29,6 +29,11 @@ public partial class RichEditor
     private TextPointer _selEnd = new(null, 0);
     private bool _isSelecting;
     private bool _hasFocus;
+    // QNOTE VENDORED PATCH (P3): sticky "the user established a caret in THIS document".
+    // Unlike _hasFocus it survives the focus a flyout or menu steals mid-interaction,
+    // and OnDocumentAssigned clears it so a note the user never clicked into falls
+    // back to draw-to-insert (see InsertOrDrawTable).
+    private bool _caretEstablished;
     private bool _caretOn = true;
     private double _desiredCaretX; // remembered x for vertical (up/down) caret movement
     private DispatcherTimer? _blink;
@@ -71,6 +76,7 @@ public partial class RichEditor
         _canvas.GotFocus += (_, _) =>
         {
             _hasFocus = true;
+            _caretEstablished = true; // QNOTE VENDORED PATCH (P3): see the field's note
             ImeNotifyFocusEnter();
             RefreshSystemInputTimings(); // the user may have changed them while we were away
             RestartBlink();
@@ -175,6 +181,7 @@ public partial class RichEditor
         _dragUndoPending = false;
         CancelObjectDrag(); // the dragged object is the old document's; a release would drop it into the new one
         CancelTableDraw();  // an armed "draw table" pick too: its first click would insert into the new document
+        _caretEstablished = false; // QNOTE VENDORED PATCH (P3): the caret belonged to the document being replaced
         // An armed TEXT drag likewise belongs to the document being replaced. The drop itself cannot reach the
         // new document (the swap collapses the selection and PerformTextDrop needs one), but the arming left a
         // drop caret following the pointer over a file just opened, and the next release took the deferred

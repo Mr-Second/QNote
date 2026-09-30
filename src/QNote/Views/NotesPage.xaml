@@ -512,7 +512,7 @@
                                 AllowFindReplace="True"
                                 AllowImages="True"
                                 AllowRichPaste="True"
-                                AllowTables="False"
+                                AllowTables="True"
                                 AutomationProperties.Name="便签内容"
                                 CanvasBackground="{ThemeResource NoteSurfaceBrush}"
                                 CaretBrush="{ThemeResource TextFillColorPrimaryBrush}"

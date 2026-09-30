@@ -14,6 +14,12 @@ public enum BlockKind
     Paragraph,
     Heading,
     ListItem,
+    /// <summary>GFM pipe table. The cell grid lives in <see cref="DocumentBlock.TableCells"/>;
+    /// <see cref="DocumentBlock.Inlines"/> is empty for this kind.</summary>
+    Table,
+    /// <summary>Thematic break (<c>---</c>). Pure structure: <see cref="DocumentBlock.Inlines"/>
+    /// is empty for this kind.</summary>
+    Divider,
 }
 
 /// <summary>
@@ -22,7 +28,8 @@ public enum BlockKind
 /// Presentation walker filling the same records from TOM. The format subset is the
 /// locked Markdown subset: bold / italic / strikethrough / inline links /
 /// headings (H1–H3) / bullet+numbered lists / images (schema B2, PRD 2026-09-28;
-/// links joined for the WRE editor bridge, 2026-09-30).
+/// links joined for the WRE editor bridge, 2026-09-30; GFM pipe tables joined for
+/// the editor table feature, 2026-10-01).
 /// </summary>
 public abstract record DocumentInline;
 
@@ -48,6 +55,17 @@ public sealed record DocumentBlock(BlockKind Kind, IReadOnlyList<DocumentInline>
 
     /// <summary>1-based ordinal within the ordered list; ignored for bullets.</summary>
     public int ListNumber { get; init; } = 1;
+
+    /// <summary>
+    /// The table's cell grid — <c>[row][column] → that cell's inlines</c> — dense and
+    /// rectangular. Non-null only when <see cref="Kind"/> is
+    /// <see cref="BlockKind.Table"/>. The GFM subset stores plain 1×1 grids only
+    /// (merges degrade: covered cells carry no content, the text lives in the
+    /// anchor). Cells hold inline content only; block-level nesting (multiple
+    /// paragraphs, dividers, nested tables) degrades to run text with spaces at the
+    /// seams.
+    /// </summary>
+    public IReadOnlyList<IReadOnlyList<IReadOnlyList<DocumentInline>>>? TableCells { get; init; }
 }
 
 /// <summary>The whole note content as a flat ordered block list.</summary>

@@ -31,6 +31,16 @@ public partial class RichEditor
         SetCursorShape(InputSystemCursorShape.Cross);
     }
 
+    // QNOTE VENDORED PATCH (P3): the grid pickers call this instead of BeginTableDraw.
+    // When the user established a caret in this document (clicked into it at least
+    // once) the table inserts DIRECTLY at the caret — the flow the user expects; only
+    // a note never clicked into falls back to the crosshair drag.
+    internal void InsertOrDrawTable(int rows, int cols)
+    {
+        if (_caretEstablished) InsertTable(rows, cols);
+        else BeginTableDraw(rows, cols);
+    }
+
     // Also run when the document is replaced (a file opened, an undo/redo swap — the pick belonged to the
     // document being left, and the first click in the new one inserted a table into a file just opened) and
     // when the pointer capture is lost mid-drag (a lost capture is not a release). Measured 2026-09-19.

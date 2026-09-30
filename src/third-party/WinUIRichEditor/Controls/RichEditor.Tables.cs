@@ -605,6 +605,12 @@ public partial class RichEditor
         return null;
     }
 
+    // QNOTE VENDORED PATCH (P3): QNote's GFM storage keeps cells inline-only — a table
+    // or divider nested inside a cell cannot survive a save/reload. The toolbar greys
+    // its insert buttons on this (same ruling as the merge-menu removal), instead of
+    // offering a construct that would silently vanish.
+    internal bool CaretInTableCell => _caret.Paragraph is { } p && FindCell(p) is not null;
+
     // ---- Phase 5: public insert commands (toolbar) ------------------------
 
     /// <summary>Inserts a <paramref name="rows"/>×<paramref name="cols"/> table at the caret, sized with
