@@ -72,6 +72,16 @@ public sealed partial class MainWindow : Window
         SetTitleBar(AppTitleBar);
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
         ResizeToDefault();
+        // QNOTE: the editor toolbar is a FIXED TWO-ROW bar (icons + dropdowns), so it needs a floor on the
+        // window size — below this the two rows would clip. 1000x680 logical px (scaled by the current DPI).
+        if (AppWindow.Presenter is OverlappedPresenter presenter)
+        {
+            var hwndMin = WinRT.Interop.WindowNative.GetWindowHandle(this);
+            var dpiMin = GetDpiForWindow(hwndMin);
+            var scaleMin = dpiMin <= 0 ? 1.0 : dpiMin / 96.0;
+            presenter.PreferredMinimumWidth = (int)(1000 * scaleMin);
+            presenter.PreferredMinimumHeight = (int)(680 * scaleMin);
+        }
 
         // Geometry persistence is debounced: dragging/resizing floods Changed.
         _geometrySaveTimer = DispatcherQueue.CreateTimer();

@@ -90,7 +90,8 @@ public partial class RichEditorToolbar
         nameof(ShowPageControls), typeof(bool), typeof(RichEditorToolbar),
         new PropertyMetadata(true, (d, e) => ((RichEditorToolbar)d).OnLayoutFlagChanged(() => ((RichEditorToolbar)d)._showPageControls = (bool)e.NewValue)));
 
-    private void BuildPageControls(ToolbarWrapPanel strip)
+    // Only `strip.Children.Add` is used, so the Panel base type is sufficient.
+    private void BuildPageControls(Panel strip)
     {
         _zoom = MakeCombo(104, Loc("ZoomTip"));
         _zoomFit = new ComboBoxItem { Content = Loc("FitWidth"), Tag = FitWidthTag };
@@ -286,7 +287,8 @@ public partial class RichEditorToolbar
         remove { _printRequested -= value; Sync(); }
     }
 
-    private void BuildFileActions(ToolbarWrapPanel strip)
+    // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): widened from ToolbarWrapPanel to Panel (see BuildPageControls).
+    private void BuildFileActions(Panel strip)
     {
         _exportBtn = IconButton("⤓", Loc("Export"), () => _ = ExportAsync(), RichEditorIcon.Export);
         _importBtn = IconButton("⤒", Loc("Import"), () => _ = ImportAsync(), RichEditorIcon.Import);

@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Threading.Tasks;
@@ -50,20 +51,137 @@ public partial class RichEditorToolbar : UserControl
         Sync();
     }
 
-    // Fills the font combo from the editor's FontFamilyChoices (installed system fonts, localized names).
-    // Each item renders in its own typeface. Built lazily because Target is usually assigned after Build().
+    // Fills the font picker from the editor's FontFamilyChoices (installed system fonts, localized names).
+    // Each row renders in its own typeface. Built lazily because Target is usually assigned after Build().
+    // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): fills the Flyout's ListView instead of a
+    // ComboBox's Items; the refresh of the visible list goes through the search filter.
     private void PopulateFontList()
     {
         if (_font == null) return;
-        string? prev = (_font.SelectedItem as ComboBoxItem)?.Content as string;
-        _font.Items.Clear();
-        _fontReflected = null; // items changed; the next Sync must re-resolve the selection
+        _font.All.Clear();
         var choices = Target?.FontFamilyChoices;
-        if (choices == null || choices.Count == 0) return;
-        foreach (var f in choices)
-            _font.Items.Add(new ComboBoxItem { Content = f, FontFamily = SafeFontFamily(f) });
-        if (prev != null) { _suppress = true; try { SelectByContent(_font, prev); } finally { _suppress = false; } }
+        if (choices != null) foreach (var f in choices) _font.All.Add(f);
+        ApplyFontFilter(_font.Search?.Text);
+        // items changed; the next Sync must re-resolve the selection
+        _font.Reflected = null;
+        if (_font.Selected != null) SetFontSelection(_font.Selected, apply: false);
     }
+
+    // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): the searchable font picker. A Button face in the
+    // strip opens a Flyout whose top is a filter TextBox and whose body is the font ListView. Replaces the
+    // stock ComboBox because its dropdown cannot host the search box (PRD D9) and re-templating the whole
+    // ComboBox would be far more invasive than this self-contained control.
+    private sealed class FontPicker
+    {
+        public required Button Face;   // the closed control shown in the strip
+        public ListView? List;         // the dropdown rows
+        public TextBox? Search;        // the dropdown filter box
+        public string? Selected;       // current family name (the applied selection)
+        public string? Reflected;      // family last pushed by Sync — skips the per-keystroke rescan
+        public readonly List<string> All = new();
+    }
+
+    private Button BuildFontPicker()
+    {
+        var picker = new FontPicker
+        {
+            Face = new Button
+            {
+                Width = 160, Height = CtlHeight, Padding = new Thickness(10, 0, 6, 0),
+                Background = ClearBrush, BorderThickness = new Thickness(1), BorderBrush = ComboBorderBrush,
+                CornerRadius = new CornerRadius(Corner),
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                Content = new TextBlock { FontSize = ComboFontSize, VerticalAlignment = VerticalAlignment.Center },
+            },
+        };
+        _font = picker;
+        ToolTipService.SetToolTip(picker.Face, Loc("FontFamily"));
+        ApplyStripButtonChrome(picker.Face);
+        NoFocus(picker.Face);
+
+        var search = new TextBox
+        {
+            PlaceholderText = Loc("FontFamily"),
+            FontSize = ComboFontSize, MinHeight = 0,
+            Margin = new Thickness(6, 6, 6, 4),
+        };
+        picker.Search = search;
+
+        var list = new ListView
+        {
+            MaxHeight = 260, MinWidth = 200,
+            SelectionMode = ListViewSelectionMode.Single,
+        };
+        picker.List = list;
+        list.SelectionChanged += OnFontRowSelected;
+        // Filter as the user types (rebuilds the row list from the cached family names).
+        search.TextChanged += (_, _) => ApplyFontFilter(search.Text);
+
+        var panel = new StackPanel { Width = 240, Padding = new Thickness(0, 0, 0, 6) };
+        panel.Children.Add(search);
+        panel.Children.Add(list);
+
+        var flyout = new Flyout { FlyoutPresenterStyle = TightFlyoutPresenter(), Content = panel };
+        ReturnsFocus(flyout);
+        picker.Face.Flyout = flyout;
+        // Clear the search each time it opens so the full list is visible, and put the caret in the box.
+        flyout.Opening += (_, _) => { search.Text = string.Empty; };
+        return picker.Face;
+    }
+
+    // Rebuilds the font ListView's rows from the cached family names, filtered by `query` (case-insensitive
+    // substring). Each row is a TextBlock rendering in its own typeface (the ListView hosts UIElement items
+    // directly, so no DataTemplate — and no trim/AOT-hostile XamlReader — is needed). The selection is
+    // preserved when the family survives the filter.
+    private void ApplyFontFilter(string? query)
+    {
+        if (_font?.List == null) return;
+        string? selected = _font.Selected;
+        _font.List.SelectionChanged -= OnFontRowSelected; // suppress while we rebuild the rows
+        _font.List.Items.Clear();
+        foreach (var name in _font.All)
+        {
+            if (!string.IsNullOrWhiteSpace(query)
+                && name.IndexOf(query, StringComparison.CurrentCultureIgnoreCase) < 0) continue;
+            var row = new TextBlock
+            {
+                Text = name, FontFamily = SafeFontFamily(name), FontSize = ComboFontSize,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            _font.List.Items.Add(row);
+            if (name == selected) _font.List.SelectedItem = row;
+        }
+        _font.List.SelectionChanged += OnFontRowSelected;
+    }
+
+    private void OnFontRowSelected(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_suppress || _font == null) return;
+        if (_font.List?.SelectedItem is TextBlock { Text: { } name } && name != _font.Selected)
+            SetFontSelection(name, apply: true);
+        _font.Face.Flyout?.Hide();
+    }
+
+    // Reflects / applies a font family. `apply` pushes it to the editor (a user pick); otherwise this is
+    // just the caret reflecting onto the face + list.
+    private void SetFontSelection(string name, bool apply)
+    {
+        if (_font == null) return;
+        _font.Selected = name;
+        _font.Reflected = name;
+        if (_font.Face.Content is TextBlock face) { face.Text = name; face.FontFamily = SafeFontFamily(name); }
+        _suppress = true;
+        try
+        {
+            if (_font.List is { } list)
+                foreach (var it in list.Items)
+                    if (it is TextBlock { Text: { } t } && t == name) { list.SelectedItem = it; break; }
+        }
+        finally { _suppress = false; }
+        if (apply) Target?.SetRunFontFamily(name);
+    }
+
 
     private static FontFamily SafeFontFamily(string name)
     {
@@ -107,6 +225,10 @@ public partial class RichEditorToolbar : UserControl
     // the first toolbar's thread the owner of every toolbar's brushes — a toolbar in a window on its own thread got
     // RPC_E_WRONG_THREAD (the editor's brush defaults did, measured 2026-09-14; upstream a66b472 is the same shape).
     [ThreadStatic] private static SolidColorBrush? _activeBrush, _activeHoverBrush, _clearBrush, _blackInk;
+    // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): pointer-over / pressed faces for the flat
+    // icon strip. WinUI's stock Button/ToggleButton hovers are a very faint wash that vanished next
+    // to the canvas; these are the PRD's confirmed values (light: black 10% / 13%; dark: white 10% / 14%).
+    [ThreadStatic] private static SolidColorBrush? _hoverBrush, _pressedBrush, _comboBorderBrush, _sepBrush;
     // Theme-aware cache: the "active" faces and ink are rebuilt when the toolbar's
     // effective theme flips (see IsDarkTheme / RebuildForTheme). Stored per thread for
     // the same reason as the brushes themselves (a brush is thread-affine).
@@ -126,18 +248,51 @@ public partial class RichEditorToolbar : UserControl
         _brushThemeIsDark = isDark;
         _activeBrush = null;
         _activeHoverBrush = null;
+        _hoverBrush = null;
+        _pressedBrush = null;
+        _comboBorderBrush = null;
+        _sepBrush = null;
         _blackInk = null;
         _dimInk = null;
         _noColorBrush = null;
     }
 
+    // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): pointer-over / pressed / active faces follow
+    // the PRD Visual Spec (user-confirmed). The block above (P1) still governs WHICH theme is live;
+    // these only pick the color. Active is the theme accent at 10% (light) / 18% (dark), not the old
+    // grey tint — it reads as "on" without the stock accent fill + white glyph shout.
     private static SolidColorBrush ActiveBrush
     {
-        get { EnsureThemeBrushes(IsDarkTheme); return _activeBrush ??= new(IsDarkTheme ? Color.FromArgb(255, 0x3A, 0x4A, 0x5E) : Color.FromArgb(255, 0xDD, 0xE7, 0xF3)); }
+        get { EnsureThemeBrushes(IsDarkTheme); return _activeBrush ??= new(IsDarkTheme ? Color.FromArgb(0x2E, 0x4C, 0xC2, 0xFF) : Color.FromArgb(0x1A, 0x00, 0x67, 0xC0)); }
     }
     private static SolidColorBrush ActiveHoverBrush
     {
-        get { EnsureThemeBrushes(IsDarkTheme); return _activeHoverBrush ??= new(IsDarkTheme ? Color.FromArgb(255, 0x46, 0x59, 0x71) : Color.FromArgb(255, 0xCB, 0xDA, 0xEC)); }
+        get { EnsureThemeBrushes(IsDarkTheme); return _activeHoverBrush ??= new(IsDarkTheme ? Color.FromArgb(0x38, 0x4C, 0xC2, 0xFF) : Color.FromArgb(0x26, 0x00, 0x67, 0xC0)); }
+    }
+    // Pointer-over: light black 10% (#1A000000) / dark white 10% (#1AFFFFFF).
+    private static SolidColorBrush HoverBrush
+    {
+        get { EnsureThemeBrushes(IsDarkTheme); return _hoverBrush ??= new(IsDarkTheme ? Color.FromArgb(0x1A, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x1A, 0x00, 0x00, 0x00)); }
+    }
+    // Pressed: light black 13% (#20000000) / dark white 14% (#24FFFFFF).
+    private static SolidColorBrush PressedBrush
+    {
+        get { EnsureThemeBrushes(IsDarkTheme); return _pressedBrush ??= new(IsDarkTheme ? Color.FromArgb(0x24, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x20, 0x00, 0x00, 0x00)); }
+    }
+
+    // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): the group separator rule — light 20% black
+    // (#33000000) / dark 22% white (#38FFFFFF). Strong enough to read as a group break, light enough to
+    // stay a hairline (the old fixed 24%-black wash was nearly invisible on the light strip).
+    private static SolidColorBrush SeparatorBrush
+    {
+        get { EnsureThemeBrushes(IsDarkTheme); return _sepBrush ??= new(IsDarkTheme ? Color.FromArgb(0x38, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x33, 0x00, 0x00, 0x00)); }
+    }
+
+    // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): 1px combo border — light black 12% (#1F000000)
+    // / dark white 12% (#1FFFFFFF), per the PRD's dropdown spec (theme-aware; P1 never covered combos).
+    private static SolidColorBrush ComboBorderBrush
+    {
+        get { EnsureThemeBrushes(IsDarkTheme); return _comboBorderBrush ??= new(IsDarkTheme ? Color.FromArgb(0x1F, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x1F, 0x00, 0x00, 0x00)); }
     }
     private static SolidColorBrush ClearBrush => _clearBrush ??= new(Colors.Transparent);
     private static SolidColorBrush BlackInk // shared: Sync runs per keystroke
@@ -148,6 +303,59 @@ public partial class RichEditorToolbar : UserControl
     // Variation Selector-15: forces text (monochrome) presentation of an emoji that has no symbol-font
     // glyph, so the leftover emoji fallbacks don't render as colour and clash with the FontIcon set.
     private static readonly string Mono = ((char)0xFE0E).ToString();
+
+    // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): heading glyphs for the paragraph-style combo's
+    // "left icon + right text" item layout (PRD D9). These are Lucide `heading-1..4` (ISC) / `type` for
+    // 正文 — kept LOCAL to the toolbar (they are ComboBoxItem faces, not RichEditorIcon slots) and rendered
+    // through the vendored RichEditorIconRenderer so they inherit the theme-aware ink for free.
+    private static readonly IconLayer[] Heading1Icon =
+    {
+        new("M4 12h8", false), new("M4 18V6", false), new("M12 18V6", false), new("m17 12 3-2v8", false),
+    };
+    private static readonly IconLayer[] Heading2Icon =
+    {
+        new("M4 12h8", false), new("M4 18V6", false), new("M12 18V6", false),
+        new("M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1", false),
+    };
+    private static readonly IconLayer[] Heading3Icon =
+    {
+        new("M4 12h8", false), new("M4 18V6", false), new("M12 18V6", false),
+        new("M17.5 10.5c1.7-1 3.5 0 3.5 1.5a2 2 0 0 1-2 2", false),
+        new("M17 17.5c2 1.5 4 .3 4-1.5a2 2 0 0 0-2-2", false),
+    };
+    private static readonly IconLayer[] Heading4Icon =
+    {
+        new("M12 18V6", false), new("M17 10v3a1 1 0 0 0 1 1h3", false),
+        new("M21 10v8", false), new("M4 12h8", false), new("M4 18V6", false),
+    };
+    private static readonly IconLayer[] BodyTextIcon = // Lucide `type`
+    {
+        new("M12 4v16", false), new("M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2", false), new("M9 20h6", false),
+    };
+
+    // A "left icon + right text" ComboBoxItem face: a fixed-width icon column (so the text columns line
+    // up across items) then the label. Used by the paragraph-style and alignment combos (PRD D9); the
+    // font/size/zoom/paper combos keep plain text.
+    private static UIElement ComboIconText(UIElement icon, string text)
+        => new StackPanel
+        {
+            Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center,
+            Children =
+            {
+                new Border { Width = IconBox, Child = icon, VerticalAlignment = VerticalAlignment.Center },
+                new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center },
+            },
+        };
+
+    // Heading item icon for level 0 (body) / 1..4; higher levels reuse the heading-4 glyph.
+    private static IconLayer[] HeadingLayers(int level) => level switch
+    {
+        1 => Heading1Icon,
+        2 => Heading2Icon,
+        3 => Heading3Icon,
+        >= 4 => Heading4Icon,
+        _ => BodyTextIcon,
+    };
 
     // Reflected controls are nullable: a Minimal / read-only toolbar builds only a subset, so Sync() must
     // null-guard every access. Null = "not built at the current ToolbarLevel".
@@ -160,13 +368,17 @@ public partial class RichEditorToolbar : UserControl
     {
         get { EnsureThemeBrushes(IsDarkTheme); return _dimInk ??= new(IsDarkTheme ? Color.FromArgb(255, 0x6A, 0x6A, 0x6A) : Color.FromArgb(255, 0xBF, 0xC3, 0xC7)); }
     }
-    private ComboBox? _font, _size, _heading, _align;
+    private ComboBox? _size, _heading, _align;
+    // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): the font picker is no longer a bare ComboBox —
+    // PRD D9 wants a search box at the top of its dropdown, which a stock ComboBox cannot host. It is a
+    // Button face + a Flyout holding the search TextBox over the font ListView. All the selection
+    // behaviour (reflect the caret font, apply on pick, each row in its own typeface) is preserved.
+    private FontPicker? _font;
     private TextBox? _spacingBox; // editable line-spacing %, reflects/sets the caret paragraph
     private Button? _undo, _redo;
-    private Button? _tableBtn, _imageBtn, _dividerBtn, _findBtn;
+    private Button? _tableBtn, _imageBtn, _dividerBtn;
     private bool _suppress; // guards combo SelectionChanged while syncing toolbar <- caret state
     private bool _builtReadOnly; // read-only state captured at the last Build (to rebuild the view toolbar on toggle)
-    private string? _fontReflected; // family last reflected into the font combo — skips the O(installed fonts) item scan per keystroke
 
     private static double[] _fontSizes = { 8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 60, 72 };
 
@@ -244,15 +456,17 @@ public partial class RichEditorToolbar : UserControl
     }
     private Border? _colorSwatch, _highlightSwatch; // current-colour bars under the picker glyphs
 
-    // Uniform strip metrics: every control renders in a 32px-tall box (the WinUI ComboBox default
-    // height) and icon buttons are a FIXED 36px wide, so rows read as one even line — mixed natural
-    // heights (buttons ~28, combos ~32, custom boxes 28) and content-driven button widths made the
-    // strip look ragged. Gaps come from the wrap panel's spacing ALONE (no per-control margins), so
-    // every gap is identical.
-    private const double CtlHeight = 28;
-    // Icon buttons: 26px wide around a ~15px glyph leaves ~5px each side. 30/36 left so much intra-button
-    // whitespace that adjacent icons (indent, table↔image, file) looked far apart even at 4px panel spacing.
-    private const double BtnWidth = 26;
+    // Uniform strip metrics: every control renders in the same-height box so rows read as one even
+    // line, and icon buttons are a FIXED width so the gaps are identical. Gaps come from the wrap
+    // panel's spacing (in-group) and Sep()'s margins (inter-group), NOT per-control margins.
+    // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): the PRD Visual Spec's confirmed metrics —
+    // 30×30 buttons around a 16px icon with a 4px corner radius, group gap 2px / separator gap 2×4px.
+    private const double CtlHeight = 30;
+    private const double BtnWidth = 30;
+    // Icon box: a 16px glyph centered in the 30px button (the old ~18px glyphs sat heavy in a 26px box).
+    private const double IconBox = 16;
+    // Corner radius shared by buttons, combo borders and the list/line-spacing boxes.
+    private const double Corner = 4;
     // Uniform combo content point-size. Without it each combo inherited the default and the font-name
     // combo (whose items carry their own FontFamily) rendered its selected value in that face at an
     // apparently different size than the plain-text combos (size/heading/align/zoom/paper/orient).
@@ -265,6 +479,11 @@ public partial class RichEditorToolbar : UserControl
 
     public RichEditorToolbar()
     {
+        // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): a UserControl's default HorizontalContentAlignment
+        // let the strip float toward the centre instead of hugging the left edge. Pin it so the toolbar's
+        // content fills the width and the single-row strip stays left-aligned (matches the reference).
+        HorizontalContentAlignment = HorizontalAlignment.Stretch;
+        VerticalContentAlignment = VerticalAlignment.Center;
         // Changing the host item slots rebuilds the strip so they sit inline with the formatting buttons.
         void Rebuild(object? s, NotifyCollectionChangedEventArgs e) { Content = Build(); Sync(); }
         LeadingItems.CollectionChanged += Rebuild;
@@ -281,6 +500,9 @@ public partial class RichEditorToolbar : UserControl
         // theme through this hook, and a theme flip rebuilds the strip so the already-built
         // controls pick up the recolored brushes.
         CurrentThemeImpl ??= () => ActualTheme == ElementTheme.Dark;
+        // QNOTE VENDORED PATCH (P2): share the live-theme hook with the icon renderer so host-provided
+        // vector icons (RichEditorIcons.Provider, e.g. QNoteIcons) pick the right ink.
+        RichEditorIconRenderer.IsDarkTheme ??= () => ActualTheme == ElementTheme.Dark;
         ActualThemeChanged += (_, _) =>
         {
             EnsureThemeBrushes(ActualTheme == ElementTheme.Dark);
@@ -327,7 +549,14 @@ public partial class RichEditorToolbar : UserControl
 
     private void OnTargetStatusChanged(object? sender, EventArgs e) => Sync();
 
-    private ToolbarWrapPanel? _strip; // current strip, kept so a rebuild can detach reused host items
+    // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): the toolbar is a FIXED TWO-ROW bar.
+    // `_strip` = row 1 (icon buttons), `_dropdownRow` = row 2 (the wide dropdowns). Each row is an
+    // OverflowRowPanel with its own trailing More button, so a narrow window folds each row independently.
+    private Panel? _strip; // row 1 (icon buttons), kept so a rebuild can detach reused host items
+    private Panel? _dropdownRow;               // row 2 (paragraph style / font / size dropdowns)
+    private OverflowRowPanel? _row1Panel, _row2Panel;
+    private Panel? _row1OverflowHost, _row2OverflowHost;
+    private Button? _row1More, _row2More;
 
     // ---- focus discipline --------------------------------------------------------------------------
     // The caret is painted only while the editor's canvas has focus, so anything in the strip that takes
@@ -382,15 +611,28 @@ public partial class RichEditorToolbar : UserControl
         // null before the toolbar is loaded, so clearing the old collection is the reliable way to reparent
         // them — adding an element that still has a parent throws (0x800F1000).
         _strip?.Children.Clear();
-        var strip = new ToolbarWrapPanel { HorizontalSpacing = 4, VerticalSpacing = 2 };
-        _strip = strip;
+        // The two per-row overflow hosts are rebuilt from scratch each Build() (a theme flip / language /
+        // target change must not leave stale demoted items). Clear them so no element ends up in two parents.
+        _row1OverflowHost?.Children.Clear();
+        _row2OverflowHost?.Children.Clear();
+        _row1Panel = _row2Panel = null; _row1More = _row2More = null;
+        _row1OverflowHost = _row2OverflowHost = null;
+        // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): FIXED TWO-ROW toolbar with PER-ROW overflow.
+        // Row 1 = icon buttons, row 2 = the wide dropdowns. Each row is an OverflowRowPanel that justifies
+        // its visible children (first hugs the left edge, last hugs the right edge) and moves the tail into
+        // its OWN trailing More flyout when the row runs out of width — so a narrow window (the app is a
+        // small utility and may be only ~1000px wide) folds each row independently instead of clipping.
+        var strip = new OverflowRowPanel { MinSpacing = 2, MaxSpacing = 20, VerticalAlignment = VerticalAlignment.Center };
+        _strip = strip; _row1Panel = strip;
+        var dropdowns = new OverflowRowPanel { MinSpacing = 2, MaxSpacing = 20, VerticalAlignment = VerticalAlignment.Center };
+        _dropdownRow = dropdowns; _row2Panel = dropdowns;
 
         // Reset reflected controls; only the ones the current level/state re-builds are re-assigned. Sync()
         // null-guards each, so a Minimal or read-only toolbar (a subset) reflects safely.
         _bold = _italic = _underline = _strike = _painter = null;
-        _bullet = _number = _quote = _undo = _redo = _tableBtn = _imageBtn = _dividerBtn = _findBtn = null;
+        _bullet = _number = _quote = _undo = _redo = _tableBtn = _imageBtn = _dividerBtn = null;
         _bulletPreview = _numberPreview = null;
-        _font = _size = _heading = _align = null; _fontReflected = null;
+        _font = null; _size = _heading = _align = null;
         _spacingBox = null; _colorSwatch = _highlightSwatch = null;
         _zoom = _paper = _orient = null; _zoomFit = null;
         _exportBtn = _importBtn = _printBtn = null;
@@ -403,6 +645,8 @@ public partial class RichEditorToolbar : UserControl
 
         void Add(UIElement c) => strip.Children.Add(c);
         void AddSep() => strip.Children.Add(Sep());
+        // Row 2 (the wide dropdowns).
+        void AddD(UIElement c) => dropdowns.Children.Add(c);
 
         // Leading host items (always).
         foreach (var c in LeadingItems) Add(c);
@@ -410,63 +654,40 @@ public partial class RichEditorToolbar : UserControl
 
         if (ro)
         {
-            // Read-only = view toolbar: find + page/zoom + Export/Print (no editing controls, Import
-            // hidden). Find works read-only, so a viewer keeps it.
-            _findBtn = IconButton("🔎" + Mono, TipSc("Find", RichEditorShortcutId.Find),
-                () => Target?.RaiseFindRequested(false), RichEditorIcon.Find);
-            Add(_findBtn); AddSep();
+            // Read-only = view toolbar: page/zoom + Export/Print (no editing controls, Import hidden).
+            // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): the Find button was removed from the strip
+            // (QNote has no find UI wired; Ctrl+F stays inert). The read-only branch no longer builds it.
             bool page = ShowPageControls, file = ShowFileActions;
             if (page) BuildPageControls(strip);
             if (file) { if (page) AddSep(); BuildFileActions(strip); }
         }
         else
         {
-            // Group order mirrors the AvaloniaRichEditor original toolbar: history → character
-            // toggles → colours → font face/size → paragraph style/align → lists·indent·spacing →
-            // inserts (table/image/divider) → page/zoom → file actions.
+            // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): the strip order follows the reference
+            // (Office/WPS) toolbar, NOT the upstream AvaloniaRichEditor order:
+            //   history | format-painter·clear | paragraph·font·size·A± | colour·B I U S |
+            //   align | lists | indent | (More① = line-spacing·quote)  |  PIN(inserts) | More②(divider)
             _undo = IconButton("↶", TipSc("Undo", RichEditorShortcutId.Undo), () => Target?.Undo(), RichEditorIcon.Undo);
             _redo = IconButton("↷", TipSc("Redo", RichEditorShortcutId.Redo), () => Target?.Redo(), RichEditorIcon.Redo);
             Add(_undo); Add(_redo); AddSep();
 
-            _bold = ToggleBtn("B", TipSc("Bold", RichEditorShortcutId.Bold), () => Target?.ToggleBold(), bold: true, icon: RichEditorIcon.Bold);
-            _italic = ToggleBtn("I", TipSc("Italic", RichEditorShortcutId.Italic), () => Target?.ToggleItalic(), italic: true, icon: RichEditorIcon.Italic);
-            _underline = ToggleBtn("U", TipSc("Underline", RichEditorShortcutId.Underline), () => Target?.ToggleUnderline(), icon: RichEditorIcon.Underline,
-                decorations: Windows.UI.Text.TextDecorations.Underline);
-            _strike = ToggleBtn("S", TipSc("Strikethrough", RichEditorShortcutId.Strikethrough), () => Target?.ToggleStrikethrough(), icon: RichEditorIcon.Strikethrough,
-                decorations: Windows.UI.Text.TextDecorations.Strikethrough);
-            Add(_bold); Add(_italic); Add(_underline); Add(_strike);
-
             if (normal)
             {
-                Add(ColorButton("A", Loc("TextColor"), false));
-                Add(ColorButton("✎", Loc("Highlight"), true));
                 _painter = ToggleBtn("🖌" + Mono, Loc("FormatPainter"), () => Target?.StartFormatPainter(), icon: RichEditorIcon.FormatPainter);
                 Add(_painter);
                 Add(IconButton("✕", Loc("ClearFormatting"), () => Target?.ClearFormatting(), RichEditorIcon.ClearFormatting));
-            }
-            AddSep();
-
-            if (normal)
-            {
-                var font = MakeCombo(160, Loc("FontFamily")); _font = font;
-                font.SelectionChanged += (_, _) => { if (!_suppress && font.SelectedItem is ComboBoxItem ci) Target?.SetRunFontFamily((string)ci.Content); };
-                PopulateFontList();
-                Add(font);
-            }
-
-            // Sizes read as points ("10 pt"), so the unit is explicit — the model/API speak pt. The
-            // numeric value lives in Tag, keeping display text and the sync/apply value separate.
-            var size = MakeCombo(86, Loc("FontSize")); _size = size;
-            foreach (var s in FontSizes) size.Items.Add(new ComboBoxItem { Content = PtText(s), Tag = s });
-            size.SelectionChanged += (_, _) => { if (!_suppress && size.SelectedItem is ComboBoxItem ci && ci.Tag is double v) Target?.SetFontSize(v); };
-            Add(size);
-
-            if (normal)
-            {
                 AddSep();
+            }
+
+            // ---- ROW 2: the wide dropdowns (paragraph style / font / size) ----------------------------
+            if (normal)
+            {
                 var heading = MakeCombo(108, Loc("ParagraphStyle")); _heading = heading;
-                heading.Items.Add(new ComboBoxItem { Content = Loc("BodyText"), Tag = 0 });
-                for (int i = 1; i <= 6; i++) heading.Items.Add(new ComboBoxItem { Content = Loc("Heading" + i), Tag = i });
+                // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): "left icon + right text" items (PRD D9).
+                // Tag still carries the level, so SelectionChanged / reapply / SelectByTag are untouched.
+                heading.Items.Add(new ComboBoxItem { Content = ComboIconText(RichEditorIconRenderer.Create(IconBox, BodyTextIcon), Loc("BodyText")), Tag = 0 });
+                for (int i = 1; i <= 6; i++)
+                    heading.Items.Add(new ComboBoxItem { Content = ComboIconText(RichEditorIconRenderer.Create(IconBox, HeadingLayers(i)), Loc("Heading" + i)), Tag = i });
                 heading.SelectionChanged += (_, _) => { if (!_suppress && heading.SelectedItem is ComboBoxItem ci) Target?.SetHeading((int)ci.Tag); };
                 // Re-picking the level already shown re-applies it — that restores a heading's bold and size
                 // after the user changed them (HeadingStyle.Retype). SelectionChanged cannot see that pick: the
@@ -484,49 +705,94 @@ public partial class RichEditorToolbar : UserControl
                         Target?.SetHeading((int)ci.Tag);
                     }), true);
                 }
-                Add(heading);
+                AddD(heading);
 
+                // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): searchable font picker (PRD D9).
+                AddD(BuildFontPicker());
+                PopulateFontList();
+            }
+
+            // Sizes read as points ("10 pt"), so the unit is explicit — the model/API speak pt. The
+            // numeric value lives in Tag, keeping display text and the sync/apply value separate.
+            var size = MakeCombo(86, Loc("FontSize")); _size = size;
+            foreach (var s in FontSizes) size.Items.Add(new ComboBoxItem { Content = PtText(s), Tag = s });
+            size.SelectionChanged += (_, _) => { if (!_suppress && size.SelectedItem is ComboBoxItem ci && ci.Tag is double v) Target?.SetFontSize(v); };
+            AddD(size);
+
+            if (normal)
+            {
+                // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): A⁺ / A⁻ (grow / shrink the font by one
+                // step on the editor's ladder) — the reference toolbar's A± pair, after the size combo.
+                Add(IconButton("A+", TipSc("FontSizeIncrease", RichEditorShortcutId.FontLarger), () => Target?.IncreaseFontSize(), RichEditorIcon.FontSizeIncrease));
+                Add(IconButton("A-", TipSc("FontSizeDecrease", RichEditorShortcutId.FontSmaller), () => Target?.DecreaseFontSize(), RichEditorIcon.FontSizeDecrease));
+                AddSep();
+            }
+
+            _bold = ToggleBtn("B", TipSc("Bold", RichEditorShortcutId.Bold), () => Target?.ToggleBold(), bold: true, icon: RichEditorIcon.Bold);
+            _italic = ToggleBtn("I", TipSc("Italic", RichEditorShortcutId.Italic), () => Target?.ToggleItalic(), italic: true, icon: RichEditorIcon.Italic);
+            _underline = ToggleBtn("U", TipSc("Underline", RichEditorShortcutId.Underline), () => Target?.ToggleUnderline(), icon: RichEditorIcon.Underline,
+                decorations: Windows.UI.Text.TextDecorations.Underline);
+            _strike = ToggleBtn("S", TipSc("Strikethrough", RichEditorShortcutId.Strikethrough), () => Target?.ToggleStrikethrough(), icon: RichEditorIcon.Strikethrough,
+                decorations: Windows.UI.Text.TextDecorations.Strikethrough);
+
+            if (normal)
+            {
+                Add(ColorButton("A", Loc("TextColor"), false));
+                Add(ColorButton("✎", Loc("Highlight"), true));
+            }
+            Add(_bold); Add(_italic); Add(_underline); Add(_strike);
+            AddSep();
+
+            if (normal)
+            {
+                // Indent (both steps — plain buttons, so row 1).
+                Add(IconButton("⇥", TipSc("IndentIncrease", RichEditorShortcutId.IndentIncrease), () => Target?.Indent(20), RichEditorIcon.IndentIncrease));
+                Add(IconButton("⇤", TipSc("IndentDecrease", RichEditorShortcutId.IndentDecrease), () => Target?.Indent(-20), RichEditorIcon.IndentDecrease));
+                AddSep();
+
+                // Quote (plain button, row 1).
+                _quote = IconButton("❝", Loc("Quote"), () => Target?.ToggleQuote(), RichEditorIcon.Quote);
+                Add(_quote);
+                AddSep();
+
+                // Inserts: table + image + divider (plain buttons, row 1).
+                _tableBtn = BaseButton("▦", Loc("InsertTable"), RichEditorIcon.InsertTable);
+                _tableBtn.Flyout = BuildTableGridPicker();
+                Add(_tableBtn);
+                _imageBtn = IconButton("🖼", Loc("InsertImage"), async () => await PickAndInsertImageAsync(), RichEditorIcon.InsertImage);
+                Add(_imageBtn);
+                _dividerBtn = IconButton("―", Loc("InsertDivider"), () => Target?.InsertDivider(), RichEditorIcon.InsertDivider);
+                Add(_dividerBtn);
+            }
+
+            // ---- ROW 2 continued: the remaining dropdowns (align / lists / line-spacing) --------------
+            if (normal)
+            {
                 var align = MakeCombo(96, Loc("Alignment")); _align = align;
-                void AddAlign(string text, TextAlignment a) => align.Items.Add(new ComboBoxItem { Content = text, Tag = a });
-                AddAlign(Loc("AlignLeft"), TextAlignment.Left);
-                AddAlign(Loc("AlignCenter"), TextAlignment.Center);
-                AddAlign(Loc("AlignRight"), TextAlignment.Right);
-                AddAlign(Loc("AlignJustify"), TextAlignment.Justify);
+                // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): icon+text items (PRD D9); the Tag still
+                // carries the TextAlignment, so SelectionChanged / SelectByTag are untouched.
+                void AddAlign(string text, TextAlignment a, RichEditorIcon icon)
+                    => align.Items.Add(new ComboBoxItem { Content = ComboIconText(ResolvedIcon(icon), text), Tag = a });
+                AddAlign(Loc("AlignLeft"), TextAlignment.Left, RichEditorIcon.AlignLeft);
+                AddAlign(Loc("AlignCenter"), TextAlignment.Center, RichEditorIcon.AlignCenter);
+                AddAlign(Loc("AlignRight"), TextAlignment.Right, RichEditorIcon.AlignRight);
+                AddAlign(Loc("AlignJustify"), TextAlignment.Justify, RichEditorIcon.AlignJustify);
                 align.SelectionChanged += (_, _) => { if (!_suppress && align.SelectedItem is ComboBoxItem ci) Target?.SetTextAlignment((TextAlignment)ci.Tag); };
-                Add(align); AddSep();
+                AddD(align);
 
                 // Lists: each is a combo-style box [icon (toggles the list) | current marker | ▾ (glyph/format)].
                 var bullet = BuildListBox(RichEditorIcon.BulletList, Loc("BulletList"), () => Target?.ToggleBullet(),
                     (ListMarkerStyle.Disc, "•"), (ListMarkerStyle.Circle, "◦"), (ListMarkerStyle.Square, "▪"), (ListMarkerStyle.Dash, "–"));
                 _bullet = bullet.Icon; _bulletPreview = bullet.Preview;
-                Add(bullet.Box);
+                AddD(bullet.Box);
                 var number = BuildListBox(RichEditorIcon.NumberedList, Loc("NumberedList"), () => Target?.ToggleNumbering(),
                     (ListMarkerStyle.Decimal, "1."), (ListMarkerStyle.DecimalParen, "1)"),
                     (ListMarkerStyle.LowerAlpha, "a)"), (ListMarkerStyle.UpperAlpha, "A)"), (ListMarkerStyle.LowerRoman, "i)"));
                 _number = number.Icon; _numberPreview = number.Preview;
-                Add(number.Box);
-                // Quote beside the lists: without it the default UI had no way to set one (the right-click item
-                // needs ShowFormattingMenu, and there is no shortcut). Upstream decision, 2026-09-23.
-                _quote = IconButton("❝", Loc("Quote"), () => Target?.ToggleQuote(), RichEditorIcon.Quote);
-                Add(_quote);
-                Add(IconButton("⇥", TipSc("IndentIncrease", RichEditorShortcutId.IndentIncrease), () => Target?.Indent(20), RichEditorIcon.IndentIncrease));
-                Add(IconButton("⇤", TipSc("IndentDecrease", RichEditorShortcutId.IndentDecrease), () => Target?.Indent(-20), RichEditorIcon.IndentDecrease));
-                Add(BuildLineSpacingControl());
-                AddSep();
+                AddD(number.Box);
 
-                _tableBtn = BaseButton("▦", Loc("InsertTable"), RichEditorIcon.InsertTable);
-                _tableBtn.Flyout = BuildTableGridPicker();
-                // One image button: inserts a block image; the right-click menu then offers "treat as character".
-                _imageBtn = IconButton("🖼", Loc("InsertImage"), async () => await PickAndInsertImageAsync(), RichEditorIcon.InsertImage);
-                _dividerBtn = IconButton("―", Loc("InsertDivider"), () => Target?.InsertDivider(), RichEditorIcon.InsertDivider);
-                Add(_tableBtn); Add(_imageBtn); Add(_dividerBtn);
-
-                // Find: opens whatever find UI the host wired to RichEditor.FindRequested (the built-in
-                // bar in RichEditorView), the same path Ctrl+F takes. Hidden when find is disabled.
-                AddSep();
-                _findBtn = IconButton("🔎" + Mono, TipSc("Find", RichEditorShortcutId.Find),
-                    () => Target?.RaiseFindRequested(false), RichEditorIcon.Find);
-                Add(_findBtn);
+                // Line spacing (a dropdown control, so row 2).
+                AddD(BuildLineSpacingControl());
             }
 
             // Maximum adds the page/zoom controls and file actions.
@@ -543,8 +809,73 @@ public partial class RichEditorToolbar : UserControl
 
         // Host-supplied Leading/TrailingItems come through here too — see ClearFocusOnInteraction.
         foreach (var child in strip.Children) ClearFocusOnInteraction(child);
-        return new Border { Padding = new Thickness(4), Child = strip };
+        foreach (var child in dropdowns.Children) ClearFocusOnInteraction(child);
+
+        // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): FIXED TWO-ROW root with three hairline rules
+        // (above row 1, between the rows, below row 2). Each row is a Grid [OverflowRowPanel (*) | More (Auto)]
+        // so the row's trailing More button is pinned to the right edge and the panel gets the rest.
+        var row1 = BuildRowWithOverflow(strip, out _row1More, out _row1OverflowHost);
+        var row2 = BuildRowWithOverflow(dropdowns, out _row2More, out _row2OverflowHost);
+        strip.MoreButton = _row1More; strip.OverflowHost = _row1OverflowHost;
+        dropdowns.MoreButton = _row2More; dropdowns.OverflowHost = _row2OverflowHost;
+        strip.IsOverflowOpen = () => _row1More?.Flyout is Flyout f && f.IsOpen;
+        dropdowns.IsOverflowOpen = () => _row2More?.Flyout is Flyout f && f.IsOpen;
+
+        var root = new Grid { HorizontalAlignment = HorizontalAlignment.Stretch };
+        for (int i = 0; i < 5; i++) root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        Grid.SetRow(row1, 1);
+        Grid.SetRow(row2, 3);
+        root.Children.Add(RowRule(0));      // above row 1
+        root.Children.Add(row1);
+        root.Children.Add(RowRule(2));      // between the rows
+        root.Children.Add(row2);
+        root.Children.Add(RowRule(4));      // below row 2
+        return new Border { Padding = new Thickness(4, 2, 4, 2), Child = root, HorizontalAlignment = HorizontalAlignment.Stretch };
     }
+
+    // Wraps one row's panel with its trailing More button + flyout. The Grid's second column is Auto so the
+    // More button reserves exactly its width (or collapses to 0 when nothing overflows).
+    private Grid BuildRowWithOverflow(OverflowRowPanel panel, out Button more, out Panel overflowHost)
+    {
+        // Single horizontal row that sizes to its content (no fixed width → no trailing blank; no wrap →
+        // the folded items read left-to-right, matching the row they came from).
+        var host = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
+        overflowHost = host;
+        var flyout = new Flyout
+        {
+            FlyoutPresenterStyle = TightFlyoutPresenter(),
+            Placement = FlyoutPlacementMode.BottomEdgeAlignedRight,
+            ShouldConstrainToRootBounds = true,
+        };
+        ReturnsFocus(flyout);
+        flyout.Content = new Border { Padding = new Thickness(4), Child = host };
+        more = BaseButton("⋮", Loc("More"), RichEditorIcon.MoreVertical);
+        more.Flyout = flyout;
+        more.Visibility = Visibility.Collapsed;   // shown by the panel only when something overflows
+        Grid.SetColumn(panel, 0);
+        Grid.SetColumn(more, 1);
+        var g = new Grid { HorizontalAlignment = HorizontalAlignment.Stretch };
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        g.Children.Add(panel);
+        g.Children.Add(more);
+        return g;
+    }
+
+    // A hairline horizontal rule spanning the toolbar width, used to separate the two rows.
+    private static UIElement RowRule(int row)
+    {
+        var line = new Border
+        {
+            Height = 1,
+            Background = SeparatorBrush,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Margin = new Thickness(0, 3, 0, 3),
+        };
+        Grid.SetRow(line, row);
+        return line;
+    }
+
 
     // A flyout presenter with no default padding / min-size, so a flyout hugs its content (the default
     // presenter adds ~12px padding and a min-size, which dwarfs the small grid picker).
@@ -675,7 +1006,7 @@ public partial class RichEditorToolbar : UserControl
         var box = new Border
         {
             Child = row,
-            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 0xDC, 0xDC, 0xDC)),
+            BorderBrush = ComboBorderBrush,
             BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(4),
             Padding = new Thickness(4, 0, 4, 0),
             Height = CtlHeight, VerticalAlignment = VerticalAlignment.Center,
@@ -748,7 +1079,7 @@ public partial class RichEditorToolbar : UserControl
         return new Border
         {
             Child = row,
-            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 0xDC, 0xDC, 0xDC)),
+            BorderBrush = ComboBorderBrush,
             BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(4),
             Padding = new Thickness(6, 0, 4, 0),
             Height = CtlHeight, VerticalAlignment = VerticalAlignment.Center,
@@ -828,7 +1159,7 @@ public partial class RichEditorToolbar : UserControl
             if (_font != null)
             {
                 string fam = f.FontFamily ?? rt.DefaultFontFamily;
-                if (fam != _fontReflected) { SelectByContent(_font, fam); _fontReflected = fam; }
+                if (fam != _font.Reflected) SetFontSelection(fam, apply: false);
             }
             if (_size != null)
             {
@@ -866,7 +1197,6 @@ public partial class RichEditorToolbar : UserControl
             // The divider belongs to the insert group: shown while tables OR images are allowed, like the
             // context menu's divider item (and upstream's toolbar). It used to stay visible regardless.
             if (_dividerBtn != null) _dividerBtn.Visibility = rt.AllowTables || rt.AllowImages ? Visibility.Visible : Visibility.Collapsed;
-            if (_findBtn != null) _findBtn.Visibility = rt.AllowFindReplace && rt.HasFindUi ? Visibility.Visible : Visibility.Collapsed;
             SyncPage();        // reflect zoom/paper/orientation state
             SyncFileActions(); // Print/Import button visibility
         }
@@ -882,13 +1212,6 @@ public partial class RichEditorToolbar : UserControl
     // List-box icon buttons aren't ToggleButtons; reflect active state via background only.
     private static void SetActive(Button b, bool active) => b.Background = active ? ActiveBrush : ClearBrush;
 
-    private static void SelectByContent(ComboBox combo, string content)
-    {
-        foreach (var item in combo.Items)
-            if (item is ComboBoxItem ci && (string)ci.Content == content) { combo.SelectedItem = ci; return; }
-        combo.SelectedIndex = -1;
-    }
-
     private static void SelectByTag(ComboBox combo, object tag)
     {
         foreach (var item in combo.Items)
@@ -898,18 +1221,46 @@ public partial class RichEditorToolbar : UserControl
 
     // ---- small widget builders --------------------------------------------
     // Fixed-height group divider (a full-line bar looked heavy; wrap-panel centering aligns it).
-    // Small extra margin so group gaps (spacing 4 + 2×2) read wider than in-group gaps (4).
-    private static UIElement Sep() => new Border
+    // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): the 4px horizontal margin makes the inter-group
+    // gap (2×4 = 8px between neighbours) read wider than the 2px in-group gap without a second panel
+    // constant. Tagged with SepTag so the Batch-3 overflow panel can identify separators as group breaks.
+    /// <summary>Tag applied to the toolbar's group separators (see <see cref="Sep"/>).</summary>
+    internal const string SepTag = "QNote.Toolbar.Sep";
+    private static UIElement Sep()
     {
-        Width = 1, Height = 20, Margin = new Thickness(2, 0, 2, 0),
-        Background = new SolidColorBrush(Color.FromArgb(60, 0, 0, 0)),
-    };
+        var bar = new Border
+        {
+            Width = 1, Height = 20, Margin = new Thickness(4, 0, 4, 0),
+            // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): theme-aware group rule. The old fixed
+            // 24%-black wash was nearly invisible on the light strip; these read as a clear (not heavy)
+            // group break in both themes — light 20% black, dark 22% white.
+            Background = SeparatorBrush,
+        };
+        bar.Tag = SepTag;
+        return bar;
+    }
 
     // Icon precedence: host override (RichEditorIcons.Provider) > built-in vector icon
     // (ToolbarIcons.CreateVector, the upstream peer's pictures) > styled-text fallback (`text` — the letters
     // B/I/U/S by design, as upstream). The Segoe glyphs (ToolbarIcons.Create) are the context menu's.
-    private static object IconOrText(RichEditorIcon? icon, string text)
-        => (icon is { } k ? RichEditorIcons.TryCreate(k) ?? ToolbarIcons.CreateVector(k) : null) ?? (object)text;
+    // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): the provider signature carries no box, so a
+    // returned Viewbox is re-sized to `box` here (the host's icons ship at their own default 18); the
+    // built-in vector is asked for `box` directly.
+    private static object IconOrText(RichEditorIcon? icon, string text, double box = IconBox)
+    {
+        UIElement? el = icon is { } k ? RichEditorIcons.TryCreate(k) ?? ToolbarIcons.CreateVector(k, box) : null;
+        if (el is Viewbox vb) { vb.Width = box; vb.Height = box; }
+        return el ?? (object)text;
+    }
+
+    // Resolves a Host-override-or-built-in icon into an element (never the text fallback), re-sized to
+    // `box`. Used by the combo item templates, which need a real icon, not a letter.
+    private static UIElement ResolvedIcon(RichEditorIcon icon, double box = IconBox)
+    {
+        var el = RichEditorIcons.TryCreate(icon) ?? ToolbarIcons.CreateVector(icon, box);
+        if (el is Viewbox vb) { vb.Width = box; vb.Height = box; }
+        return el ?? new Border { Width = box, Height = box };
+    }
 
     // A vector icon is drawn in fixed ink, so unlike a FontIcon it does not follow the button's disabled
     // foreground: dim it with the button (undo/redo with no history).
@@ -949,12 +1300,72 @@ public partial class RichEditorToolbar : UserControl
             Padding = new Thickness(0),
             Background = ClearBrush,
             BorderThickness = new Thickness(0),
+            CornerRadius = new CornerRadius(Corner),
             VerticalContentAlignment = VerticalAlignment.Center,
             HorizontalContentAlignment = HorizontalAlignment.Center,
         };
         ToolTipService.SetToolTip(b, tip);
+        ApplyStripButtonChrome(b);
         DimVectorIconWhenDisabled(b);
         return NoFocus(b); // the caret must survive a button click — see the focus discipline section
+    }
+
+    // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): the shared flat-strip button chrome.
+    //  - hover / pressed faces: override the template's PointerOver/Pressed resources (winning over the
+    //    stock faint wash) with HoverBrush / PressedBrush.
+    //  - 150ms fade: the stock template animates the ContentPresenter's Background over its own default
+    //    (83ms, `0:0:0.083`); the presenter is created lazily by the template, so retime it on Loaded.
+    //    (Control exposes no BackgroundTransition — only Border/Panel/ContentPresenter do — so the
+    //    presenter is reached through the visual tree rather than set on the Button itself.)
+    //  - 1.06 icon scale: the icon element (button.Content) is scaled via UIElement.Scale with a
+    //    Vector3Transition, kept subtle enough not to disturb the layout (a render transform is not
+    //    measured) and to leave `DimVectorIconWhenDisabled`'s `Content is Viewbox` check intact.
+    private static void ApplyStripButtonChrome(ContentControl button)
+    {
+        button.Resources["ButtonBackgroundPointerOver"] = HoverBrush;
+        button.Resources["ButtonBackgroundPressed"] = PressedBrush;
+        button.Resources["ButtonBackgroundDisabled"] = ClearBrush;
+        button.Resources["ButtonBorderBrushPointerOver"] = ClearBrush;
+        button.Resources["ButtonBorderBrushPressed"] = ClearBrush;
+        button.Resources["ButtonBorderBrushDisabled"] = ClearBrush;
+        ApplyHoverMotion(button);
+    }
+
+    // Installs the 150ms hover fade + 1.06 icon scale. Split out so ToggleBtn (which needs the checked
+    // faces on top) can reuse it.
+    private static void ApplyHoverMotion(ContentControl button)
+    {
+        button.Loaded += (_, _) =>
+        {
+            if (FindContentPresenter(button) is { } presenter)
+                presenter.BackgroundTransition = new BrushTransition { Duration = TimeSpan.FromMilliseconds(150) };
+        };
+        button.PointerEntered += (_, _) => ScaleIcon(button, 1.06f);
+        button.PointerExited += (_, _) => ScaleIcon(button, 1.0f);
+    }
+
+    // Sets the button's icon element scale, installing the transition once so the change eases. The icon
+    // element is button.Content (a Viewbox for vector icons, a TextBlock for letter fallbacks, a
+    // StackPanel for the colour faces) — all are UIElements and all scale the same way.
+    private static void ScaleIcon(ContentControl button, float scale)
+    {
+        if (button.Content is not UIElement icon) return;
+        icon.ScaleTransition ??= new Vector3Transition { Duration = TimeSpan.FromMilliseconds(150) };
+        icon.Scale = new System.Numerics.Vector3(scale, scale, 1f);
+    }
+
+    // The stock Button/ToggleButton template's ContentPresenter (the element that actually paints the
+    // hover background). Found depth-first; the presenter is the first Border-less content host.
+    private static ContentPresenter? FindContentPresenter(DependencyObject root)
+    {
+        int n = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < n; i++)
+        {
+            var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is ContentPresenter cp) return cp;
+            if (FindContentPresenter(child) is { } deep) return deep;
+        }
+        return null;
     }
 
     private ToggleButton ToggleBtn(string glyph, string tip, Action act, bool bold = false, bool italic = false, RichEditorIcon? icon = null,
@@ -971,6 +1382,7 @@ public partial class RichEditorToolbar : UserControl
             Padding = new Thickness(0),
             Background = ClearBrush,
             BorderThickness = new Thickness(0),
+            CornerRadius = new CornerRadius(Corner),
             VerticalContentAlignment = VerticalAlignment.Center,
             HorizontalContentAlignment = HorizontalAlignment.Center,
             // Letter styling only matters for the text fallback; a FontIcon ignores it.
@@ -978,6 +1390,7 @@ public partial class RichEditorToolbar : UserControl
             FontStyle = italic ? FontStyle.Italic : FontStyle.Normal,
         };
         ToolTipService.SetToolTip(b, tip);
+        ApplyStripButtonChrome(b); // P2: hover/pressed/150ms/1.06 scale (shared with BaseButton)
         ApplyToggleCheckedStyle(b);
         // Drive on click; Sync() owns IsChecked, so don't react to Checked/Unchecked (would double-toggle).
         b.Click += (_, _) => { if (!_suppress) act(); };
@@ -989,6 +1402,16 @@ public partial class RichEditorToolbar : UserControl
     // Background, because the Checked visual state overwrites it.
     private static void ApplyToggleCheckedStyle(ToggleButton b)
     {
+        // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): the UNCHECKED pointer-over/pressed faces
+        // use the ToggleButton* resource keys (the Button* keys ApplyStripButtonChrome sets don't apply
+        // to a ToggleButton's template), so the strip's hover reads the same on toggles and buttons.
+        b.Resources["ToggleButtonBackgroundPointerOver"] = HoverBrush;
+        b.Resources["ToggleButtonBackgroundPressed"] = PressedBrush;
+        b.Resources["ToggleButtonBackgroundDisabled"] = ClearBrush;
+        b.Resources["ToggleButtonBorderBrushPointerOver"] = ClearBrush;
+        b.Resources["ToggleButtonBorderBrushPressed"] = ClearBrush;
+        b.Resources["ToggleButtonBorderBrushDisabled"] = ClearBrush;
+
         b.Resources["ToggleButtonBackgroundChecked"] = ActiveBrush;
         b.Resources["ToggleButtonBackgroundCheckedPointerOver"] = ActiveHoverBrush;
         b.Resources["ToggleButtonBackgroundCheckedPressed"] = ActiveHoverBrush;
@@ -1008,6 +1431,10 @@ public partial class RichEditorToolbar : UserControl
         // items still show in their own typeface — a feature — just at the uniform size).
         // MinHeight too: the default ComboBox style pins TextControlThemeMinHeight (32), which would
         // clamp a smaller Height right back up and leave the combos taller than the buttons.
+        // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): border + corner radius per the PRD dropdown
+        // spec (1px #1F000000/#1FFFFFFF, radius 4, height 30). Height/MinHeight track CtlHeight so the
+        // combos stay level with the 30px buttons; the border is theme-aware and recolors on a theme flip
+        // (the toolbar rebuilds the strip, re-reading ComboBorderBrush).
         var c = new ComboBox
         {
             Width = width,
@@ -1015,6 +1442,9 @@ public partial class RichEditorToolbar : UserControl
             Height = CtlHeight,
             MinHeight = CtlHeight,
             Padding = new Thickness(10, 0, 6, 0),
+            CornerRadius = new CornerRadius(Corner),
+            BorderThickness = new Thickness(1),
+            BorderBrush = ComboBorderBrush,
             VerticalContentAlignment = VerticalAlignment.Center,
         };
         ToolTipService.SetToolTip(c, tip);
@@ -1053,14 +1483,16 @@ public partial class RichEditorToolbar : UserControl
             Content = face,
             Width = BtnWidth,
             Height = CtlHeight,
-            // Tight: the face stacks a glyph over the colour bar, which needs the full 28px box.
             Padding = new Thickness(0),
             Background = ClearBrush,
             BorderThickness = new Thickness(0),
+            CornerRadius = new CornerRadius(Corner), // P2: match the strip's rounded hover face
             VerticalContentAlignment = VerticalAlignment.Center,
             HorizontalContentAlignment = HorizontalAlignment.Center,
         };
         ToolTipService.SetToolTip(btn, tip);
+        ApplyStripButtonChrome(btn); // P2: hover/pressed faces + 150ms fade + 1.06 scale
+        NoFocus(btn);
 
         var flyout = new Flyout();
         ReturnsFocus(flyout); // ditto — a swatch/hex click must leave the caret where it was

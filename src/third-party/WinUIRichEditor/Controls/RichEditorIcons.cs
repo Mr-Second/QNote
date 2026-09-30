@@ -118,6 +118,14 @@ public enum RichEditorIcon
     Quote,
     /// <summary>Page margins (the toolbar's margin picker).</summary>
     PageMargin,
+    // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle) — appended (not grouped) to preserve the shipped
+    // ordinal values of every entry above.
+    /// <summary>Overflow / "more" (the toolbar's trailing More button).</summary>
+    More,
+    /// <summary>Justify alignment (the alignment picker's fourth option).</summary>
+    AlignJustify,
+    /// <summary>Vertical "more" (the secondary More button, distinguished from the overflow one).</summary>
+    MoreVertical,
 }
 
 /// <summary>Host-pluggable icon factory for the built-in chrome (toolbar buttons and context menus).
