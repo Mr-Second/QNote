@@ -184,25 +184,37 @@ public sealed class WreEditorController
     /// <summary>
     /// Rewrites every <see cref="DocumentImage"/>'s content address from the display
     /// copy's hash back to the original sha it resolves to. Addresses with no mapping
-    /// (a picture the host never linked to a row) pass through unchanged.
+    /// (a picture the host never linked to a row) pass through unchanged. Table cells
+    /// are walked too — an image inside a table must remap like any other or the
+    /// note_images sync would orphan it.
     /// </summary>
     private DocumentContent RemapImageReferences(DocumentContent content)
     {
         if (_displayBytesSha.Count == 0)
             return content;
 
+        DocumentInline Remap(DocumentInline inline) =>
+            inline is DocumentImage image && _displayBytesSha.TryGetValue(image.Sha256, out var original)
+                ? image with { Sha256 = original }
+                : inline;
+
+        IReadOnlyList<DocumentInline> RemapCell(
+            IReadOnlyList<DocumentInline> cell) => cell.Select(Remap).ToList();
+
         var blocks = new List<DocumentBlock>(content.Blocks.Count);
         foreach (var block in content.Blocks)
         {
-            var inlines = new List<DocumentInline>(block.Inlines.Count);
-            foreach (var inline in block.Inlines)
+            IReadOnlyList<IReadOnlyList<IReadOnlyList<DocumentInline>>>? cells = null;
+            if (block.TableCells is { } tableCells)
+                cells = tableCells
+                    .Select(row => (IReadOnlyList<IReadOnlyList<DocumentInline>>)row.Select(RemapCell).ToList())
+                    .ToList();
+
+            blocks.Add(block with
             {
-                inlines.Add(inline is DocumentImage image &&
-                            _displayBytesSha.TryGetValue(image.Sha256, out var original)
-                    ? image with { Sha256 = original }
-                    : inline);
-            }
-            blocks.Add(block with { Inlines = inlines });
+                Inlines = block.Inlines.Select(Remap).ToList(),
+                TableCells = cells,
+            });
         }
         return new DocumentContent(blocks);
     }

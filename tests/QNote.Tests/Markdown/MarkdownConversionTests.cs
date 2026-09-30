@@ -118,6 +118,101 @@ public class MarkdownParserTests
         Assert.Equal("**not bold**", run.Text);
         Assert.False(run.Bold);
     }
+
+    // ---- GFM pipe tables (joined the locked subset 2026-10-01) ------------------------------
+
+    private static string CellText(DocumentBlock block, int row, int column) =>
+        string.Concat(block.TableCells![row][column].OfType<DocumentRun>().Select(r => r.Text));
+
+    internal static string TableCellText(DocumentBlock block, int row, int column) =>
+        CellText(block, row, column);
+
+    [Fact]
+    public void PipeTableParsesHeaderAndBodyRows()
+    {
+        var blocks = Parse("| a | b |\n| --- | --- |\n| c | d |").Blocks;
+        var table = Assert.Single(blocks);
+        Assert.Equal(BlockKind.Table, table.Kind);
+        Assert.Empty(table.Inlines); // table content lives in TableCells only
+        Assert.Equal(2, table.TableCells!.Count);
+        Assert.Equal("a", CellText(table, 0, 0));
+        Assert.Equal("b", CellText(table, 0, 1));
+        Assert.Equal("c", CellText(table, 1, 0));
+        Assert.Equal("d", CellText(table, 1, 1));
+    }
+
+    [Fact]
+    public void PipeTablePadsRaggedRowsWithEmptyCells()
+    {
+        var table = Assert.Single(Parse("| a | b |\n| --- | --- |\n| c |").Blocks);
+        Assert.Equal(2, table.TableCells!.Count);
+        Assert.Equal(2, table.TableCells[1].Count);
+        Assert.Empty(table.TableCells[1][1]);
+    }
+
+    [Fact]
+    public void PipeCellInlineStylesCarryFlags()
+    {
+        var table = Assert.Single(Parse("| **b** | [x](https://x.io) |\n| --- | --- |").Blocks);
+
+        var bold = Assert.IsType<DocumentRun>(Assert.Single(table.TableCells![0][0]));
+        Assert.True(bold.Bold);
+
+        var link = Assert.IsType<DocumentRun>(Assert.Single(table.TableCells[0][1]));
+        Assert.Equal("x", link.Text);
+        Assert.Equal("https://x.io", link.NavigateUri);
+    }
+
+    [Fact]
+    public void PipeCellImageReferenceBecomesDocumentImage()
+    {
+        const string sha = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        var table = Assert.Single(Parse($"| ![图]({MarkdownParser.ImageSchemePrefix}{sha}) | b |\n| --- | --- |").Blocks);
+        var image = Assert.IsType<DocumentImage>(Assert.Single(table.TableCells![0][0]));
+        Assert.Equal(sha, image.Sha256);
+    }
+
+    [Fact]
+    public void PlainPipesWithoutDelimiterRowStayParagraph()
+    {
+        // The UsePipeTables flip must not reinterpret single-line pipe text.
+        var block = Assert.Single(Parse("a | b").Blocks);
+        Assert.Equal(BlockKind.Paragraph, block.Kind);
+        Assert.Equal("a | b", Assert.IsType<DocumentRun>(Assert.Single(block.Inlines)).Text);
+    }
+
+    [Fact]
+    public void ReferencedImageShasWalksTableCells()
+    {
+        const string sha = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        var shas = MarkdownParser.ReferencedImageShas(
+            $"text\n\n| ![图]({MarkdownParser.ImageSchemePrefix}{sha}) | b |\n| --- | --- |");
+        Assert.Equal([sha], shas);
+    }
+
+    // ---- thematic breaks (joined the locked subset 2026-10-01) ------------------------------
+
+    [Fact]
+    public void ThematicBreakParsesToDividerBlock()
+    {
+        foreach (var marker in new[] { "---", "***", "___" })
+        {
+            var block = Assert.Single(Parse($"{marker}").Blocks);
+            Assert.Equal(BlockKind.Divider, block.Kind);
+            Assert.Empty(block.Inlines);
+        }
+    }
+
+    [Fact]
+    public void SetextLookalikeStaysParagraphPlusDivider()
+    {
+        // "text\n---" would re-parse as a setext H2 (Markdig-verified) — the blank
+        // line keeps both blocks what they are.
+        var blocks = Parse("text\n\n---").Blocks;
+        Assert.Equal(2, blocks.Count);
+        Assert.Equal(BlockKind.Paragraph, blocks[0].Kind);
+        Assert.Equal(BlockKind.Divider, blocks[1].Kind);
+    }
 }
 
 public class MarkdownEmitterTests
@@ -175,6 +270,103 @@ public class MarkdownEmitterTests
     {
         const string sha = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
         Assert.Equal($"![alt]({MarkdownParser.ImageSchemePrefix}{sha})\n", Emit($"![alt]({MarkdownParser.ImageSchemePrefix}{sha})"));
+    }
+
+    // ---- GFM pipe tables: emission discipline ---------------------------------------------
+    //
+    // Markdig-verified adjacency (2026-10-01): a plain line right after the rows
+    // absorbs the construct into one paragraph, a preceding list item lazily
+    // swallows the rows, and two touching tables fuse — hence one blank line
+    // before each table and one after (collapsed between two tables).
+
+    private static DocumentBlock Table(params string[][] rows) => new(BlockKind.Table, [])
+    {
+        TableCells = rows
+            .Select(row => (IReadOnlyList<IReadOnlyList<DocumentInline>>)row
+                .Select(cell => (IReadOnlyList<DocumentInline>)[new DocumentRun(cell)])
+                .ToList())
+            .ToList(),
+    };
+
+    [Fact]
+    public void EmittedTableKeepsBlankSeparatorsAroundIt()
+    {
+        var model = new DocumentContent(
+        [
+            new DocumentBlock(BlockKind.ListItem, [new DocumentRun("项")]) { Ordered = true },
+            Table(["a", "b"], ["c", "d"]),
+            new DocumentBlock(BlockKind.Paragraph, [new DocumentRun("后")]),
+        ]);
+
+        Assert.Equal("1. 项\n\n| a | b |\n| --- | --- |\n| c | d |\n\n后\n",
+            MarkdownEmitter.Emit(model));
+    }
+
+    [Fact]
+    public void HeaderOnlyTableEmitsItsDelimiterRow()
+    {
+        var model = new DocumentContent([Table(["a"])]);
+        Assert.Equal("| a |\n| --- |\n", MarkdownEmitter.Emit(model));
+    }
+
+    [Fact]
+    public void TwoTablesShareOneBlankSeparator()
+    {
+        var model = new DocumentContent([Table(["a"]), Table(["b"])]);
+        Assert.Equal("| a |\n| --- |\n\n| b |\n| --- |\n", MarkdownEmitter.Emit(model));
+    }
+
+    [Fact]
+    public void CellPipesEscapeSoTheRowSurvives()
+    {
+        var model = new DocumentContent([Table(["a | b"])]);
+        var md = MarkdownEmitter.Emit(model);
+        Assert.Equal("| a \\| b |\n| --- |\n", md);
+        Assert.Equal("a | b",
+            MarkdownParserTests.TableCellText(Assert.Single(MarkdownParser.Parse(md).Blocks), 0, 0));
+    }
+
+    [Fact]
+    public void ParsedTableEmitsByteStable()
+    {
+        Assert.Equal("| a | b |\n| --- | --- |\n| c | d |\n",
+            Emit("| a | b |\n| --- | --- |\n| c | d |"));
+    }
+
+    // ---- thematic breaks: emission discipline -----------------------------------------------
+    //
+    // Markdig-verified adjacency (2026-10-01): "text\n---" re-parses as a setext H2 and
+    // a "---" tail absorbs a pipe table exactly like a plain line — hence the mandatory
+    // blank line BEFORE each divider; nothing after one needs a separator.
+
+    [Fact]
+    public void DividerNeedsABlankLineBeforeButNothingAfter()
+    {
+        var model = new DocumentContent(
+        [
+            new DocumentBlock(BlockKind.Paragraph, [new DocumentRun("p")]),
+            new DocumentBlock(BlockKind.Divider, []),
+            new DocumentBlock(BlockKind.Paragraph, [new DocumentRun("后")]),
+        ]);
+        Assert.Equal("p\n\n---\n后\n", MarkdownEmitter.Emit(model));
+
+        Assert.Equal("---\n", MarkdownEmitter.Emit(
+            new DocumentContent([new DocumentBlock(BlockKind.Divider, [])])));
+    }
+
+    [Fact]
+    public void DividerAfterATableKeepsBothIntact()
+    {
+        var model = new DocumentContent([Table(["a"]), new DocumentBlock(BlockKind.Divider, [])]);
+        Assert.Equal("| a |\n| --- |\n\n---\n", MarkdownEmitter.Emit(model));
+    }
+
+    [Fact]
+    public void DividerRoundTripsByteStable()
+    {
+        Assert.Equal("---\n", Emit("---"));
+        Assert.Equal("para\n\n---\n", Emit("para\n\n---"));
+        Assert.Equal("***\ntext".Replace("***", "---") + "\n", Emit("***\ntext")); // marker canonicalizes
     }
 
     [Fact]
@@ -352,5 +544,22 @@ public class MarkdownTextTests
     {
         Assert.Equal(string.Empty, MarkdownText.ToPlainText(""));
         Assert.Equal(string.Empty, MarkdownText.ToPreviewLine("", 20));
+    }
+
+    [Fact]
+    public void PipeTablePlainTextKeepsCellTextWithoutPipesOrDelimiterRow()
+    {
+        // Without UsePipeTables the delimiter row "| - | - |" leaked into the FTS
+        // corpus as visible text; with it, each cell's text survives cleanly.
+        var text = MarkdownText.ToPlainText("| a | b |\n| - | - |\n| c | d |");
+        Assert.Equal("a\nb\nc\nd", text);
+        Assert.DoesNotContain('|', text);
+        Assert.DoesNotContain("---", text);
+    }
+
+    [Fact]
+    public void ThematicBreakContributesNothingToPlainText()
+    {
+        Assert.Equal("a\nb", MarkdownText.ToPlainText("a\n\n---\n\nb"));
     }
 }

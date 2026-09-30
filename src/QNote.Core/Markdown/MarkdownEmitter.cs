@@ -12,9 +12,48 @@ public static class MarkdownEmitter
     public static string Emit(DocumentContent content)
     {
         var buffer = new StringBuilder();
+        var emittedAny = false;
+        var afterTable = false;
 
         foreach (var block in content.Blocks)
         {
+            // Tables manage their own blank-line separators (Markdig-verified
+            // 2026-10-01: a plain line directly after the rows absorbs the whole
+            // construct into one paragraph, a preceding list item lazily swallows
+            // the rows, and two touching tables fuse) and stay fully transparent
+            // when empty.
+            if (block.Kind == BlockKind.Table)
+            {
+                if (block.TableCells is { Count: > 0 } cells)
+                {
+                    if (emittedAny)
+                        buffer.Append('\n');
+                    EmitTable(buffer, cells);
+                    emittedAny = true;
+                    afterTable = true;
+                }
+                continue;
+            }
+
+            // Thematic breaks: a blank line BEFORE is mandatory (Markdig-verified
+            // 2026-10-01: "text\n---" re-parses as a setext H2, and a "---" tail
+            // absorbs a pipe table the same way a plain line does). Nothing after
+            // one needs a separator — paragraph, list, table and another break all
+            // parse cleanly off a fresh "---" line.
+            if (block.Kind == BlockKind.Divider)
+            {
+                if (emittedAny)
+                    buffer.Append('\n');
+                buffer.Append("---\n");
+                emittedAny = true;
+                afterTable = false; // a divider is a safe left neighbour
+                continue;
+            }
+
+            if (emittedAny && afterTable)
+                buffer.Append('\n');
+            afterTable = false;
+
             switch (block.Kind)
             {
                 case BlockKind.Heading:
@@ -35,22 +74,70 @@ public static class MarkdownEmitter
             }
 
             buffer.Append('\n');
+            emittedAny = true;
         }
 
         return buffer.ToString();
     }
 
-    private static void EmitInlines(StringBuilder buffer, IReadOnlyList<DocumentInline> inlines)
+    /// <summary>
+    /// Emit one GFM pipe table: row 0 doubles as the header (the delimiter row opens
+    /// the table on re-parse), the rest are body rows. Column count is the grid's
+    /// width — the model guarantees a dense rectangular grid.
+    /// </summary>
+    private static void EmitTable(StringBuilder buffer,
+        IReadOnlyList<IReadOnlyList<IReadOnlyList<DocumentInline>>> cells)
+    {
+        var columns = Math.Max(1, cells.Max(row => row.Count));
+
+        for (var r = 0; r < cells.Count; r++)
+        {
+            if (r == 1)
+            {
+                // The delimiter row after the header — GFM requires it to recognize
+                // the construct at all.
+                buffer.Append('|');
+                for (var c = 0; c < columns; c++)
+                    buffer.Append(" --- |");
+                buffer.Append('\n');
+            }
+
+            var row = cells[r];
+            buffer.Append('|');
+            for (var c = 0; c < columns; c++)
+            {
+                buffer.Append(' ');
+                EmitInlines(buffer, c < row.Count ? row[c] : [], inTableCell: true);
+                buffer.Append(" |");
+            }
+            buffer.Append('\n');
+        }
+
+        if (cells.Count == 1)
+        {
+            // Header-only table still needs its delimiter row to re-parse as a table.
+            buffer.Append('|');
+            for (var c = 0; c < columns; c++)
+                buffer.Append(" --- |");
+            buffer.Append('\n');
+        }
+    }
+
+    private static void EmitInlines(StringBuilder buffer, IReadOnlyList<DocumentInline> inlines,
+        bool inTableCell = false)
     {
         foreach (var inline in inlines)
         {
             switch (inline)
             {
                 case DocumentRun run:
-                    EmitRun(buffer, run);
+                    EmitRun(buffer, run, inTableCell);
                     break;
                 case DocumentImage image:
-                    buffer.Append("![").Append(Escape(image.AltText, AtLineStart: false))
+                    // A newline inside a cell would split the GFM row — degrade to a
+                    // space (cells cannot hold breaks; the collect side does the same).
+                    var alt = inTableCell ? image.AltText.Replace("\n", " ") : image.AltText;
+                    buffer.Append("![").Append(Escape(alt, AtLineStart: false, inTableCell))
                         .Append("](").Append(MarkdownParser.ImageSchemePrefix)
                         .Append(image.Sha256).Append(')');
                     break;
@@ -58,9 +145,14 @@ public static class MarkdownEmitter
         }
     }
 
-    private static void EmitRun(StringBuilder buffer, DocumentRun run)
+    private static void EmitRun(StringBuilder buffer, DocumentRun run, bool inTableCell = false)
     {
-        var text = Escape(run.Text, AtLineStart: true);
+        // Table cells sit mid-line: none of the line-start shapes can trigger there,
+        // but a bare '|' would split the cell and a newline would break the row
+        // (both degrade to a space — the collect side keeps cells canonical).
+        if (inTableCell && run.Text.AsSpan().IndexOf('\n') >= 0)
+            run = run with { Text = run.Text.Replace("\n", " ") };
+        var text = Escape(run.Text, AtLineStart: !inTableCell, inTableCell);
         if (text.Length == 0)
             return;
 
@@ -114,9 +206,10 @@ public static class MarkdownEmitter
     /// <summary>
     /// Escape characters that Markdown could reinterpret as syntax. Always escapes the
     /// inline-marker set; additionally guards line-start contexts (headings, list
-    /// markers, block quotes, leading numbers followed by a dot).
+    /// markers, block quotes, leading numbers followed by a dot) and, inside table
+    /// cells, the pipe that would otherwise split the cell.
     /// </summary>
-    internal static string Escape(string text, bool AtLineStart)
+    internal static string Escape(string text, bool AtLineStart, bool inTableCell = false)
     {
         if (text.Length == 0)
             return string.Empty;
@@ -130,6 +223,8 @@ public static class MarkdownEmitter
             var escaped = c switch
             {
                 '\\' or '`' or '*' or '_' or '~' or '[' or ']' => true,
+                // A pipe would split the GFM cell in two.
+                '|' when inTableCell => true,
                 // Line-start guards: "# ", "- ", "+ ", "> " shapes.
                 '#' or '-' or '+' or '>' when atLineStart => true,
                 // Leading "N. " would start an ordered list — the DOT is the escapable

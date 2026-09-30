@@ -1,5 +1,6 @@
 using Markdig;
 using Markdig.Extensions.EmphasisExtras;
+using Markdig.Extensions.Tables;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 
@@ -8,15 +9,16 @@ namespace QNote.Markdown;
 /// <summary>
 /// Parses stored Markdown into the neutral <see cref="DocumentContent"/> model.
 /// The pipeline enables only what the locked format subset models: emphasis,
-/// strikethrough (via EmphasisExtras), inline links, lists, headings, and
-/// <c>qnote-img:</c> image links. Everything else (code spans, foreign images,
-/// HTML, tables…) degrades to plain text runs — the paste-degradation rule applies
-/// to loaded files too.
+/// strikethrough (via EmphasisExtras), inline links, lists, headings, GFM pipe
+/// tables, and <c>qnote-img:</c> image links. Everything else (code spans,
+/// foreign images, HTML…) degrades to plain text runs — the paste-degradation rule
+/// applies to loaded files too.
 /// </summary>
 public static class MarkdownParser
 {
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
         .UseEmphasisExtras(EmphasisExtraOptions.Strikethrough)
+        .UsePipeTables()
         .Build();
 
     /// <summary>Custom scheme used for content-addressed image references in storage.</summary>
@@ -30,7 +32,8 @@ public static class MarkdownParser
     public static IReadOnlyList<string> ReferencedImageShas(string markdown) =>
         Parse(markdown)
             .Blocks
-            .SelectMany(b => b.Inlines.OfType<DocumentImage>())
+            .SelectMany(b => b.Inlines.Concat(b.TableCells?.SelectMany(row => row.SelectMany(cell => cell)) ?? []))
+            .OfType<DocumentImage>()
             .Select(i => i.Sha256)
             .ToList();
 
@@ -104,6 +107,53 @@ public static class MarkdownParser
             case QuoteBlock quote:
                 foreach (var sub in quote)
                     CollectBlock(sub, blocks);
+                break;
+
+            case Table table:
+                // GFM pipe tables (UsePipeTables). Markdig pads ragged rows with
+                // empty cells, so the grid arrives dense/rectangular; empty cells
+                // carry zero blocks and yield an empty inline list. Column
+                // alignments are out of the subset — content survives, the
+                // alignment does not (same rule as every other out-of-subset bit).
+                var rows = new List<IReadOnlyList<IReadOnlyList<DocumentInline>>>();
+                foreach (var rowBlock in table)
+                {
+                    if (rowBlock is not TableRow row)
+                        continue;
+                    var cells = new List<IReadOnlyList<DocumentInline>>();
+                    foreach (var cellBlock in row)
+                    {
+                        if (cellBlock is not TableCell cell)
+                            continue;
+                        // A cell holds paragraphs of inline content (pipe cells
+                        // cannot carry block structure); multi-block cells join
+                        // with a space — the same loss the emitter accepts.
+                        var inlines = new List<DocumentInline>();
+                        var first = true;
+                        foreach (var cellChild in cell)
+                        {
+                            if (!first && inlines.Count > 0)
+                                AppendRun(inlines, " ", bold: false, italic: false, strike: false);
+                            first = false;
+                            if (cellChild is LeafBlock { Inline: not null } leaf)
+                                inlines.AddRange(CollectInlines(leaf.Inline));
+                        }
+                        cells.Add(inlines);
+                    }
+                    rows.Add(cells);
+                }
+                if (rows.Count > 0)
+                    blocks.Add(new DocumentBlock(BlockKind.Table, [])
+                    {
+                        TableCells = rows,
+                    });
+                break;
+
+            // Thematic breaks (---/***/___): pure structure, no inline content. The
+            // marker form is NOT part of the model — the emitter always writes ---,
+            // so *** re-emits as --- (canonical, round-trip stable).
+            case ThematicBreakBlock:
+                blocks.Add(new DocumentBlock(BlockKind.Divider, []));
                 break;
 
             // Code blocks and other leaf blocks outside the subset: keep their text.

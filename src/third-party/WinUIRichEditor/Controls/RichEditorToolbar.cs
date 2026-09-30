@@ -5,6 +5,7 @@ using System.Collections.Specialized;
 using System.Threading.Tasks;
 using Windows.UI;
 using Windows.UI.Text;
+using Windows.UI.ViewManagement;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -238,15 +239,34 @@ public partial class RichEditorToolbar : UserControl
     // the live theme without a WinUI dependency in the model-only paths (tests).
     private static Func<bool>? CurrentThemeImpl;
 
+    // QNOTE VENDORED PATCH (P2, high-contrast): the same pattern as the theme hook, for
+    // Windows contrast themes (D11: high contrast maps every hand-mixed face to the
+    // live SystemColor* set — no alpha washes, which disappear or glare there). The
+    // brush cache key covers BOTH knobs, so a contrast switch drops the set the same
+    // way a Light/Dark flip does.
+    [ThreadStatic] private static bool? _brushHighContrast;
+    private static bool IsHighContrast => HighContrastImpl?.Invoke() ?? false;
+    private static Func<bool>? HighContrastImpl;
+
+    // System colors for the high-contrast faces. UISettings is plain WinRT (not
+    // XAML), but it is still constructed lazily per thread — the same static-init
+    // trap the brush fields document above applies to it. (UIElementColor, not
+    // GetColorValue: the modern projection reserves that name for the UIColorType
+    // accent palette.)
+    [ThreadStatic] private static UISettings? _uiSettings;
+    private static Color SystemColor(UIElementType kind) => (_uiSettings ??= new()).UIElementColor(kind);
+
     // QNOTE VENDORED PATCH (dark-mode toolbar): the active/hover faces and the ink were
     // hardcoded light-theme colors, which read as glaringly bright on a dark chrome. They
     // now resolve from the effective theme; EnsureThemeBrushes drops the cached set the
     // first time a brush is read under a different theme so a live switch recolors.
-    private static void EnsureThemeBrushes(bool isDark)
+    private static void EnsureThemeBrushes(bool isDark, bool highContrast)
     {
-        if (_brushThemeIsDark == isDark) return;
+        if (_brushThemeIsDark == isDark && _brushHighContrast == highContrast) return;
         _brushThemeIsDark = isDark;
+        _brushHighContrast = highContrast;
         _activeBrush = null;
+        _activeInk = null;
         _activeHoverBrush = null;
         _hoverBrush = null;
         _pressedBrush = null;
@@ -263,41 +283,53 @@ public partial class RichEditorToolbar : UserControl
     // grey tint — it reads as "on" without the stock accent fill + white glyph shout.
     private static SolidColorBrush ActiveBrush
     {
-        get { EnsureThemeBrushes(IsDarkTheme); return _activeBrush ??= new(IsDarkTheme ? Color.FromArgb(0x2E, 0x4C, 0xC2, 0xFF) : Color.FromArgb(0x1A, 0x00, 0x67, 0xC0)); }
+        // High contrast: the system Highlight color IS the "on" face there.
+        get { EnsureThemeBrushes(IsDarkTheme, IsHighContrast); return _activeBrush ??= new(IsHighContrast ? SystemColor(UIElementType.Highlight) : IsDarkTheme ? Color.FromArgb(0x2E, 0x4C, 0xC2, 0xFF) : Color.FromArgb(0x1A, 0x00, 0x67, 0xC0)); }
     }
     private static SolidColorBrush ActiveHoverBrush
     {
-        get { EnsureThemeBrushes(IsDarkTheme); return _activeHoverBrush ??= new(IsDarkTheme ? Color.FromArgb(0x38, 0x4C, 0xC2, 0xFF) : Color.FromArgb(0x26, 0x00, 0x67, 0xC0)); }
+        get { EnsureThemeBrushes(IsDarkTheme, IsHighContrast); return _activeHoverBrush ??= new(IsHighContrast ? SystemColor(UIElementType.Highlight) : IsDarkTheme ? Color.FromArgb(0x38, 0x4C, 0xC2, 0xFF) : Color.FromArgb(0x26, 0x00, 0x67, 0xC0)); }
     }
-    // Pointer-over: light black 10% (#1A000000) / dark white 10% (#1AFFFFFF).
+    // Pointer-over: light black 10% (#1A000000) / dark white 10% (#1AFFFFFF); high
+    // contrast maps to the stock Button PointerOver face (system Highlight).
     private static SolidColorBrush HoverBrush
     {
-        get { EnsureThemeBrushes(IsDarkTheme); return _hoverBrush ??= new(IsDarkTheme ? Color.FromArgb(0x1A, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x1A, 0x00, 0x00, 0x00)); }
+        get { EnsureThemeBrushes(IsDarkTheme, IsHighContrast); return _hoverBrush ??= new(IsHighContrast ? SystemColor(UIElementType.Highlight) : IsDarkTheme ? Color.FromArgb(0x1A, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x1A, 0x00, 0x00, 0x00)); }
     }
-    // Pressed: light black 13% (#20000000) / dark white 14% (#24FFFFFF).
+    // Pressed: light black 13% (#20000000) / dark white 14% (#24FFFFFF); high contrast
+    // follows the stock Pressed face (back to the ButtonFace color).
     private static SolidColorBrush PressedBrush
     {
-        get { EnsureThemeBrushes(IsDarkTheme); return _pressedBrush ??= new(IsDarkTheme ? Color.FromArgb(0x24, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x20, 0x00, 0x00, 0x00)); }
+        get { EnsureThemeBrushes(IsDarkTheme, IsHighContrast); return _pressedBrush ??= new(IsHighContrast ? SystemColor(UIElementType.ButtonFace) : IsDarkTheme ? Color.FromArgb(0x24, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x20, 0x00, 0x00, 0x00)); }
     }
 
     // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): the group separator rule — light 20% black
     // (#33000000) / dark 22% white (#38FFFFFF). Strong enough to read as a group break, light enough to
-    // stay a hairline (the old fixed 24%-black wash was nearly invisible on the light strip).
+    // stay a hairline (the old fixed 24%-black wash was nearly invisible on the light strip). High
+    // contrast needs a SOLID hairline — alpha washes vanish there.
     private static SolidColorBrush SeparatorBrush
     {
-        get { EnsureThemeBrushes(IsDarkTheme); return _sepBrush ??= new(IsDarkTheme ? Color.FromArgb(0x38, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x33, 0x00, 0x00, 0x00)); }
+        get { EnsureThemeBrushes(IsDarkTheme, IsHighContrast); return _sepBrush ??= new(IsHighContrast ? SystemColor(UIElementType.WindowText) : IsDarkTheme ? Color.FromArgb(0x38, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x33, 0x00, 0x00, 0x00)); }
     }
 
     // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): 1px combo border — light black 12% (#1F000000)
     // / dark white 12% (#1FFFFFFF), per the PRD's dropdown spec (theme-aware; P1 never covered combos).
     private static SolidColorBrush ComboBorderBrush
     {
-        get { EnsureThemeBrushes(IsDarkTheme); return _comboBorderBrush ??= new(IsDarkTheme ? Color.FromArgb(0x1F, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x1F, 0x00, 0x00, 0x00)); }
+        get { EnsureThemeBrushes(IsDarkTheme, IsHighContrast); return _comboBorderBrush ??= new(IsHighContrast ? SystemColor(UIElementType.WindowText) : IsDarkTheme ? Color.FromArgb(0x1F, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x1F, 0x00, 0x00, 0x00)); }
     }
     private static SolidColorBrush ClearBrush => _clearBrush ??= new(Colors.Transparent);
     private static SolidColorBrush BlackInk // shared: Sync runs per keystroke
     {
-        get { EnsureThemeBrushes(IsDarkTheme); return _blackInk ??= new(IsDarkTheme ? Colors.White : Colors.Black); }
+        get { EnsureThemeBrushes(IsDarkTheme, IsHighContrast); return _blackInk ??= new(IsHighContrast ? SystemColor(UIElementType.WindowText) : IsDarkTheme ? Colors.White : Colors.Black); }
+    }
+    // Ink for the CHECKED face: the active background is the system Highlight in high
+    // contrast, and its legible pair is HighlightText (WindowText on Highlight is
+    // white-on-white in the light contrast themes).
+    [ThreadStatic] private static SolidColorBrush? _activeInk;
+    private static SolidColorBrush ActiveInk
+    {
+        get { EnsureThemeBrushes(IsDarkTheme, IsHighContrast); return _activeInk ??= new(IsHighContrast ? SystemColor(UIElementType.HighlightText) : BlackInk.Color); }
     }
 
     // Variation Selector-15: forces text (monochrome) presentation of an emoji that has no symbol-font
@@ -366,7 +398,7 @@ public partial class RichEditorToolbar : UserControl
     [ThreadStatic] private static SolidColorBrush? _dimInk; // per UI thread, as _activeBrush
     private static SolidColorBrush DimInk // inactive marker; QNOTE dark-mode patch (theme-aware)
     {
-        get { EnsureThemeBrushes(IsDarkTheme); return _dimInk ??= new(IsDarkTheme ? Color.FromArgb(255, 0x6A, 0x6A, 0x6A) : Color.FromArgb(255, 0xBF, 0xC3, 0xC7)); }
+        get { EnsureThemeBrushes(IsDarkTheme, IsHighContrast); return _dimInk ??= new(IsHighContrast ? SystemColor(UIElementType.GrayText) : IsDarkTheme ? Color.FromArgb(255, 0x6A, 0x6A, 0x6A) : Color.FromArgb(255, 0xBF, 0xC3, 0xC7)); }
     }
     private ComboBox? _size, _heading, _align;
     // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): the font picker is no longer a bare ComboBox —
@@ -452,7 +484,7 @@ public partial class RichEditorToolbar : UserControl
     [ThreadStatic] private static SolidColorBrush? _noColorBrush; // per UI thread, as _activeBrush
     private static SolidColorBrush NoColorBrush // "no highlight" face; QNOTE dark-mode patch (theme-aware)
     {
-        get { EnsureThemeBrushes(IsDarkTheme); return _noColorBrush ??= new(IsDarkTheme ? Color.FromArgb(255, 0x55, 0x55, 0x55) : Color.FromArgb(255, 0xDD, 0xDD, 0xDD)); }
+        get { EnsureThemeBrushes(IsDarkTheme, IsHighContrast); return _noColorBrush ??= new(IsHighContrast ? SystemColor(UIElementType.ButtonFace) : IsDarkTheme ? Color.FromArgb(255, 0x55, 0x55, 0x55) : Color.FromArgb(255, 0xDD, 0xDD, 0xDD)); }
     }
     private Border? _colorSwatch, _highlightSwatch; // current-colour bars under the picker glyphs
 
@@ -503,12 +535,44 @@ public partial class RichEditorToolbar : UserControl
         // QNOTE VENDORED PATCH (P2): share the live-theme hook with the icon renderer so host-provided
         // vector icons (RichEditorIcons.Provider, e.g. QNoteIcons) pick the right ink.
         RichEditorIconRenderer.IsDarkTheme ??= () => ActualTheme == ElementTheme.Dark;
+        // QNOTE VENDORED PATCH (P2, high-contrast): contrast themes do not flip ActualTheme,
+        // so the brush caches key on a second knob read from AccessibilitySettings. The
+        // HighContrastChanged SUBSCRIPTION is best-effort: the event is backed by a
+        // UWP-era broker that is absent in desktop contexts (COMException 0x80070490,
+        // reproduced 2026-10-01) — without it the brushes still re-probe on every
+        // Build/theme flip, only a LIVE contrast switch is missed. Never fatal: high
+        // contrast is a progressive enhancement, the toolbar must construct.
+        HighContrastImpl ??= () => _accessibility?.HighContrast ?? false;
+        RichEditorIconRenderer.IsHighContrast ??= () => _accessibility?.HighContrast ?? false;
+        try
+        {
+            _accessibility = new AccessibilitySettings();
+            _accessibility.HighContrastChanged += OnHighContrastChanged;
+        }
+        catch (Exception ex) { RichEditorDiagnostics.Report(ex); }
         ActualThemeChanged += (_, _) =>
         {
-            EnsureThemeBrushes(ActualTheme == ElementTheme.Dark);
+            EnsureThemeBrushes(ActualTheme == ElementTheme.Dark, IsHighContrast);
             Content = Build();
             Sync();
         };
+    }
+
+    // One per toolbar instance (constructed in the ctor's try-guard; null if the
+    // desktop context refuses it). Subscribing keeps the WinRT event source alive,
+    // and its delegate keeps this toolbar alive — an app-lifetime control in a notes
+    // app (the toolbar lives as long as the editor page), so the cycle is deliberate.
+    // See the P3 high-contrast note in VENDORED-CHANGES.md.
+    private AccessibilitySettings? _accessibility;
+
+    private void OnHighContrastChanged(AccessibilitySettings sender, object args)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            EnsureThemeBrushes(IsDarkTheme, IsHighContrast);
+            Content = Build();
+            Sync();
+        });
     }
 
     // Idempotent: the `-=` before the `+=` means a Loaded that arrives while already hooked (reparenting,
@@ -900,9 +964,18 @@ public partial class RichEditorToolbar : UserControl
         for (int c = 0; c < GridCols; c++) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         for (int r = 0; r < GridRows; r++) grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-        var idle = new SolidColorBrush(Color.FromArgb(255, 0xE4, 0xE4, 0xE4));
-        var hot = new SolidColorBrush(Color.FromArgb(255, 0x60, 0xA0, 0xE0));
-        var border = new SolidColorBrush(Color.FromArgb(255, 0xAA, 0xAA, 0xAA));
+        // QNOTE VENDORED PATCH (P2 + high-contrast): the picker squares were hardcoded
+        // light grays (invisible next to a dark strip, alpha-less in contrast themes).
+        // Theme-aware via the same knobs as the strip brushes — HC uses the system set.
+        var idle = new SolidColorBrush(IsHighContrast
+            ? SystemColor(UIElementType.ButtonFace)
+            : IsDarkTheme ? Color.FromArgb(255, 0x45, 0x45, 0x4A) : Color.FromArgb(255, 0xE4, 0xE4, 0xE4));
+        var hot = new SolidColorBrush(IsHighContrast
+            ? SystemColor(UIElementType.Highlight)
+            : Color.FromArgb(255, 0x60, 0xA0, 0xE0)); // the accent blue reads on both themes
+        var border = new SolidColorBrush(IsHighContrast
+            ? SystemColor(UIElementType.WindowText)
+            : IsDarkTheme ? Color.FromArgb(255, 0x60, 0x60, 0x64) : Color.FromArgb(255, 0xAA, 0xAA, 0xAA));
         var cells = new Border[GridRows, GridCols];
 
         void Highlight(int rr, int cc)
@@ -925,8 +998,9 @@ public partial class RichEditorToolbar : UserControl
                 Grid.SetColumn(cell, c);
                 int rr = r, cc = c;
                 cell.PointerEntered += (_, _) => Highlight(rr, cc);
-                // Pick rows×cols here; then drag from the caret on the document to set the table's size.
-                cell.Tapped += (_, _) => { Target?.BeginTableDraw(rr + 1, cc + 1); flyout.Hide(); };
+                // QNOTE VENDORED PATCH (P3): direct at the caret when one is established
+                // (the WPS-style flow), draw-to-place only for a note never clicked into.
+                cell.Tapped += (_, _) => { Target?.InsertOrDrawTable(rr + 1, cc + 1); flyout.Hide(); };
                 cells[r, c] = cell;
                 grid.Children.Add(cell);
             }
@@ -1197,6 +1271,13 @@ public partial class RichEditorToolbar : UserControl
             // The divider belongs to the insert group: shown while tables OR images are allowed, like the
             // context menu's divider item (and upstream's toolbar). It used to stay visible regardless.
             if (_dividerBtn != null) _dividerBtn.Visibility = rt.AllowTables || rt.AllowImages ? Visibility.Visible : Visibility.Collapsed;
+
+            // QNOTE VENDORED PATCH (P3): QNote's GFM storage keeps cells inline-only — a nested
+            // table or a divider inside a cell cannot survive a save/reload. Grey the insert
+            // buttons while the caret sits in a cell instead of offering a construct that
+            // would silently vanish (images stay enabled: inline refs DO persist in cells).
+            if (_tableBtn != null) _tableBtn.IsEnabled = !rt.CaretInTableCell;
+            if (_dividerBtn != null) _dividerBtn.IsEnabled = !rt.CaretInTableCell;
             SyncPage();        // reflect zoom/paper/orientation state
             SyncFileActions(); // Print/Import button visibility
         }
@@ -1415,9 +1496,9 @@ public partial class RichEditorToolbar : UserControl
         b.Resources["ToggleButtonBackgroundChecked"] = ActiveBrush;
         b.Resources["ToggleButtonBackgroundCheckedPointerOver"] = ActiveHoverBrush;
         b.Resources["ToggleButtonBackgroundCheckedPressed"] = ActiveHoverBrush;
-        b.Resources["ToggleButtonForegroundChecked"] = BlackInk;
-        b.Resources["ToggleButtonForegroundCheckedPointerOver"] = BlackInk;
-        b.Resources["ToggleButtonForegroundCheckedPressed"] = BlackInk;
+        b.Resources["ToggleButtonForegroundChecked"] = ActiveInk;
+        b.Resources["ToggleButtonForegroundCheckedPointerOver"] = ActiveInk;
+        b.Resources["ToggleButtonForegroundCheckedPressed"] = ActiveInk;
         b.Resources["ToggleButtonBorderBrushChecked"] = ClearBrush;
         b.Resources["ToggleButtonBorderBrushCheckedPointerOver"] = ClearBrush;
         b.Resources["ToggleButtonBorderBrushCheckedPressed"] = ClearBrush;
@@ -1460,7 +1541,12 @@ public partial class RichEditorToolbar : UserControl
     // caret's current colour (updated in Sync). `highlight` selects foreground vs highlight (background).
     private Button ColorButton(string glyph, string tip, bool highlight)
     {
-        var initial = new SolidColorBrush(highlight ? Color.FromArgb(255, 0xFF, 0xF1, 0x76) : Colors.Black);
+        // QNOTE VENDORED PATCH (P2): the "automatic text" initial face was literal black —
+        // route it through the theme/HC-aware ink (Sync's ReflectPickerColor overwrites it
+        // immediately, but the pre-Sync frame should not flash black on dark chrome).
+        var initial = highlight
+            ? new SolidColorBrush(Color.FromArgb(255, 0xFF, 0xF1, 0x76))
+            : BlackInk;
 
         // Text colour keeps the plain "A" letter (a FontColor FontIcon carries its own colour element,
         // which doubles up awkwardly with the bar); the highlight face uses the real Highlight pen icon
