@@ -66,7 +66,8 @@ public static class MarkdownEmitter
 
         // Independent markers (not else-if): a bold+strikethrough run needs both.
         // Open order bold→italic→strike, close in reverse, so re-parsing merges the
-        // flags back deterministically (round-trip stable).
+        // flags back deterministically (round-trip stable). A linked run nests the
+        // link INSIDE the emphasis markers — **[x](u)** re-parses to the same run.
         if (run.Bold)
             buffer.Append("**");
         if (run.Italic)
@@ -74,7 +75,10 @@ public static class MarkdownEmitter
         if (run.Strikethrough)
             buffer.Append("~~");
 
-        buffer.Append(text);
+        if (run.NavigateUri is { Length: > 0 } uri)
+            buffer.Append('[').Append(text).Append("](").Append(EscapeUrl(uri)).Append(')');
+        else
+            buffer.Append(text);
 
         if (run.Strikethrough)
             buffer.Append("~~");
@@ -82,6 +86,29 @@ public static class MarkdownEmitter
             buffer.Append('*');
         if (run.Bold)
             buffer.Append("**");
+    }
+
+    /// <summary>
+    /// Escape a link destination for the bare <c>(…)</c> form. Only characters that
+    /// would break out of the destination are percent-encoded (whitespace, the
+    /// parentheses themselves, backslash, control characters); ordinary URLs emit
+    /// byte-for-byte so a round trip is string-identical.
+    /// </summary>
+    private static string EscapeUrl(string url)
+    {
+        if (url.AsSpan().IndexOfAny("(\\) \t\r\n") < 0 && !url.Any(char.IsControl))
+            return url;
+
+        var buffer = new StringBuilder(url.Length + 8);
+        foreach (var c in url)
+        {
+            if (c is '(' or ')' or '\\' or ' ' or '\t' or '\r' or '\n' || char.IsControl(c))
+                buffer.Append('%').Append(((int)c).ToString("X2"));
+            else
+                buffer.Append(c);
+        }
+
+        return buffer.ToString();
     }
 
     /// <summary>

@@ -8,8 +8,17 @@
       <Platform Project="x64" />
       <Deploy Solution="Release|*" />
     </Project>
+    <Project Path="src/third-party/WinUIRichEditor/WinUIRichEditor.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="src/QNote.WreMarkdown/QNote.WreMarkdown.csproj">
+      <Platform Project="x64" />
+    </Project>
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/QNote.Tests/QNote.Tests.csproj" />
+    <Project Path="tests/QNote.WreMarkdown.Tests/QNote.WreMarkdown.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
   </Folder>
 </Solution>

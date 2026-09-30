@@ -1,0 +1,574 @@
+﻿#nullable enable
+WinUIRichEditor.Controls.RichEditor
+WinUIRichEditor.Controls.RichEditor.AllowFindReplace.get -> bool
+WinUIRichEditor.Controls.RichEditor.AllowFindReplace.set -> void
+WinUIRichEditor.Controls.RichEditor.AllowImages.get -> bool
+WinUIRichEditor.Controls.RichEditor.AllowImages.set -> void
+WinUIRichEditor.Controls.RichEditor.AllowLocalFileImages.get -> bool
+WinUIRichEditor.Controls.RichEditor.AllowLocalFileImages.set -> void
+WinUIRichEditor.Controls.RichEditor.AllowRemoteImagesOnPaste.get -> bool
+WinUIRichEditor.Controls.RichEditor.AllowRemoteImagesOnPaste.set -> void
+WinUIRichEditor.Controls.RichEditor.AllowRichPaste.get -> bool
+WinUIRichEditor.Controls.RichEditor.AllowRichPaste.set -> void
+WinUIRichEditor.Controls.RichEditor.AllowTables.get -> bool
+WinUIRichEditor.Controls.RichEditor.AllowTables.set -> void
+WinUIRichEditor.Controls.RichEditor.AutoLinkOnType.get -> bool
+WinUIRichEditor.Controls.RichEditor.AutoLinkOnType.set -> void
+WinUIRichEditor.Controls.RichEditor.CanRedo.get -> bool
+WinUIRichEditor.Controls.RichEditor.CanUndo.get -> bool
+WinUIRichEditor.Controls.RichEditor.CancelFormatPainter() -> void
+WinUIRichEditor.Controls.RichEditor.CanvasBackground.get -> Microsoft.UI.Xaml.Media.Brush?
+WinUIRichEditor.Controls.RichEditor.CanvasBackground.set -> void
+WinUIRichEditor.Controls.RichEditor.CaretBrush.get -> Microsoft.UI.Xaml.Media.Brush!
+WinUIRichEditor.Controls.RichEditor.CaretBrush.set -> void
+WinUIRichEditor.Controls.RichEditor.CaretFormat
+WinUIRichEditor.Controls.RichEditor.CaretFormat.Align.get -> Microsoft.UI.Xaml.TextAlignment
+WinUIRichEditor.Controls.RichEditor.CaretFormat.Align.init -> void
+WinUIRichEditor.Controls.RichEditor.CaretFormat.Background.get -> Windows.UI.Color?
+WinUIRichEditor.Controls.RichEditor.CaretFormat.Background.init -> void
+WinUIRichEditor.Controls.RichEditor.CaretFormat.Bold.get -> bool
+WinUIRichEditor.Controls.RichEditor.CaretFormat.Bold.init -> void
+WinUIRichEditor.Controls.RichEditor.CaretFormat.CaretFormat() -> void
+WinUIRichEditor.Controls.RichEditor.CaretFormat.CaretFormat(bool Bold, bool Italic, bool Underline, bool Strike, double FontSize, string? FontFamily, Microsoft.UI.Xaml.TextAlignment Align, WinUIRichEditor.Documents.ListKind List, int Heading, Windows.UI.Color? Foreground = null, Windows.UI.Color? Background = null, bool Quote = false, double LineSpacing = NaN, WinUIRichEditor.Documents.ListMarkerStyle ListMarker = WinUIRichEditor.Documents.ListMarkerStyle.Default) -> void
+WinUIRichEditor.Controls.RichEditor.CaretFormat.FontFamily.get -> string?
+WinUIRichEditor.Controls.RichEditor.CaretFormat.FontFamily.init -> void
+WinUIRichEditor.Controls.RichEditor.CaretFormat.FontSize.get -> double
+WinUIRichEditor.Controls.RichEditor.CaretFormat.FontSize.init -> void
+WinUIRichEditor.Controls.RichEditor.CaretFormat.Foreground.get -> Windows.UI.Color?
+WinUIRichEditor.Controls.RichEditor.CaretFormat.Foreground.init -> void
+WinUIRichEditor.Controls.RichEditor.CaretFormat.Heading.get -> int
+WinUIRichEditor.Controls.RichEditor.CaretFormat.Heading.init -> void
+WinUIRichEditor.Controls.RichEditor.CaretFormat.Italic.get -> bool
+WinUIRichEditor.Controls.RichEditor.CaretFormat.Italic.init -> void
+WinUIRichEditor.Controls.RichEditor.CaretFormat.LineSpacing.get -> double
+WinUIRichEditor.Controls.RichEditor.CaretFormat.LineSpacing.init -> void
+WinUIRichEditor.Controls.RichEditor.CaretFormat.List.get -> WinUIRichEditor.Documents.ListKind
+WinUIRichEditor.Controls.RichEditor.CaretFormat.List.init -> void
+WinUIRichEditor.Controls.RichEditor.CaretFormat.ListMarker.get -> WinUIRichEditor.Documents.ListMarkerStyle
+WinUIRichEditor.Controls.RichEditor.CaretFormat.ListMarker.init -> void
+WinUIRichEditor.Controls.RichEditor.CaretFormat.Quote.get -> bool
+WinUIRichEditor.Controls.RichEditor.CaretFormat.Quote.init -> void
+WinUIRichEditor.Controls.RichEditor.CaretFormat.Strike.get -> bool
+WinUIRichEditor.Controls.RichEditor.CaretFormat.Strike.init -> void
+WinUIRichEditor.Controls.RichEditor.CaretFormat.Underline.get -> bool
+WinUIRichEditor.Controls.RichEditor.CaretFormat.Underline.init -> void
+WinUIRichEditor.Controls.RichEditor.Clear() -> void
+WinUIRichEditor.Controls.RichEditor.ClearFindHighlight() -> void
+WinUIRichEditor.Controls.RichEditor.ClearFormatting() -> void
+WinUIRichEditor.Controls.RichEditor.CopyAsync() -> System.Threading.Tasks.Task!
+WinUIRichEditor.Controls.RichEditor.CurrentLinkUri() -> string?
+WinUIRichEditor.Controls.RichEditor.CutAsync() -> System.Threading.Tasks.Task!
+WinUIRichEditor.Controls.RichEditor.DecreaseFontSize() -> void
+WinUIRichEditor.Controls.RichEditor.DefaultFontFamily.get -> string!
+WinUIRichEditor.Controls.RichEditor.DefaultFontFamily.set -> void
+WinUIRichEditor.Controls.RichEditor.DefaultFontSize.get -> double
+WinUIRichEditor.Controls.RichEditor.DefaultFontSize.set -> void
+WinUIRichEditor.Controls.RichEditor.Document.get -> WinUIRichEditor.Documents.FlowDocument?
+WinUIRichEditor.Controls.RichEditor.Document.set -> void
+WinUIRichEditor.Controls.RichEditor.DocumentChanged -> System.EventHandler?
+WinUIRichEditor.Controls.RichEditor.EditHyperlinkAsync() -> System.Threading.Tasks.Task!
+WinUIRichEditor.Controls.RichEditor.FindAgain(bool backwards) -> bool
+WinUIRichEditor.Controls.RichEditor.FindNext(string! query, bool matchCase) -> bool
+WinUIRichEditor.Controls.RichEditor.FindPrev(string! query, bool matchCase) -> bool
+WinUIRichEditor.Controls.RichEditor.FindRequested -> System.EventHandler<bool>?
+WinUIRichEditor.Controls.RichEditor.FitToWidth() -> void
+WinUIRichEditor.Controls.RichEditor.FocusDocumentEnd() -> void
+WinUIRichEditor.Controls.RichEditor.FocusEditor() -> bool
+WinUIRichEditor.Controls.RichEditor.FontFamilyChoices.get -> System.Collections.Generic.IReadOnlyList<string!>!
+WinUIRichEditor.Controls.RichEditor.FontFamilyChoices.set -> void
+WinUIRichEditor.Controls.RichEditor.GetCaretFormat() -> WinUIRichEditor.Controls.RichEditor.CaretFormat
+WinUIRichEditor.Controls.RichEditor.GetFindMatchPosition() -> (int current, int total)
+WinUIRichEditor.Controls.RichEditor.GetImageCount() -> int
+WinUIRichEditor.Controls.RichEditor.GetPaperPixelSize() -> Windows.Foundation.Size
+WinUIRichEditor.Controls.RichEditor.GetPlainText() -> string!
+WinUIRichEditor.Controls.RichEditor.GetPrintPageCount() -> int
+WinUIRichEditor.Controls.RichEditor.GetStatus() -> (int chars, int words, int line, int col)
+WinUIRichEditor.Controls.RichEditor.HasBlockSelection.get -> bool
+WinUIRichEditor.Controls.RichEditor.ImageReplacePicker.get -> System.Func<System.Threading.Tasks.Task<byte[]?>!>?
+WinUIRichEditor.Controls.RichEditor.ImageReplacePicker.set -> void
+WinUIRichEditor.Controls.RichEditor.ImageSaveHandler.get -> System.Func<byte[]!, string?, System.Threading.Tasks.Task!>?
+WinUIRichEditor.Controls.RichEditor.ImageSaveHandler.set -> void
+WinUIRichEditor.Controls.RichEditor.IncreaseFontSize() -> void
+WinUIRichEditor.Controls.RichEditor.Indent(double delta) -> void
+WinUIRichEditor.Controls.RichEditor.InsertDivider() -> void
+WinUIRichEditor.Controls.RichEditor.InsertHtml(string! html) -> void
+WinUIRichEditor.Controls.RichEditor.InsertImageBlock(byte[]! bytes, string? mimeType = null) -> void
+WinUIRichEditor.Controls.RichEditor.InsertImageBytes(byte[]! bytes) -> void
+WinUIRichEditor.Controls.RichEditor.InsertImageFromFileAsync(nint windowHandle) -> System.Threading.Tasks.Task!
+WinUIRichEditor.Controls.RichEditor.InsertInlineImage(byte[]! bytes, string? mimeType = null) -> void
+WinUIRichEditor.Controls.RichEditor.InsertInlineTable(int rows, int cols) -> void
+WinUIRichEditor.Controls.RichEditor.InsertTable(int rows, int cols) -> void
+WinUIRichEditor.Controls.RichEditor.InsertText(string! text) -> void
+WinUIRichEditor.Controls.RichEditor.IsFitWidth.get -> bool
+WinUIRichEditor.Controls.RichEditor.IsFormatPainterActive.get -> bool
+WinUIRichEditor.Controls.RichEditor.IsModified.get -> bool
+WinUIRichEditor.Controls.RichEditor.IsModifiedChanged -> System.EventHandler?
+WinUIRichEditor.Controls.RichEditor.IsReadOnly.get -> bool
+WinUIRichEditor.Controls.RichEditor.IsReadOnly.set -> void
+WinUIRichEditor.Controls.RichEditor.LastFindMatchCase.get -> bool
+WinUIRichEditor.Controls.RichEditor.LastFindQuery.get -> string?
+WinUIRichEditor.Controls.RichEditor.LoadHtml(string? html) -> void
+WinUIRichEditor.Controls.RichEditor.LoadHtmlAsync(string? html) -> System.Threading.Tasks.Task!
+WinUIRichEditor.Controls.RichEditor.LoadJson(string! json) -> void
+WinUIRichEditor.Controls.RichEditor.LoadJsonAsync(string! json) -> System.Threading.Tasks.Task!
+WinUIRichEditor.Controls.RichEditor.LoadPackageAsync(System.IO.Stream! source) -> System.Threading.Tasks.Task!
+WinUIRichEditor.Controls.RichEditor.LoadRtf(string? rtf) -> void
+WinUIRichEditor.Controls.RichEditor.MarkSaved() -> void
+WinUIRichEditor.Controls.RichEditor.MaxRecommendedImages.get -> int
+WinUIRichEditor.Controls.RichEditor.MaxRecommendedImages.set -> void
+WinUIRichEditor.Controls.RichEditor.OpenLinkAtCaretAsync() -> System.Threading.Tasks.Task!
+WinUIRichEditor.Controls.RichEditor.PageFooter.get -> string?
+WinUIRichEditor.Controls.RichEditor.PageFooter.set -> void
+WinUIRichEditor.Controls.RichEditor.PageHeader.get -> string?
+WinUIRichEditor.Controls.RichEditor.PageHeader.set -> void
+WinUIRichEditor.Controls.RichEditor.PageOrientation.get -> WinUIRichEditor.Controls.RichEditorPageOrientation
+WinUIRichEditor.Controls.RichEditor.PageOrientation.set -> void
+WinUIRichEditor.Controls.RichEditor.PageSize.get -> WinUIRichEditor.Controls.RichEditorPageSize
+WinUIRichEditor.Controls.RichEditor.PageSize.set -> void
+WinUIRichEditor.Controls.RichEditor.PasteAsync(bool plainOnly = false) -> System.Threading.Tasks.Task!
+WinUIRichEditor.Controls.RichEditor.PasteFromClipboardAsync() -> System.Threading.Tasks.Task!
+WinUIRichEditor.Controls.RichEditor.RecommendedImageLimitExceeded -> System.EventHandler?
+WinUIRichEditor.Controls.RichEditor.Redo() -> void
+WinUIRichEditor.Controls.RichEditor.RemoveList() -> void
+WinUIRichEditor.Controls.RichEditor.RenderPrintPage(int pageIndex, double dpi = 96) -> Microsoft.Graphics.Canvas.CanvasRenderTarget!
+WinUIRichEditor.Controls.RichEditor.ReplaceAll(string! query, string! replacement, bool matchCase) -> int
+WinUIRichEditor.Controls.RichEditor.ReplaceNext(string! query, string! replacement, bool matchCase) -> bool
+WinUIRichEditor.Controls.RichEditor.RichEditor() -> void
+WinUIRichEditor.Controls.RichEditor.SavePackageAsync(System.IO.Stream! destination) -> System.Threading.Tasks.Task!
+WinUIRichEditor.Controls.RichEditor.SavePdf(System.IO.Stream! stream, double dpi = 150) -> void
+WinUIRichEditor.Controls.RichEditor.SelectionBrush.get -> Microsoft.UI.Xaml.Media.Brush!
+WinUIRichEditor.Controls.RichEditor.SelectionBrush.set -> void
+WinUIRichEditor.Controls.RichEditor.SelectionChanged -> System.EventHandler?
+WinUIRichEditor.Controls.RichEditor.SetFindHighlight(string? query, bool matchCase) -> void
+WinUIRichEditor.Controls.RichEditor.SetFontFamily(string! family) -> void
+WinUIRichEditor.Controls.RichEditor.SetFontSize(double size) -> void
+WinUIRichEditor.Controls.RichEditor.SetForeground(Windows.UI.Color? color) -> void
+WinUIRichEditor.Controls.RichEditor.SetHeading(int level) -> void
+WinUIRichEditor.Controls.RichEditor.SetHighlight(Windows.UI.Color? color) -> void
+WinUIRichEditor.Controls.RichEditor.SetHyperlink(string? url) -> void
+WinUIRichEditor.Controls.RichEditor.SetLineHeight(double height) -> void
+WinUIRichEditor.Controls.RichEditor.SetLineSpacing(double spacing) -> void
+WinUIRichEditor.Controls.RichEditor.SetListStyle(WinUIRichEditor.Documents.ListMarkerStyle style) -> void
+WinUIRichEditor.Controls.RichEditor.SetRunFontFamily(string! family) -> void
+WinUIRichEditor.Controls.RichEditor.SetTextAlignment(Microsoft.UI.Xaml.TextAlignment align) -> void
+WinUIRichEditor.Controls.RichEditor.SetZoom(double factor) -> void
+WinUIRichEditor.Controls.RichEditor.ShowCaretWhenReadOnly.get -> bool
+WinUIRichEditor.Controls.RichEditor.ShowCaretWhenReadOnly.set -> void
+WinUIRichEditor.Controls.RichEditor.ShowFormattingMenu.get -> bool
+WinUIRichEditor.Controls.RichEditor.ShowFormattingMenu.set -> void
+WinUIRichEditor.Controls.RichEditor.ShowPageBoundaries.get -> bool
+WinUIRichEditor.Controls.RichEditor.ShowPageBoundaries.set -> void
+WinUIRichEditor.Controls.RichEditor.ShowPageNumbers.get -> bool
+WinUIRichEditor.Controls.RichEditor.ShowPageNumbers.set -> void
+WinUIRichEditor.Controls.RichEditor.StartFormatPainter() -> void
+WinUIRichEditor.Controls.RichEditor.StatusChanged -> System.EventHandler?
+WinUIRichEditor.Controls.RichEditor.TextChanged -> System.EventHandler?
+WinUIRichEditor.Controls.RichEditor.TextForeground.get -> Microsoft.UI.Xaml.Media.Brush!
+WinUIRichEditor.Controls.RichEditor.TextForeground.set -> void
+WinUIRichEditor.Controls.RichEditor.ToHtml() -> string!
+WinUIRichEditor.Controls.RichEditor.ToJson() -> string!
+WinUIRichEditor.Controls.RichEditor.ToJsonAsync() -> System.Threading.Tasks.Task<string!>!
+WinUIRichEditor.Controls.RichEditor.ToRtf() -> string!
+WinUIRichEditor.Controls.RichEditor.ToggleBold() -> void
+WinUIRichEditor.Controls.RichEditor.ToggleBullet() -> void
+WinUIRichEditor.Controls.RichEditor.ToggleItalic() -> void
+WinUIRichEditor.Controls.RichEditor.ToggleNumbering() -> void
+WinUIRichEditor.Controls.RichEditor.ToggleQuote() -> void
+WinUIRichEditor.Controls.RichEditor.ToggleStrikethrough() -> void
+WinUIRichEditor.Controls.RichEditor.ToggleUnderline() -> void
+WinUIRichEditor.Controls.RichEditor.Undo() -> void
+WinUIRichEditor.Controls.RichEditor.Zoom.get -> double
+WinUIRichEditor.Controls.RichEditor.Zoom.set -> void
+WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.AlignCenter = 23 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.AlignLeft = 22 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.AlignRight = 24 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.Bold = 0 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.BulletList = 7 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.CharacterFormat = 45 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.ClearFormatting = 21 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.Copy = 17 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.CopyLink = 28 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.Cut = 16 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.Delete = 19 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.DeleteColumn = 37 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.DeleteRow = 34 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.DeleteTable = 40 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.EditLink = 26 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.Export = 41 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.Find = 48 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.FontSizeDecrease = 47 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.FontSizeIncrease = 46 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.FormatPainter = 4 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.Highlight = 6 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.Import = 42 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.IndentDecrease = 10 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.IndentIncrease = 9 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.InsertColumnLeft = 35 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.InsertColumnRight = 36 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.InsertDivider = 13 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.InsertImage = 12 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.InsertLink = 29 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.InsertRowAbove = 32 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.InsertRowBelow = 33 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.InsertTable = 11 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.Italic = 1 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.LineSpacing = 44 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.MergeCells = 38 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.NumberedList = 8 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.OpenLink = 25 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.Paste = 18 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.Print = 43 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.Redo = 15 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.RemoveLink = 27 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.ReplaceImage = 30 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.SaveImageAs = 31 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.SelectAll = 20 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.Strikethrough = 3 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.TextColor = 5 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.Underline = 2 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.Undo = 14 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.UnmergeCells = 39 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcons
+WinUIRichEditor.Controls.RichEditorPageOrientation
+WinUIRichEditor.Controls.RichEditorPageOrientation.Landscape = 1 -> WinUIRichEditor.Controls.RichEditorPageOrientation
+WinUIRichEditor.Controls.RichEditorPageOrientation.Portrait = 0 -> WinUIRichEditor.Controls.RichEditorPageOrientation
+WinUIRichEditor.Controls.RichEditorPageSize
+WinUIRichEditor.Controls.RichEditorPageSize.A3 = 2 -> WinUIRichEditor.Controls.RichEditorPageSize
+WinUIRichEditor.Controls.RichEditorPageSize.A4 = 1 -> WinUIRichEditor.Controls.RichEditorPageSize
+WinUIRichEditor.Controls.RichEditorPageSize.A5 = 3 -> WinUIRichEditor.Controls.RichEditorPageSize
+WinUIRichEditor.Controls.RichEditorPageSize.B4 = 4 -> WinUIRichEditor.Controls.RichEditorPageSize
+WinUIRichEditor.Controls.RichEditorPageSize.B5 = 5 -> WinUIRichEditor.Controls.RichEditorPageSize
+WinUIRichEditor.Controls.RichEditorPageSize.Continuous = 0 -> WinUIRichEditor.Controls.RichEditorPageSize
+WinUIRichEditor.Controls.RichEditorPageSize.Legal = 7 -> WinUIRichEditor.Controls.RichEditorPageSize
+WinUIRichEditor.Controls.RichEditorPageSize.Letter = 6 -> WinUIRichEditor.Controls.RichEditorPageSize
+WinUIRichEditor.Controls.RichEditorPageSize.Tabloid = 8 -> WinUIRichEditor.Controls.RichEditorPageSize
+WinUIRichEditor.Controls.RichEditorPrintHelper
+WinUIRichEditor.Controls.RichEditorToolbar
+WinUIRichEditor.Controls.RichEditorToolbar.ImagePicker.get -> System.Func<System.Threading.Tasks.Task<byte[]?>!>?
+WinUIRichEditor.Controls.RichEditorToolbar.ImagePicker.set -> void
+WinUIRichEditor.Controls.RichEditorToolbar.LeadingItems.get -> System.Collections.ObjectModel.ObservableCollection<Microsoft.UI.Xaml.UIElement!>!
+WinUIRichEditor.Controls.RichEditorToolbar.PrintRequested -> System.EventHandler?
+WinUIRichEditor.Controls.RichEditorToolbar.RichEditorToolbar() -> void
+WinUIRichEditor.Controls.RichEditorToolbar.ShowFileActions.get -> bool
+WinUIRichEditor.Controls.RichEditorToolbar.ShowFileActions.set -> void
+WinUIRichEditor.Controls.RichEditorToolbar.ShowPageControls.get -> bool
+WinUIRichEditor.Controls.RichEditorToolbar.ShowPageControls.set -> void
+WinUIRichEditor.Controls.RichEditorToolbar.Target.get -> WinUIRichEditor.Controls.RichEditor?
+WinUIRichEditor.Controls.RichEditorToolbar.Target.set -> void
+WinUIRichEditor.Controls.RichEditorToolbar.ToolbarLevel.get -> WinUIRichEditor.Controls.ToolbarLevel
+WinUIRichEditor.Controls.RichEditorToolbar.ToolbarLevel.set -> void
+WinUIRichEditor.Controls.RichEditorToolbar.TrailingItems.get -> System.Collections.ObjectModel.ObservableCollection<Microsoft.UI.Xaml.UIElement!>!
+WinUIRichEditor.Controls.RichEditorToolbar.WindowHandle.get -> nint
+WinUIRichEditor.Controls.RichEditorToolbar.WindowHandle.set -> void
+WinUIRichEditor.Controls.RichEditorView
+WinUIRichEditor.Controls.RichEditorView.Document.get -> WinUIRichEditor.Documents.FlowDocument?
+WinUIRichEditor.Controls.RichEditorView.Document.set -> void
+WinUIRichEditor.Controls.RichEditorView.Editor.get -> WinUIRichEditor.Controls.RichEditor!
+WinUIRichEditor.Controls.RichEditorView.HideFindBar() -> void
+WinUIRichEditor.Controls.RichEditorView.ImagePicker.get -> System.Func<System.Threading.Tasks.Task<byte[]?>!>?
+WinUIRichEditor.Controls.RichEditorView.ImagePicker.set -> void
+WinUIRichEditor.Controls.RichEditorView.IsReadOnly.get -> bool
+WinUIRichEditor.Controls.RichEditorView.IsReadOnly.set -> void
+WinUIRichEditor.Controls.RichEditorView.PrintRequested -> System.EventHandler?
+WinUIRichEditor.Controls.RichEditorView.RichEditorView() -> void
+WinUIRichEditor.Controls.RichEditorView.ShowBuiltInFindBar.get -> bool
+WinUIRichEditor.Controls.RichEditorView.ShowBuiltInFindBar.set -> void
+WinUIRichEditor.Controls.RichEditorView.ShowCaretWhenReadOnly.get -> bool
+WinUIRichEditor.Controls.RichEditorView.ShowCaretWhenReadOnly.set -> void
+WinUIRichEditor.Controls.RichEditorView.ShowFileActions.get -> bool
+WinUIRichEditor.Controls.RichEditorView.ShowFileActions.set -> void
+WinUIRichEditor.Controls.RichEditorView.ShowFindBar(bool withReplace) -> void
+WinUIRichEditor.Controls.RichEditorView.ShowStatusBar.get -> bool
+WinUIRichEditor.Controls.RichEditorView.ShowStatusBar.set -> void
+WinUIRichEditor.Controls.RichEditorView.Toolbar.get -> WinUIRichEditor.Controls.RichEditorToolbar!
+WinUIRichEditor.Controls.RichEditorView.WindowHandle.get -> nint
+WinUIRichEditor.Controls.RichEditorView.WindowHandle.set -> void
+WinUIRichEditor.Controls.RichEditorView.ZoomFactor.get -> double
+WinUIRichEditor.Controls.RichEditorView.ZoomFactor.set -> void
+WinUIRichEditor.Controls.ToolbarLevel
+WinUIRichEditor.Controls.ToolbarLevel.Auto = 0 -> WinUIRichEditor.Controls.ToolbarLevel
+WinUIRichEditor.Controls.ToolbarLevel.Maximum = 3 -> WinUIRichEditor.Controls.ToolbarLevel
+WinUIRichEditor.Controls.ToolbarLevel.Minimal = 1 -> WinUIRichEditor.Controls.ToolbarLevel
+WinUIRichEditor.Controls.ToolbarLevel.Normal = 2 -> WinUIRichEditor.Controls.ToolbarLevel
+WinUIRichEditor.Documents.Block
+WinUIRichEditor.Documents.Block.Block() -> void
+WinUIRichEditor.Documents.Block.Indent.get -> double
+WinUIRichEditor.Documents.Block.Indent.set -> void
+WinUIRichEditor.Documents.Block.MarginBottom.get -> double
+WinUIRichEditor.Documents.Block.MarginBottom.set -> void
+WinUIRichEditor.Documents.Block.MarginTop.get -> double
+WinUIRichEditor.Documents.Block.MarginTop.set -> void
+WinUIRichEditor.Documents.CellVerticalAlignment
+WinUIRichEditor.Documents.CellVerticalAlignment.Bottom = 2 -> WinUIRichEditor.Documents.CellVerticalAlignment
+WinUIRichEditor.Documents.CellVerticalAlignment.Center = 1 -> WinUIRichEditor.Documents.CellVerticalAlignment
+WinUIRichEditor.Documents.CellVerticalAlignment.Top = 0 -> WinUIRichEditor.Documents.CellVerticalAlignment
+WinUIRichEditor.Documents.DividerBlock
+WinUIRichEditor.Documents.DividerBlock.DividerBlock() -> void
+WinUIRichEditor.Documents.FlowDocument
+WinUIRichEditor.Documents.FlowDocument.Blocks.get -> System.Collections.Generic.List<WinUIRichEditor.Documents.Block!>!
+WinUIRichEditor.Documents.FlowDocument.Clone() -> WinUIRichEditor.Documents.FlowDocument!
+WinUIRichEditor.Documents.FlowDocument.FlowDocument() -> void
+WinUIRichEditor.Documents.FlowDocument.PageSetup.get -> WinUIRichEditor.Documents.PageSetup?
+WinUIRichEditor.Documents.FlowDocument.PageSetup.set -> void
+WinUIRichEditor.Documents.ImageBlock
+WinUIRichEditor.Documents.ImageBlock.AltText.get -> string?
+WinUIRichEditor.Documents.ImageBlock.AltText.set -> void
+WinUIRichEditor.Documents.ImageBlock.Height.get -> double
+WinUIRichEditor.Documents.ImageBlock.Height.set -> void
+WinUIRichEditor.Documents.ImageBlock.Image.get -> Microsoft.Graphics.Canvas.CanvasBitmap?
+WinUIRichEditor.Documents.ImageBlock.Image.set -> void
+WinUIRichEditor.Documents.ImageBlock.ImageBlock() -> void
+WinUIRichEditor.Documents.ImageBlock.MimeType.get -> string?
+WinUIRichEditor.Documents.ImageBlock.RawBytes.get -> byte[]?
+WinUIRichEditor.Documents.ImageBlock.SetImageData(byte[]! bytes, string? mimeType, Microsoft.Graphics.Canvas.CanvasBitmap? decoded = null) -> void
+WinUIRichEditor.Documents.ImageBlock.Width.get -> double
+WinUIRichEditor.Documents.ImageBlock.Width.set -> void
+WinUIRichEditor.Documents.Inline
+WinUIRichEditor.Documents.Inline.Inline() -> void
+WinUIRichEditor.Documents.InlineImage
+WinUIRichEditor.Documents.InlineImage.AltText.get -> string?
+WinUIRichEditor.Documents.InlineImage.AltText.set -> void
+WinUIRichEditor.Documents.InlineImage.Height.get -> double
+WinUIRichEditor.Documents.InlineImage.Height.set -> void
+WinUIRichEditor.Documents.InlineImage.Image.get -> Microsoft.Graphics.Canvas.CanvasBitmap?
+WinUIRichEditor.Documents.InlineImage.Image.set -> void
+WinUIRichEditor.Documents.InlineImage.InlineImage() -> void
+WinUIRichEditor.Documents.InlineImage.MimeType.get -> string?
+WinUIRichEditor.Documents.InlineImage.RawBytes.get -> byte[]?
+WinUIRichEditor.Documents.InlineImage.SetImageData(byte[]! bytes, string? mimeType, Microsoft.Graphics.Canvas.CanvasBitmap? decoded = null) -> void
+WinUIRichEditor.Documents.InlineImage.Width.get -> double
+WinUIRichEditor.Documents.InlineImage.Width.set -> void
+WinUIRichEditor.Documents.InlineTable
+WinUIRichEditor.Documents.InlineTable.InlineTable() -> void
+WinUIRichEditor.Documents.InlineTable.Table.get -> WinUIRichEditor.Documents.TableBlock!
+WinUIRichEditor.Documents.InlineTable.Table.set -> void
+WinUIRichEditor.Documents.ListKind
+WinUIRichEditor.Documents.ListKind.Bullet = 1 -> WinUIRichEditor.Documents.ListKind
+WinUIRichEditor.Documents.ListKind.None = 0 -> WinUIRichEditor.Documents.ListKind
+WinUIRichEditor.Documents.ListKind.Ordered = 2 -> WinUIRichEditor.Documents.ListKind
+WinUIRichEditor.Documents.ListMarkerStyle
+WinUIRichEditor.Documents.ListMarkerStyle.Circle = 2 -> WinUIRichEditor.Documents.ListMarkerStyle
+WinUIRichEditor.Documents.ListMarkerStyle.Dash = 4 -> WinUIRichEditor.Documents.ListMarkerStyle
+WinUIRichEditor.Documents.ListMarkerStyle.Decimal = 5 -> WinUIRichEditor.Documents.ListMarkerStyle
+WinUIRichEditor.Documents.ListMarkerStyle.DecimalParen = 6 -> WinUIRichEditor.Documents.ListMarkerStyle
+WinUIRichEditor.Documents.ListMarkerStyle.Default = 0 -> WinUIRichEditor.Documents.ListMarkerStyle
+WinUIRichEditor.Documents.ListMarkerStyle.Disc = 1 -> WinUIRichEditor.Documents.ListMarkerStyle
+WinUIRichEditor.Documents.ListMarkerStyle.LowerAlpha = 7 -> WinUIRichEditor.Documents.ListMarkerStyle
+WinUIRichEditor.Documents.ListMarkerStyle.LowerRoman = 9 -> WinUIRichEditor.Documents.ListMarkerStyle
+WinUIRichEditor.Documents.ListMarkerStyle.Square = 3 -> WinUIRichEditor.Documents.ListMarkerStyle
+WinUIRichEditor.Documents.ListMarkerStyle.UpperAlpha = 8 -> WinUIRichEditor.Documents.ListMarkerStyle
+WinUIRichEditor.Documents.PageSetup
+WinUIRichEditor.Documents.PageSetup.Clone() -> WinUIRichEditor.Documents.PageSetup!
+WinUIRichEditor.Documents.PageSetup.Footer.get -> string?
+WinUIRichEditor.Documents.PageSetup.Footer.set -> void
+WinUIRichEditor.Documents.PageSetup.Header.get -> string?
+WinUIRichEditor.Documents.PageSetup.Header.set -> void
+WinUIRichEditor.Documents.PageSetup.IsDefault.get -> bool
+WinUIRichEditor.Documents.PageSetup.Orientation.get -> WinUIRichEditor.Controls.RichEditorPageOrientation
+WinUIRichEditor.Documents.PageSetup.Orientation.set -> void
+WinUIRichEditor.Documents.PageSetup.PageSetup() -> void
+WinUIRichEditor.Documents.PageSetup.PageSize.get -> WinUIRichEditor.Controls.RichEditorPageSize
+WinUIRichEditor.Documents.PageSetup.PageSize.set -> void
+WinUIRichEditor.Documents.PageSetup.ShowPageBoundaries.get -> bool
+WinUIRichEditor.Documents.PageSetup.ShowPageBoundaries.set -> void
+WinUIRichEditor.Documents.PageSetup.ShowPageNumbers.get -> bool
+WinUIRichEditor.Documents.PageSetup.ShowPageNumbers.set -> void
+WinUIRichEditor.Documents.Paragraph
+WinUIRichEditor.Documents.Paragraph.Background.get -> Windows.UI.Color?
+WinUIRichEditor.Documents.Paragraph.Background.set -> void
+WinUIRichEditor.Documents.Paragraph.CloneFormat() -> WinUIRichEditor.Documents.Paragraph!
+WinUIRichEditor.Documents.Paragraph.CopyFormatFrom(WinUIRichEditor.Documents.Paragraph! src) -> void
+WinUIRichEditor.Documents.Paragraph.HeadingLevel.get -> int
+WinUIRichEditor.Documents.Paragraph.HeadingLevel.set -> void
+WinUIRichEditor.Documents.Paragraph.Inlines.get -> System.Collections.Generic.List<WinUIRichEditor.Documents.Inline!>!
+WinUIRichEditor.Documents.Paragraph.Inlines.set -> void
+WinUIRichEditor.Documents.Paragraph.IsListItem.get -> bool
+WinUIRichEditor.Documents.Paragraph.IsQuote.get -> bool
+WinUIRichEditor.Documents.Paragraph.IsQuote.set -> void
+WinUIRichEditor.Documents.Paragraph.LineHeight.get -> double
+WinUIRichEditor.Documents.Paragraph.LineHeight.set -> void
+WinUIRichEditor.Documents.Paragraph.LineSpacing.get -> double
+WinUIRichEditor.Documents.Paragraph.LineSpacing.set -> void
+WinUIRichEditor.Documents.Paragraph.ListLevel.get -> int
+WinUIRichEditor.Documents.Paragraph.ListLevel.set -> void
+WinUIRichEditor.Documents.Paragraph.ListMarker.get -> WinUIRichEditor.Documents.ListMarkerStyle
+WinUIRichEditor.Documents.Paragraph.ListMarker.set -> void
+WinUIRichEditor.Documents.Paragraph.ListType.get -> WinUIRichEditor.Documents.ListKind
+WinUIRichEditor.Documents.Paragraph.ListType.set -> void
+WinUIRichEditor.Documents.Paragraph.MarginRight.get -> double
+WinUIRichEditor.Documents.Paragraph.MarginRight.set -> void
+WinUIRichEditor.Documents.Paragraph.Paragraph() -> void
+WinUIRichEditor.Documents.Paragraph.TextAlignment.get -> Microsoft.UI.Xaml.TextAlignment
+WinUIRichEditor.Documents.Paragraph.TextAlignment.set -> void
+WinUIRichEditor.Documents.Run
+WinUIRichEditor.Documents.Run.Background.get -> Windows.UI.Color?
+WinUIRichEditor.Documents.Run.Background.set -> void
+WinUIRichEditor.Documents.Run.FontFamily.get -> string?
+WinUIRichEditor.Documents.Run.FontFamily.set -> void
+WinUIRichEditor.Documents.Run.FontSize.get -> double
+WinUIRichEditor.Documents.Run.FontSize.set -> void
+WinUIRichEditor.Documents.Run.FontStyle.get -> Windows.UI.Text.FontStyle
+WinUIRichEditor.Documents.Run.FontStyle.set -> void
+WinUIRichEditor.Documents.Run.FontWeight.get -> Windows.UI.Text.FontWeight
+WinUIRichEditor.Documents.Run.FontWeight.set -> void
+WinUIRichEditor.Documents.Run.Foreground.get -> Windows.UI.Color?
+WinUIRichEditor.Documents.Run.Foreground.set -> void
+WinUIRichEditor.Documents.Run.NavigateUri.get -> string?
+WinUIRichEditor.Documents.Run.NavigateUri.set -> void
+WinUIRichEditor.Documents.Run.Run() -> void
+WinUIRichEditor.Documents.Run.Text.get -> string?
+WinUIRichEditor.Documents.Run.Text.set -> void
+WinUIRichEditor.Documents.Run.TextDecorations.get -> WinUIRichEditor.Documents.TextDecorationFlags
+WinUIRichEditor.Documents.Run.TextDecorations.set -> void
+WinUIRichEditor.Documents.TableBlock
+WinUIRichEditor.Documents.TableBlock.AnchorOf(int r, int c) -> (int ar, int ac)
+WinUIRichEditor.Documents.TableBlock.Cells.get -> System.Collections.Generic.List<System.Collections.Generic.List<WinUIRichEditor.Documents.TableCell!>!>!
+WinUIRichEditor.Documents.TableBlock.Cells.set -> void
+WinUIRichEditor.Documents.TableBlock.ColSpans.get -> System.Collections.Generic.List<System.Collections.Generic.List<int>!>!
+WinUIRichEditor.Documents.TableBlock.ColSpans.set -> void
+WinUIRichEditor.Documents.TableBlock.ColumnWidths.get -> System.Collections.Generic.List<double>!
+WinUIRichEditor.Documents.TableBlock.ColumnWidths.set -> void
+WinUIRichEditor.Documents.TableBlock.Columns.get -> int
+WinUIRichEditor.Documents.TableBlock.Columns.set -> void
+WinUIRichEditor.Documents.TableBlock.DeleteColumn(int at) -> void
+WinUIRichEditor.Documents.TableBlock.DeleteRow(int at) -> void
+WinUIRichEditor.Documents.TableBlock.EnsureSpanConsistency() -> void
+WinUIRichEditor.Documents.TableBlock.Extract(int r0, int c0, int r1, int c1) -> WinUIRichEditor.Documents.TableBlock!
+WinUIRichEditor.Documents.TableBlock.InsertColumn(int at) -> void
+WinUIRichEditor.Documents.TableBlock.InsertRow(int at) -> void
+WinUIRichEditor.Documents.TableBlock.IsCovered(int r, int c) -> bool
+WinUIRichEditor.Documents.TableBlock.LogicalCells() -> System.Collections.Generic.IEnumerable<(int r, int c, WinUIRichEditor.Documents.TableCell! cell)>!
+WinUIRichEditor.Documents.TableBlock.MergeCells(int r0, int c0, int r1, int c1) -> void
+WinUIRichEditor.Documents.TableBlock.RowHeights.get -> System.Collections.Generic.List<double>!
+WinUIRichEditor.Documents.TableBlock.RowHeights.set -> void
+WinUIRichEditor.Documents.TableBlock.RowSpans.get -> System.Collections.Generic.List<System.Collections.Generic.List<int>!>!
+WinUIRichEditor.Documents.TableBlock.RowSpans.set -> void
+WinUIRichEditor.Documents.TableBlock.Rows.get -> int
+WinUIRichEditor.Documents.TableBlock.Rows.set -> void
+WinUIRichEditor.Documents.TableBlock.SetSpan(int r, int c, int cs, int rs) -> void
+WinUIRichEditor.Documents.TableBlock.SpanOf(int r, int c) -> (int cs, int rs)
+WinUIRichEditor.Documents.TableBlock.TableBlock() -> void
+WinUIRichEditor.Documents.TableBlock.TableBlock(int rows, int cols) -> void
+WinUIRichEditor.Documents.TableBlock.UnmergeCell(int r, int c) -> void
+WinUIRichEditor.Documents.TableCell
+WinUIRichEditor.Documents.TableCell.Background.get -> Windows.UI.Color?
+WinUIRichEditor.Documents.TableCell.Background.set -> void
+WinUIRichEditor.Documents.TableCell.Blocks.get -> System.Collections.Generic.List<WinUIRichEditor.Documents.Block!>!
+WinUIRichEditor.Documents.TableCell.Blocks.set -> void
+WinUIRichEditor.Documents.TableCell.Para.get -> WinUIRichEditor.Documents.Paragraph!
+WinUIRichEditor.Documents.TableCell.TableCell() -> void
+WinUIRichEditor.Documents.TableCell.TableCell(WinUIRichEditor.Documents.Paragraph! paragraph) -> void
+WinUIRichEditor.Documents.TableCell.VerticalAlignment.get -> WinUIRichEditor.Documents.CellVerticalAlignment
+WinUIRichEditor.Documents.TableCell.VerticalAlignment.set -> void
+WinUIRichEditor.Documents.TextDecorationFlags
+WinUIRichEditor.Documents.TextDecorationFlags.None = 0 -> WinUIRichEditor.Documents.TextDecorationFlags
+WinUIRichEditor.Documents.TextDecorationFlags.Strikethrough = 2 -> WinUIRichEditor.Documents.TextDecorationFlags
+WinUIRichEditor.Documents.TextDecorationFlags.Underline = 1 -> WinUIRichEditor.Documents.TextDecorationFlags
+WinUIRichEditor.Documents.TextElement
+WinUIRichEditor.Documents.TextElement.Parent.get -> object?
+WinUIRichEditor.Documents.TextElement.TextElement() -> void
+WinUIRichEditor.Documents.TextPointer
+WinUIRichEditor.Documents.TextPointer.AtLineEnd.get -> bool
+WinUIRichEditor.Documents.TextPointer.AtLineEnd.set -> void
+WinUIRichEditor.Documents.TextPointer.CompareTo(WinUIRichEditor.Documents.TextPointer? other) -> int
+WinUIRichEditor.Documents.TextPointer.Offset.get -> int
+WinUIRichEditor.Documents.TextPointer.Offset.set -> void
+WinUIRichEditor.Documents.TextPointer.Paragraph.get -> WinUIRichEditor.Documents.Paragraph?
+WinUIRichEditor.Documents.TextPointer.Paragraph.set -> void
+WinUIRichEditor.Documents.TextPointer.TextPointer(WinUIRichEditor.Documents.Paragraph? paragraph, int offset) -> void
+WinUIRichEditor.Documents.TextRange
+WinUIRichEditor.Documents.TextRange.ApplyPropertyValue(System.Action<WinUIRichEditor.Documents.Run!>! styleAction) -> void
+WinUIRichEditor.Documents.TextRange.Delete() -> void
+WinUIRichEditor.Documents.TextRange.End.get -> WinUIRichEditor.Documents.TextPointer!
+WinUIRichEditor.Documents.TextRange.GetRichInlines() -> System.Collections.Generic.List<WinUIRichEditor.Documents.Inline!>!
+WinUIRichEditor.Documents.TextRange.GetRichRuns() -> System.Collections.Generic.List<WinUIRichEditor.Documents.Run!>!
+WinUIRichEditor.Documents.TextRange.GetText() -> string!
+WinUIRichEditor.Documents.TextRange.IsEmpty.get -> bool
+WinUIRichEditor.Documents.TextRange.Start.get -> WinUIRichEditor.Documents.TextPointer!
+WinUIRichEditor.Documents.TextRange.TextRange(WinUIRichEditor.Documents.TextPointer! position1, WinUIRichEditor.Documents.TextPointer! position2) -> void
+WinUIRichEditor.Formatters.DocumentPackage
+WinUIRichEditor.Formatters.DocumentSerializer
+WinUIRichEditor.Formatters.HtmlDocumentFormatter
+WinUIRichEditor.Formatters.RtfDocumentFormatter
+WinUIRichEditor.RichEditorDiagnostics
+WinUIRichEditor.RichEditorFaultEventArgs
+WinUIRichEditor.RichEditorFaultEventArgs.Exception.get -> System.Exception!
+WinUIRichEditor.RichEditorFaultEventArgs.File.get -> string!
+WinUIRichEditor.RichEditorFaultEventArgs.Line.get -> int
+WinUIRichEditor.RichEditorFaultEventArgs.Member.get -> string!
+WinUIRichEditor.RichEditorLocalization
+abstract WinUIRichEditor.Documents.TextElement.Clone() -> WinUIRichEditor.Documents.TextElement!
+const WinUIRichEditor.Formatters.DocumentSerializer.CurrentSchemaVersion = "1.0" -> string!
+override WinUIRichEditor.Controls.RichEditor.OnCreateAutomationPeer() -> Microsoft.UI.Xaml.Automation.Peers.AutomationPeer!
+override WinUIRichEditor.Documents.DividerBlock.Clone() -> WinUIRichEditor.Documents.TextElement!
+override WinUIRichEditor.Documents.ImageBlock.Clone() -> WinUIRichEditor.Documents.TextElement!
+override WinUIRichEditor.Documents.InlineImage.Clone() -> WinUIRichEditor.Documents.TextElement!
+override WinUIRichEditor.Documents.InlineTable.Clone() -> WinUIRichEditor.Documents.TextElement!
+override WinUIRichEditor.Documents.Paragraph.Clone() -> WinUIRichEditor.Documents.TextElement!
+override WinUIRichEditor.Documents.Run.Clone() -> WinUIRichEditor.Documents.TextElement!
+override WinUIRichEditor.Documents.TableBlock.Clone() -> WinUIRichEditor.Documents.TextElement!
+override WinUIRichEditor.Documents.TableCell.Clone() -> WinUIRichEditor.Documents.TextElement!
+override WinUIRichEditor.Documents.TextPointer.Equals(object? obj) -> bool
+override WinUIRichEditor.Documents.TextPointer.GetHashCode() -> int
+override WinUIRichEditor.RichEditorFaultEventArgs.ToString() -> string!
+static WinUIRichEditor.Controls.RichEditorIcons.Provider.get -> System.Func<WinUIRichEditor.Controls.RichEditorIcon, Microsoft.UI.Xaml.UIElement?>?
+static WinUIRichEditor.Controls.RichEditorIcons.Provider.set -> void
+static WinUIRichEditor.Controls.RichEditorPrintHelper.ShowPrintUIAsync(WinUIRichEditor.Controls.RichEditor! editor, nint windowHandle, string! jobTitle = "Document", double dpi = 150) -> System.Threading.Tasks.Task<bool>!
+static WinUIRichEditor.Controls.RichEditorToolbar.FontSizes.get -> double[]!
+static WinUIRichEditor.Controls.RichEditorToolbar.FontSizes.set -> void
+static WinUIRichEditor.Controls.RichEditorToolbar.Palette.get -> string![]!
+static WinUIRichEditor.Controls.RichEditorToolbar.Palette.set -> void
+static WinUIRichEditor.Documents.TextPointer.operator !=(WinUIRichEditor.Documents.TextPointer? a, WinUIRichEditor.Documents.TextPointer? b) -> bool
+static WinUIRichEditor.Documents.TextPointer.operator ==(WinUIRichEditor.Documents.TextPointer? a, WinUIRichEditor.Documents.TextPointer? b) -> bool
+static WinUIRichEditor.Formatters.DocumentPackage.Load(System.IO.Stream! source) -> WinUIRichEditor.Documents.FlowDocument!
+static WinUIRichEditor.Formatters.DocumentPackage.Save(WinUIRichEditor.Documents.FlowDocument! document, System.IO.Stream! destination) -> void
+static WinUIRichEditor.Formatters.DocumentSerializer.Deserialize(string! json) -> WinUIRichEditor.Documents.FlowDocument!
+static WinUIRichEditor.Formatters.DocumentSerializer.Serialize(WinUIRichEditor.Documents.FlowDocument! document) -> string!
+static WinUIRichEditor.Formatters.HtmlDocumentFormatter.ParseHtml(string! html, bool allowLocalFileImages = true, bool allowRemoteImages = true) -> WinUIRichEditor.Documents.FlowDocument!
+static WinUIRichEditor.Formatters.HtmlDocumentFormatter.ParseHtmlAsync(string! html, bool allowLocalFileImages = true, bool allowRemoteImages = true) -> System.Threading.Tasks.Task<WinUIRichEditor.Documents.FlowDocument!>!
+static WinUIRichEditor.Formatters.HtmlDocumentFormatter.ToHtml(WinUIRichEditor.Documents.FlowDocument! doc) -> string!
+static WinUIRichEditor.Formatters.RtfDocumentFormatter.LooksLikeRtf(string? text) -> bool
+static WinUIRichEditor.Formatters.RtfDocumentFormatter.Parse(string! rtf) -> WinUIRichEditor.Documents.FlowDocument!
+static WinUIRichEditor.Formatters.RtfDocumentFormatter.TryParse(string! rtf, out WinUIRichEditor.Documents.FlowDocument! document, out string? error) -> bool
+static WinUIRichEditor.Formatters.RtfDocumentFormatter.Write(WinUIRichEditor.Documents.FlowDocument! document) -> string!
+static WinUIRichEditor.RichEditorDiagnostics.Fault -> System.EventHandler<WinUIRichEditor.RichEditorFaultEventArgs!>?
+static WinUIRichEditor.RichEditorDiagnostics.Reset() -> void
+static WinUIRichEditor.RichEditorLocalization.GetString(string! key) -> string!
+static WinUIRichEditor.RichEditorLocalization.Language.get -> string!
+static WinUIRichEditor.RichEditorLocalization.Language.set -> void
+static WinUIRichEditor.RichEditorLocalization.LanguageChanged -> System.EventHandler?
+static WinUIRichEditor.RichEditorLocalization.Register(string! language, System.Collections.Generic.IReadOnlyDictionary<string!, string!>! strings) -> void
+static readonly WinUIRichEditor.Controls.RichEditor.AllowFindReplaceProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.AllowImagesProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.AllowLocalFileImagesProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.AllowRemoteImagesOnPasteProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.AllowRichPasteProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.AllowTablesProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.AutoLinkOnTypeProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.CanvasBackgroundProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.CaretBrushProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.DefaultFontFamilyProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.DefaultFontSizeProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.DocumentProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.FontFamilyChoicesProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.IsReadOnlyProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.MaxRecommendedImagesProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.PageFooterProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.PageHeaderProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.PageOrientationProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.PageSizeProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.SelectionBrushProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.ShowCaretWhenReadOnlyProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.ShowFormattingMenuProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.ShowPageBoundariesProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.ShowPageNumbersProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.TextForegroundProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditor.ZoomProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditorToolbar.ShowFileActionsProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditorToolbar.ShowPageControlsProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditorToolbar.TargetProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditorToolbar.ToolbarLevelProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditorView.ShowBuiltInFindBarProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditorView.ShowFileActionsProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly WinUIRichEditor.Controls.RichEditorView.ShowStatusBarProperty -> Microsoft.UI.Xaml.DependencyProperty!

@@ -20,14 +20,16 @@ public enum BlockKind
 /// Neutral, storage-agnostic document model that both conversion directions flow
 /// through. The Markdown side (parse/emit) lives in Core; the RichEdit side is a thin
 /// Presentation walker filling the same records from TOM. The format subset is the
-/// locked Markdown subset: bold / italic / strikethrough / headings (H1–H3) /
-/// bullet+numbered lists / images (schema B2, PRD 2026-09-28).
+/// locked Markdown subset: bold / italic / strikethrough / inline links /
+/// headings (H1–H3) / bullet+numbered lists / images (schema B2, PRD 2026-09-28;
+/// links joined for the WRE editor bridge, 2026-09-30).
 /// </summary>
 public abstract record DocumentInline;
 
 /// <summary>A styled text run. Newlines inside <see cref="Text"/> are soft line breaks.</summary>
+/// <param name="NavigateUri">Hyperlink target; <see langword="null"/> = plain text.</param>
 public sealed record DocumentRun(string Text, bool Bold = false, bool Italic = false,
-    bool Strikethrough = false) : DocumentInline;
+    bool Strikethrough = false, string? NavigateUri = null) : DocumentInline;
 
 /// <summary>
 /// An image reference — <c>![alt](qnote-img:&lt;sha256&gt;)</c> in storage. The RTF side

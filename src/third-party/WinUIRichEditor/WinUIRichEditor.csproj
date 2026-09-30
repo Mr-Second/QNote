@@ -1,0 +1,138 @@
+﻿<!-- TreatAsLocalProperty: 호스트 앱(NewSchool)이 `dotnet publish` 로 AOT/트림 게시하면
+     PublishTrimmed·PublishAot·PublishReadyToRun·RID 가 프로젝트 그래프 전체에 '전역 속성'으로
+     적용된다. 전역 속성은 일반 할당으로 못 덮으므로(빌드 로그: "전역 속성이므로 수정할 수 없습니다"),
+     이 라이브러리에서 로컬 재정의를 허용해 자체 ILLink/R2R 게시 후처리를 끈다(아래 PropertyGroup).
+     라이브러리에 ILLink 가 단독 실행되면 엔트리포인트가 없어 IL1034 로 실패하기 때문이다.
+     호스트의 AOT/트림은 WinUIRichEditor.dll 을 입력 어셈블리로 함께 처리하므로 영향 없다. -->
+<Project Sdk="Microsoft.NET.Sdk" TreatAsLocalProperty="PublishTrimmed;PublishReadyToRun;PublishAot;PublishSingleFile">
+  <PropertyGroup Label="Globals">
+    <!-- Now that WinUI/WindowsAppSDK is referenced directly (see below), use the CsWinRT projection flavor
+         of WebView2 like the host apps do. Leaving this False forces WebView2's plain-.NET branch, which
+         references Microsoft.Web.WebView2.Wpf.dll (net5-windows → WindowsBase 5.0.0.0) and conflicts with
+         the framework's WindowsBase 4.0.0.0 (MSB3277). True selects the projection-only reference. -->
+    <WebView2EnableCsWinRTProjection>true</WebView2EnableCsWinRTProjection>
+  </PropertyGroup>
+  <!-- 자체 게시 후처리(ILLink/R2R) 비활성화. 위 TreatAsLocalProperty 덕분에 전역값을 로컬로 덮을 수 있다. -->
+  <PropertyGroup>
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <PublishAot>false</PublishAot>
+    <PublishSingleFile>false</PublishSingleFile>
+  </PropertyGroup>
+  <!-- NuGet 패키지 메타데이터. 버전은 태그(release)로 덮어쓸 수 있게 CI에서 -p:Version 전달 가능. -->
+  <PropertyGroup Label="Packaging">
+    <PackageId>WinUIRichEditor</PackageId>
+    <Version>1.2.0</Version>
+    <Authors>centwon</Authors>
+    <Company>centwon</Company>
+    <Product>WinUIRichEditor</Product>
+    <Title>WinUIRichEditor</Title>
+    <Description>A from-scratch rich text editor control for WinUI 3, rendered with Win2D (CanvasVirtualControl / CanvasTextLayout). A port of AvaloniaRichEditor: text/paragraph formatting, tables (nested, colspan/rowspan, resize), inline &amp; block images, hyperlinks, undo/redo, CJK/Korean IME, clipboard (rich/HTML/RTF), page view, print/PDF, find, and drop-in host controls. Byte-compatible .flow document format. Native AOT ready.</Description>
+    <Copyright>Copyright (c) 2026 centwon</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/centwon/WinUIRichEditor</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/centwon/WinUIRichEditor</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>winui;winui3;win2d;richtextbox;richtext;rich-text-editor;editor;wysiwyg;flowdocument;rtf;directwrite</PackageTags>
+    <PackageReleaseNotes>See CHANGELOG.md. 1.2.0 is the first feature release since the 1.0 API freeze. THE PUBLIC SURFACE ONLY GAINS 7 DEPENDENCY PROPERTIES (bindable toolbar/view settings), so upgrading needs no code edits -- but several BEHAVIOURS changed, and two are visible in existing documents. (1) Line spacing is now HWP-style: a multiple of the font size (1.6 = 160%), and a paragraph that sets neither spacing nor line height draws at 160% instead of the font's own ~120%; the default paragraph bottom margin went from 10px to 0. The file format is unchanged, but old documents look more open. (2) A heading's bold and size are now character properties rather than something the renderer forces, so bold can be turned off inside a heading and an explicit size survives; re-applying a heading (even the same level) writes the preset back. Old files are converted once when the editor receives them -- the serializer does not convert, so a host that turns an old file straight into HTML/RTF without an editor gets the character properties as they are. Also: bold/italic/underline/strikethrough now toggle the Word way (all-on means off, otherwise all on) instead of flipping run by run; printing and SavePdf emit real text instead of a bitmap per page, at printer resolution, and the print dialog now opens under Native AOT; LoadJson/LoadPackageAsync reject non-document JSON and zips without document.json (JsonException / InvalidDataException) and keep the open document instead of silently replacing it with an empty one marked saved; page setup starts from the host's defaults instead of inheriting the last document's; AllowImages/AllowTables now also filter rich paste and InsertHtml; links open only http/https (a document's ms-msdt:/search-ms:/ms-settings: link used to launch its handler on one click); the undo budget measures elements rather than characters; and the English label for cell vertical centring is "Middle". New: drag a table or picture to move it (Ctrl to copy), per-axis picture resize handles, single-cell selection (F5) and Shift+arrow cell blocks, a find UI (Ctrl+F/H, F3) with a built-in find bar, vector toolbar icons. Fixes span caret and AltGr key handling, tables, pictures (a stretched picture used to re-decode forever while on screen), links, BOM-prefixed file import, host events and two Native-AOT-only line-metric defects. Copying a picture allocates 352MB -> 160MB. Verification: 391 -> 815 tests, every fix confirmed by falsification.</PackageReleaseNotes>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <!-- pack 은 명시적으로만(테스트/데모는 pack 대상 아님). CI 에서 이 프로젝트만 pack. -->
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup Label="Packaging">
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>WinUIRichEditor</RootNamespace>
+    <UseWinUI>true</UseWinUI>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <WinUISDKReferences>false</WinUISDKReferences>
+    <!-- WinUI 클래스 라이브러리가 자체 .pri 를 생성하도록 함. 없으면 호스트 앱(NewSchool)의
+         PRI 생성 단계가 WinUIRichEditor.pri 를 못 찾아 PRI252 발생(특히 Release). -->
+    <GenerateLibraryLayout>true</GenerateLibraryLayout>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <!-- Ship the XML docs in the package: the library is heavily commented, and without this none of it
+         reaches a consumer's IntelliSense. CS1591 ("missing XML comment") stays off — the public surface
+         is documented, but the analyzer also flags members we deliberately leave to their summary. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+
+    <!-- RID-specific 호스트 앱(예: NewSchool, win-x64)이 ProjectReference 로 참조할 때
+         라이브러리 복원이 win-x64 대상을 생성하도록 RID 선언. VS 솔루션 복원에서
+         NETSDK1047('...win-x64 대상이 없습니다') 방지. 출력 경로는
+         AppendRuntimeIdentifierToOutputPath=false 라 RID 하위폴더 없이 유지됨. -->
+    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+
+    <!-- Native AOT readiness: surface trim/AOT warnings from the library itself. -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <!-- For RichEditorPrintHelper: the print dialog is called through its COM vtable with function
+         pointers — the one AOT-safe route (the projection's generic result needs reflection). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Deterministic>true</Deterministic>
+
+    <!-- RichEditorDiagnostics reports fault locations via [CallerFilePath], which the compiler bakes in
+         as a string literal — the FULL path on the build machine. That put ~17KB of
+         "C:\Users\<whoever>\...\src\WinUIRichEditor\Controls\*.cs" into the shipped assembly, and with it
+         the builder's username and directory layout. Release builds rewrite the repo root to a short
+         token: same file:line diagnostics, a fraction of the bytes, nothing about the build machine.
+         Debug keeps real paths so local stepping and IDE navigation are unaffected. -->
+    <PathMap Condition="'$(Configuration)' == 'Release'">$(MSBuildThisFileDirectory)=/_/</PathMap>
+
+    <!-- Win2D is platform-specific (C++). This library targets x64 only so it matches its
+         x64 host apps (e.g. NewSchool) directly — no AnyCPU↔x64 platform negotiation, which
+         avoids VS building it to bin\Debug (AnyCPU) and the host hitting CS0006. -->
+    <Win2DWarnNoPlatform>false</Win2DWarnNoPlatform>
+    <Platforms>x64</Platforms>
+    <!-- Coerce an empty/AnyCPU invocation (e.g. VS dependency build of a ProjectReference) to x64
+         so output always lands in bin\x64\Debug where x64 consumers resolve it. -->
+    <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- LOAD-BEARING, do not drop. Win2D 1.4.0 declares a *floor* of Microsoft.WindowsAppSDK.WinUI
+         1.8.260204000 (its nuspec), so without this a standalone library/test restore resolves 1.8.x —
+         validating the library on a different SDK than the apps run on, and re-introducing the PRI277
+         self-contained merge conflict a build target used to work around (that target is gone: see the
+         demo csproj). We lift just the WinUI component rather than the full Microsoft.WindowsAppSDK
+         meta-package: the library only needs the WinUI/Win2D surface, and the meta-package drags WebView2
+         (WPF flavor → WindowsBase 4/5 conflict warning), AI, ML, and Widgets we never use.
+         This version is the package's declared MINIMUM for consumers, and it must satisfy TWO rules:
+         (1) Keep it at the LOWEST version the library actually builds, tests and AOT-publishes on —
+             raising it is breaking (a consumer on an older WindowsAppSDK cannot install the package).
+         (2) It must not EXCEED the WinUI version the consumer's Microsoft.WindowsAppSDK meta-package
+             brings (2.2.0 → WinUI 2.2.1; 2.3.1 → WinUI 2.3.0). A framework-dependent app otherwise
+             compiles against a newer WinUI than the runtime it ships on. 0.9.0 shipped 2.3.2 — above
+             what meta-package 2.3.1 provides — and broke exactly that; 0.9.1 lowered it back.
+         Verified at 2.2.1: solution builds 0/0, tests 74/74, AOT self-contained publish runs and
+         renders. Re-verify before changing. -->
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.2.1" />
+    <PackageReference Include="Microsoft.Graphics.Win2D" Version="1.4.0" />
+    <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
+    <!-- Tracks the public surface in PublicAPI.*.txt so any change to it shows up as a diff instead of
+         slipping out in a release. Analyzer-only: nothing is added to the package. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="3.3.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="WinUIRichEditor.Tests" />
+  </ItemGroup>
+</Project>

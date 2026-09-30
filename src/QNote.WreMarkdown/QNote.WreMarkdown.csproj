@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Bridge between QNote.Core's Markdown document model and WinUIRichEditor's
+         FlowDocument (the WRE editor's document model). net10.0-windows because the
+         WRE model types are WinUI-projected structs/classes; the project itself has
+         no XAML and no WinAppSDK package of its own — the WinUI projection flows
+         transitively from the vendored library, which pins a floor the app's
+         WindowsAppSDK meta-package raises (verified resolution graph, spike
+         2026-09-29). -->
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <RootNamespace>QNote.WreMarkdown</RootNamespace>
+    <UseWinUI>true</UseWinUI>
+    <WinUISDKReferences>false</WinUISDKReferences>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Win2D projection the WRE model surface needs (InlineImage carries a
+         CanvasBitmap); same wiring the spike applied to the app project. -->
+    <CsWinRTIncludes>Microsoft.Graphics.Canvas</CsWinRTIncludes>
+    <!-- Win2D is platform-specific (C++): mirror the vendored library's x64 pin so
+         an AnyCPU solution build resolves the same output path (no platform
+         negotiation between referencing projects). -->
+    <Win2DWarnNoPlatform>false</Win2DWarnNoPlatform>
+    <Platforms>x64</Platforms>
+    <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\third-party\WinUIRichEditor\WinUIRichEditor.csproj" />
+    <ProjectReference Include="..\QNote.Core\QNote.Core.csproj" />
+  </ItemGroup>
+
+</Project>

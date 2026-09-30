@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Headless formatter/model tests for the WRE bridge. This is the upstream
+         WinUIRichEditor.Tests host recipe verbatim: an xunit.v3 Exe host runs the
+         tests in its own process, because the plain VSTest testhost cannot resolve
+         the WinAppSDK/Win2D dependency closure (it died loading
+         Microsoft.TestPlatform.CoreUtilities; verified 2026-09-30). The Exe shape
+         is also what makes WindowsAppSDKSelfContained legal, so the unpackaged
+         host still finds the WinUI runtime — no bootstrapper needed while no XAML
+         control is ever activated. -->
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <Platforms>x64</Platforms>
+    <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
+    <UseWinUI>true</UseWinUI>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildTransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\QNote.WreMarkdown\QNote.WreMarkdown.csproj" />
+    <ProjectReference Include="..\..\src\QNote.Core\QNote.Core.csproj" />
+  </ItemGroup>
+
+</Project>

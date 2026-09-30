@@ -1,0 +1,89 @@
+WinUIRichEditor.Controls.RichEditorIcon.Quote = 49 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditor.PageMargin.get -> WinUIRichEditor.Documents.PageMargins
+WinUIRichEditor.Controls.RichEditor.PageMargin.set -> void
+WinUIRichEditor.Documents.PageMargins
+WinUIRichEditor.Documents.PageMargins.Bottom.get -> double
+WinUIRichEditor.Documents.PageMargins.Bottom.init -> void
+WinUIRichEditor.Documents.PageMargins.Left.get -> double
+WinUIRichEditor.Documents.PageMargins.Left.init -> void
+WinUIRichEditor.Documents.PageMargins.PageMargins() -> void
+WinUIRichEditor.Documents.PageMargins.PageMargins(double allSides) -> void
+WinUIRichEditor.Documents.PageMargins.PageMargins(double Left, double Top, double Right, double Bottom) -> void
+WinUIRichEditor.Documents.PageMargins.Right.get -> double
+WinUIRichEditor.Documents.PageMargins.Right.init -> void
+WinUIRichEditor.Documents.PageMargins.Top.get -> double
+WinUIRichEditor.Documents.PageMargins.Top.init -> void
+WinUIRichEditor.Documents.PageSetup.Margin.get -> WinUIRichEditor.Documents.PageMargins
+WinUIRichEditor.Documents.PageSetup.Margin.set -> void
+const WinUIRichEditor.Documents.PageSetup.DipsPerMm = 3.7795275590551185 -> double
+override WinUIRichEditor.Documents.PageMargins.ToString() -> string!
+static WinUIRichEditor.Documents.PageMargins.Symmetric(double sides, double topAndBottom) -> WinUIRichEditor.Documents.PageMargins
+static WinUIRichEditor.Documents.PageSetup.DefaultMargin.get -> WinUIRichEditor.Documents.PageMargins
+static WinUIRichEditor.Documents.PageSetup.PaperMillimetres(WinUIRichEditor.Controls.RichEditorPageSize size, WinUIRichEditor.Controls.RichEditorPageOrientation orientation) -> (double W, double H)
+static readonly WinUIRichEditor.Controls.RichEditor.PageMarginProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static WinUIRichEditor.Documents.Block.AutoTopMargin.get -> double
+WinUIRichEditor.Controls.RichEditorIcon.PageMargin = 50 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditor.InsertTableRow(WinUIRichEditor.Documents.TableBlock! table, int at) -> bool
+WinUIRichEditor.Controls.RichEditor.DeleteTableRow(WinUIRichEditor.Documents.TableBlock! table, int at) -> bool
+WinUIRichEditor.Controls.RichEditor.InsertTableColumn(WinUIRichEditor.Documents.TableBlock! table, int at) -> bool
+WinUIRichEditor.Controls.RichEditor.DeleteTableColumn(WinUIRichEditor.Documents.TableBlock! table, int at) -> bool
+WinUIRichEditor.Controls.RichEditor.InsertRowAbove() -> bool
+WinUIRichEditor.Controls.RichEditor.InsertRowBelow() -> bool
+WinUIRichEditor.Controls.RichEditor.DeleteRow() -> bool
+WinUIRichEditor.Controls.RichEditor.InsertColumnLeft() -> bool
+WinUIRichEditor.Controls.RichEditor.InsertColumnRight() -> bool
+WinUIRichEditor.Controls.RichEditor.DeleteColumn() -> bool
+WinUIRichEditor.Controls.RichEditorShortcut
+WinUIRichEditor.Controls.RichEditorShortcut.Alt.get -> bool
+WinUIRichEditor.Controls.RichEditorShortcut.Alt.init -> void
+WinUIRichEditor.Controls.RichEditorShortcut.Ctrl.get -> bool
+WinUIRichEditor.Controls.RichEditorShortcut.Ctrl.init -> void
+WinUIRichEditor.Controls.RichEditorShortcut.Display.get -> string!
+WinUIRichEditor.Controls.RichEditorShortcut.Display.init -> void
+WinUIRichEditor.Controls.RichEditorShortcut.Id.get -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcut.Id.init -> void
+WinUIRichEditor.Controls.RichEditorShortcut.Key.get -> Windows.System.VirtualKey
+WinUIRichEditor.Controls.RichEditorShortcut.Key.init -> void
+WinUIRichEditor.Controls.RichEditorShortcut.RichEditorShortcut() -> void
+WinUIRichEditor.Controls.RichEditorShortcut.RichEditorShortcut(WinUIRichEditor.Controls.RichEditorShortcutId Id, bool Ctrl, bool Shift, bool Alt, Windows.System.VirtualKey Key, string! Display) -> void
+WinUIRichEditor.Controls.RichEditorShortcut.Shift.get -> bool
+WinUIRichEditor.Controls.RichEditorShortcut.Shift.init -> void
+WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.Cut = 0 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.Copy = 1 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.Paste = 2 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.PastePlain = 3 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.SelectAll = 4 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.Undo = 5 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.Redo = 6 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.Bold = 7 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.Italic = 8 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.Underline = 9 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.Strikethrough = 10 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.FontLarger = 11 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.FontSmaller = 12 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.IndentIncrease = 13 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.IndentDecrease = 14 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.AlignLeft = 15 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.AlignCenter = 16 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.AlignRight = 17 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.AlignJustify = 18 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.Heading1 = 19 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.Heading2 = 20 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.Heading3 = 21 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.Heading4 = 22 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.Heading5 = 23 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.Heading6 = 24 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.BodyText = 25 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.BulletList = 26 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.NumberedList = 27 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.LineSpacingSingle = 28 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.LineSpacingOneHalf = 29 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.LineSpacingDouble = 30 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.Find = 31 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.FindReplace = 32 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.InsertLink = 33 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcutId.SelectCell = 34 -> WinUIRichEditor.Controls.RichEditorShortcutId
+WinUIRichEditor.Controls.RichEditorShortcuts
+static WinUIRichEditor.Controls.RichEditorShortcuts.All.get -> System.Collections.Generic.IReadOnlyList<WinUIRichEditor.Controls.RichEditorShortcut>!
+static WinUIRichEditor.Controls.RichEditorShortcuts.Display(WinUIRichEditor.Controls.RichEditorShortcutId id) -> string!

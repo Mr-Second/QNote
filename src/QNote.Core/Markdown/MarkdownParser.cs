@@ -8,9 +8,10 @@ namespace QNote.Markdown;
 /// <summary>
 /// Parses stored Markdown into the neutral <see cref="DocumentContent"/> model.
 /// The pipeline enables only what the locked format subset models: emphasis,
-/// strikethrough (via EmphasisExtras), lists, headings, and <c>qnote-img:</c> image
-/// links. Everything else (code spans, links, HTML, tables…) degrades to plain text
-/// runs — the paste-degradation rule applies to loaded files too.
+/// strikethrough (via EmphasisExtras), inline links, lists, headings, and
+/// <c>qnote-img:</c> image links. Everything else (code spans, foreign images,
+/// HTML, tables…) degrades to plain text runs — the paste-degradation rule applies
+/// to loaded files too.
 /// </summary>
 public static class MarkdownParser
 {
@@ -150,22 +151,49 @@ public static class MarkdownParser
                 // "***bold italic***" combined form.
                 var (b, i, s) = ClassifyEmphasis(emphasis);
                 foreach (var child in emphasis)
-                    CollectFormatted(child, bold: b, italic: i, strike: s, result);
+                    CollectFormatted(child, bold: b, italic: i, strike: s,
+                        navigateUri: null, result);
                 break;
 
             case LinkInline link:
                 var url = link.Url ?? string.Empty;
-                if (!link.IsImage || !url.StartsWith(ImageSchemePrefix, StringComparison.Ordinal))
+                if (link.IsImage)
                 {
-                    // Non-image links / foreign images are outside the subset: keep text.
-                    foreach (var child in link)
-                        CollectInto(child, result);
+                    if (url.StartsWith(ImageSchemePrefix, StringComparison.Ordinal))
+                    {
+                        result.Add(new DocumentImage(url[ImageSchemePrefix.Length..],
+                            ExtractText(link)));
+                    }
+                    else
+                    {
+                        // Foreign images are outside the subset: keep the alt text.
+                        foreach (var child in link)
+                            CollectInto(child, result);
+                    }
+
                     break;
                 }
 
-                var sha = url[ImageSchemePrefix.Length..];
-                var alt = ExtractText(link);
-                result.Add(new DocumentImage(sha, alt));
+                // Inline links are in the subset (WRE bridge, 2026-09-30): the URL
+                // travels with every text run under the link. An empty URL degrades
+                // to the plain text — a link to nothing is just text.
+                if (url.Length > 0)
+                    foreach (var child in link)
+                        CollectFormatted(child, bold: false, italic: false, strike: false,
+                            navigateUri: url, result);
+                else
+                    foreach (var child in link)
+                        CollectInto(child, result);
+                break;
+
+            case AutolinkInline autolink:
+                // `<https://…>` (CommonMark §6.7) is its own inline type in Markdig
+                // 1.4, NOT a LinkInline — the LeafInline fall-through below would
+                // keep the text but silently drop the link. The visible text is the
+                // URL itself.
+                AppendRun(result, autolink.ToString() ?? string.Empty, bold: false,
+                    italic: false, strike: false,
+                    navigateUri: autolink.Url is { Length: > 0 } autoUrl ? autoUrl : null);
                 break;
 
             case ContainerInline container:
@@ -195,27 +223,35 @@ public static class MarkdownParser
     /// <summary>
     /// Collect a formatted subtree, merging the format flags downward (e.g. bold
     /// inside italic becomes a bold+italic run; strikethrough wrapping anything
-    /// propagates the strike flag).
+    /// propagates the strike flag; a link wrapping anything propagates its URL).
     /// </summary>
     private static void CollectFormatted(Inline inline, bool bold, bool italic, bool strike,
-        List<DocumentInline> result)
+        string? navigateUri, List<DocumentInline> result)
     {
         switch (inline)
         {
             case LiteralInline lit:
-                AppendRun(result, lit.Content.ToString(), bold, italic, strike);
+                AppendRun(result, lit.Content.ToString(), bold, italic, strike, navigateUri);
                 break;
 
             case EmphasisInline emphasis:
                 var (b, i, s) = ClassifyEmphasis(emphasis);
                 foreach (var child in emphasis)
-                    CollectFormatted(child, bold || b, italic || i, strike || s, result);
+                    CollectFormatted(child, bold || b, italic || i, strike || s, navigateUri, result);
                 break;
 
             case LinkInline { IsImage: true, Url: not null } image
                     when image.Url.StartsWith(ImageSchemePrefix, StringComparison.Ordinal):
                 result.Add(new DocumentImage(image.Url[ImageSchemePrefix.Length..],
                     ExtractText(image)));
+                break;
+
+            // A link nested inside emphasis keeps BOTH: the accumulated outer flags
+            // and its own URL — without this the emphasis around "**[x](u)**" was
+            // dropped on re-read (found by the WRE round-trip matrix, 2026-09-30).
+            case LinkInline { IsImage: false, Url: { Length: > 0 } nestedUrl } nestedLink:
+                foreach (var child in nestedLink)
+                    CollectFormatted(child, bold, italic, strike, navigateUri: nestedUrl, result);
                 break;
 
             default:
@@ -226,19 +262,21 @@ public static class MarkdownParser
 
     /// <summary>
     /// Append text to the result, merging into the previous run ONLY when the flags
-    /// match — merging across different formats would silently re-format plain text
-    /// (e.g. a trailing " normal" absorbing into the preceding strikethrough run).
+    /// AND the link target match — merging across different formats would silently
+    /// re-format plain text (e.g. a trailing " normal" absorbing into the preceding
+    /// strikethrough run; a linked word absorbing an unlinked neighbour).
     /// </summary>
     private static void AppendRun(List<DocumentInline> result, string text,
-        bool bold, bool italic, bool strike)
+        bool bold, bool italic, bool strike, string? navigateUri = null)
     {
         if (text.Length == 0)
             return;
         if (result.Count > 0 && result[^1] is DocumentRun last &&
-            last.Bold == bold && last.Italic == italic && last.Strikethrough == strike)
+            last.Bold == bold && last.Italic == italic && last.Strikethrough == strike &&
+            last.NavigateUri == navigateUri)
             result[^1] = last with { Text = last.Text + text };
         else
-            result.Add(new DocumentRun(text, bold, italic, strike));
+            result.Add(new DocumentRun(text, bold, italic, strike, navigateUri));
     }
 
     private static string ExtractText(ContainerInline container)
