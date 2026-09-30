@@ -1,18 +1,11 @@
-using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
 using QNote.Controls;
 using QNote.Services;
 using QNote.ViewModels;
 using Windows.ApplicationModel.DataTransfer;
-using Windows.Storage;
-using Windows.Storage.Pickers;
-using Windows.System;
 
 namespace QNote.Views;
 
@@ -20,12 +13,12 @@ namespace QNote.Views;
 /// The three-pane notes screen. Code-behind is UI wiring only: it resolves the VM
 /// from DI, forwards the ListView selection / Loaded / Ctrl+S to the VM, hosts the
 /// delete-confirmation dialog (UI types stay out of the VM), and glues the
-/// <see cref="RichTextEditorController"/> (view-side RichEditBox wrapper) to the
+/// <see cref="WreEditorController"/> (view-side WinUIRichEditor wrapper) to the
 /// VM's Markdown data flow.
 /// </summary>
 public sealed partial class NotesPage : Page
 {
-    private readonly RichTextEditorController _editor;
+    private readonly WreEditorController _editor;
     private bool _settingsOpen;
     private bool _dialogOpen;
     private bool _dataDialogOpen;
@@ -37,17 +30,22 @@ public sealed partial class NotesPage : Page
         ViewModel = App.Services.GetRequiredService<NotesPageViewModel>();
         InitializeComponent();
 
-        _editor = new RichTextEditorController(
-            ContentEditor,
-            App.Services.GetService<Microsoft.Extensions.Logging.ILogger<RichTextEditorController>>(),
+        _editor = new WreEditorController(
+            Editor,
+            App.Services.GetService<Microsoft.Extensions.Logging.ILogger<WreEditorController>>(),
             App.Services.GetService<IImageService>(),
             App.Services.GetService<INoteService>());
         ViewModel.EditorContentProvider = () =>
-            new NotesPageViewModel.EditorSnapshot(_editor.GetMarkdown(), _editor.IsRtfChangedFromBaseline());
+            new NotesPageViewModel.EditorSnapshot(_editor.GetMarkdown(), _editor.IsDirty);
         _editor.CurrentNoteIdProvider = () => ViewModel.SelectedNote?.Id;
-        _editor.OpenImageRequested += OnOpenImageRequested;
         _editor.ImportFailed += OnImageError;
-        _editor.ImageOpenFailed += OnImageError;
+
+        // Mirror the page's actual theme onto the editor. The appearance brushes
+        // (canvas/text/caret) are pinned via ThemeResource in XAML; RequestedTheme here
+        // keeps the editor's own popups (context menu, dialogs) in step, and a live
+        // theme switch re-applies it.
+        ApplyEditorTheme();
+        ActualThemeChanged += (_, _) => ApplyEditorTheme();
 
         ViewModel.FocusTitleRequested += OnFocusTitleRequested;
         ViewModel.ContentReloadRequested += OnContentReloadRequested;
@@ -59,75 +57,25 @@ public sealed partial class NotesPage : Page
         Loaded += OnLoaded;
     }
 
+    /// <summary>
+    /// Pushes the page's current theme onto the editor. The Win2D canvas does NOT follow
+    /// <c>RequestedTheme</c> by itself — the three appearance brushes are pinned in XAML
+    /// through <c>ThemeResource</c> (spike-verified dark-mode wiring); this only keeps the
+    /// editor's own popups (context menu, dialogs) in the same theme.
+    /// </summary>
+    private void ApplyEditorTheme()
+    {
+        Editor.RequestedTheme = ActualTheme;
+        EditorToolbar.RequestedTheme = ActualTheme;
+    }
+
     private async void OnLoaded(object sender, RoutedEventArgs e) => await ViewModel.LoadAsync();
 
     private void OnFocusTitleRequested() => TitleBox.Focus(FocusState.Programmatic);
 
-    // ---------- Images ----------
-
-    private async void InsertImageButton_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var picker = new FileOpenPicker
-            {
-                SuggestedStartLocation = PickerLocationId.PicturesLibrary,
-                ViewMode = PickerViewMode.Thumbnail,
-            };
-            picker.FileTypeFilter.Add(".png");
-            picker.FileTypeFilter.Add(".jpg");
-            picker.FileTypeFilter.Add(".jpeg");
-            picker.FileTypeFilter.Add(".gif");
-            picker.FileTypeFilter.Add(".bmp");
-            picker.FileTypeFilter.Add(".tif");
-            picker.FileTypeFilter.Add(".tiff");
-            picker.FileTypeFilter.Add(".webp");
-
-            WinRT.Interop.InitializeWithWindow.Initialize(picker, App.WindowHandle);
-            if (await picker.PickSingleFileAsync() is { } file)
-                await _editor.InsertImageFromFileAsync(file.Path);
-        }
-        catch (Exception ex)
-        {
-            await ShowErrorDialogAsync("插入图片", $"插入图片失败：{ex.Message}");
-        }
-    }
-
-    private void OnOpenImageRequested(string path)
-    {
-        try
-        {
-            // Packaged AppData is VIRTUALIZED: the app's %APPDATA% path is an alias
-            // into Packages\...\LocalCache, but external viewers resolve the alias to
-            // the UNvirtualized location — where the file does not exist ("File not
-            // found"). Hand the viewer a plain temp copy instead.
-            var viewerDir = Path.Combine(Path.GetTempPath(), "QNote", "viewer");
-            Directory.CreateDirectory(viewerDir);
-            var copy = Path.Combine(viewerDir, Path.GetFileName(path));
-            // Image originals are content-addressed (SHA-256 filename) — an existing
-            // temp file with the same name IS the same content, so copy at most once.
-            if (!File.Exists(copy))
-                File.Copy(path, copy);
-            Process.Start(new ProcessStartInfo(copy) { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            OnImageError($"无法打开原图：{ex.Message}");
-        }
-    }
-
     // ---------- Drag & drop image files ----------
 
-    private void ContentEditor_DragOver(object sender, DragEventArgs e)
-    {
-        e.AcceptedOperation = e.DataView.Contains(StandardDataFormats.StorageItems)
-            ? DataPackageOperation.Copy
-            : DataPackageOperation.None;
-        e.DragUIOverride.Caption = "插入图片";
-        e.DragUIOverride.IsCaptionVisible = true;
-    }
-
-    private async void ContentEditor_Drop(object sender, DragEventArgs e) =>
+    private async void Editor_Drop(object sender, DragEventArgs e) =>
         await _editor.HandleDropAsync(e.DataView);
 
     // VM raised a debounced search off-thread → marshal back to the UI thread and
@@ -510,80 +458,4 @@ public sealed partial class NotesPage : Page
         }
     }
 
-    // ---------- Formatting (editor context flyout — the toolbar was deleted) ----------
-
-    private void CutMenuItem_Click(object sender, RoutedEventArgs e)
-    {
-        ContentEditor.Document.Selection.Cut();
-        _editor.Focus();
-    }
-
-    private void CopyMenuItem_Click(object sender, RoutedEventArgs e)
-    {
-        ContentEditor.Document.Selection.Copy();
-        _editor.Focus();
-    }
-
-    private void PasteMenuItem_Click(object sender, RoutedEventArgs e)
-    {
-        ContentEditor.Document.Selection.Paste(0);
-        _editor.Focus();
-    }
-
-    private void BoldMenuItem_Click(object sender, RoutedEventArgs e) => ApplyFormat(_editor.ToggleBold);
-
-    private void ItalicMenuItem_Click(object sender, RoutedEventArgs e) => ApplyFormat(_editor.ToggleItalic);
-
-    private void StrikethroughMenuItem_Click(object sender, RoutedEventArgs e) => ApplyFormat(_editor.ToggleStrikethrough);
-
-    private void Heading1MenuItem_Click(object sender, RoutedEventArgs e) => ApplyFormat(() => _editor.ApplyHeading(1));
-
-    private void Heading2MenuItem_Click(object sender, RoutedEventArgs e) => ApplyFormat(() => _editor.ApplyHeading(2));
-
-    private void Heading3MenuItem_Click(object sender, RoutedEventArgs e) => ApplyFormat(() => _editor.ApplyHeading(3));
-
-    private void BulletListMenuItem_Click(object sender, RoutedEventArgs e) =>
-        ApplyFormat(() => _editor.ToggleList(MarkerType.Bullet));
-
-    private void NumberListMenuItem_Click(object sender, RoutedEventArgs e) =>
-        ApplyFormat(() => _editor.ToggleList(MarkerType.Arabic)); // decimal 1. 2. 3.
-
-    private void InsertImageMenuItem_Click(object sender, RoutedEventArgs e) => InsertImageButton_Click(sender, e);
-
-    /// <summary>
-    /// One handler for every <see cref="RichEditBox"/> format accelerator — dispatched
-    /// by (key, modifiers). Gestures mirror the context-menu annotations
-    /// (Ctrl+B/I, Ctrl+Shift+D strikethrough, Ctrl+Alt+1/2/3 headings).
-    /// </summary>
-    private void FormatAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
-    {
-        switch (sender.Modifiers, sender.Key)
-        {
-            case (VirtualKeyModifiers.Control, VirtualKey.B):
-                _editor.ToggleBold();
-                break;
-            case (VirtualKeyModifiers.Control, VirtualKey.I):
-                _editor.ToggleItalic();
-                break;
-            case (VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift, VirtualKey.D):
-                _editor.ToggleStrikethrough();
-                break;
-            case (VirtualKeyModifiers.Control | VirtualKeyModifiers.Menu, VirtualKey.Number1):
-                _editor.ApplyHeading(1);
-                break;
-            case (VirtualKeyModifiers.Control | VirtualKeyModifiers.Menu, VirtualKey.Number2):
-                _editor.ApplyHeading(2);
-                break;
-            case (VirtualKeyModifiers.Control | VirtualKeyModifiers.Menu, VirtualKey.Number3):
-                _editor.ApplyHeading(3);
-                break;
-        }
-        args.Handled = true;
-    }
-
-    private void ApplyFormat(Action apply)
-    {
-        apply();
-        _editor.Focus(); // keep typing in the editor after a menu command
-    }
 }

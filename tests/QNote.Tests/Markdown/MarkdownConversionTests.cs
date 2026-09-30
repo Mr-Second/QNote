@@ -1,5 +1,4 @@
 using QNote.Markdown;
-using QNote.Text;
 
 namespace QNote.Tests.Markdown;
 
@@ -257,105 +256,12 @@ public class MarkdownEmitterTests
     }
 }
 
-public class RtfEmitterTests
+/// <summary>
+/// Coverage for the surviving <see cref="RtfImagePayload"/> header sniffer (the
+/// RTF emitter it once fed is gone — the WRE bridge reads pixel size through it).
+/// </summary>
+public class RtfImagePayloadTests
 {
-    private static DocumentContent Parse(string md) => MarkdownParser.Parse(md);
-
-    [Fact]
-    public void EmitsValidHeaderAndFooter()
-    {
-        var rtf = RtfEmitter.Emit(Parse("hi"));
-        Assert.StartsWith(@"{\rtf1\ansi\deff0{\fonttbl{\f0\fswiss Segoe UI;}}{\colortbl;}", rtf);
-        Assert.EndsWith("}", rtf);
-    }
-
-    [Fact]
-    public void EmitsBoldItalicStrikethroughControls()
-    {
-        var rtf = RtfEmitter.Emit(Parse("a **b** *c* ~~d~~"));
-        Assert.Contains(@"\b ", rtf);
-        Assert.Contains(@"\b0", rtf);
-        Assert.Contains(@"\i ", rtf);
-        Assert.Contains(@"\i0", rtf);
-        Assert.Contains(@"\strike ", rtf);
-        Assert.Contains(@"\strike0", rtf);
-    }
-
-    [Fact]
-    public void EmitsHeadingFontSizes()
-    {
-        Assert.Contains(@"\b\fs40", RtfEmitter.Emit(Parse("# big")));
-        Assert.Contains(@"\b\fs32", RtfEmitter.Emit(Parse("## mid")));
-        Assert.Contains(@"\b\fs26", RtfEmitter.Emit(Parse("### small")));
-        Assert.Contains(@"\fs22", RtfEmitter.Emit(Parse("body")));
-    }
-
-    [Fact]
-    public void EmitsLegacyListControls()
-    {
-        var bullet = RtfEmitter.Emit(Parse("- x"));
-        Assert.Contains(@"\pntext\f0\'b7\tab", bullet);
-        Assert.Contains(@"\li720", bullet);
-
-        var ordered = RtfEmitter.Emit(Parse("1. x"));
-        Assert.Contains(@"\pntext\f0 1.\tab", ordered);
-        Assert.Contains(@"\pndec", ordered);
-    }
-
-    [Fact]
-    public void EscapesRtfSignificantCharacters()
-    {
-        var model = new DocumentContent(
-        [
-            new DocumentBlock(BlockKind.Paragraph, [new DocumentRun("a{b}c\\d")]),
-        ]);
-        Assert.Contains(@"a\{b\}c\\d", RtfEmitter.Emit(model));
-    }
-
-    [Fact]
-    public void EmitsUnicodeEscapeForChinese()
-    {
-        var rtf = RtfEmitter.Emit(Parse("你好"));
-        Assert.Contains(@"\u20320?", rtf);   // U+4F60 你
-        Assert.Contains(@"\u22909?", rtf);   // U+597D 好
-        Assert.DoesNotContain("你好", rtf);
-    }
-
-    [Fact]
-    public void EmitsLineBreakForEmbeddedNewline()
-    {
-        var model = new DocumentContent(
-        [
-            new DocumentBlock(BlockKind.Paragraph, [new DocumentRun("a\nb")]),
-        ]);
-        Assert.Contains(@"\line ", RtfEmitter.Emit(model));
-    }
-
-    [Fact]
-    public void EmitsPictWithTwipsGeometryWhenImageResolves()
-    {
-        const string sha = "deadbeef";
-        var payload = new RtfImagePayload([0x89, 0x50, 0x4E, 0x47], 100, 50, 200.0, 100.0,
-            RtfImagePayload.PngBlip);
-        var rtf = RtfEmitter.Emit(Parse($"![]({MarkdownParser.ImageSchemePrefix}{sha})"),
-            sha256 => sha256 == sha ? payload : null);
-
-        Assert.Contains(@"{\pict\pngblip\picw100\pich50\picwgoal3000\pichgoal1500 ", rtf);
-        Assert.Contains("89504e47", rtf);
-    }
-
-    [Fact]
-    public void EmitsJpegBlipFromPayloadKind()
-    {
-        const string sha = "cafe";
-        var payload = new RtfImagePayload([0xFF, 0xD8], 10, 10, 10.0, 10.0, RtfImagePayload.JpegBlip);
-        var rtf = RtfEmitter.Emit(Parse($"![]({MarkdownParser.ImageSchemePrefix}{sha})"),
-            _ => payload);
-
-        Assert.Contains(@"\pict\jpegblip", rtf);
-        Assert.DoesNotContain(@"\pngblip", rtf);
-    }
-
     [Fact]
     public void FromBytes_SniffsPngHeader()
     {
@@ -406,89 +312,6 @@ public class RtfEmitterTests
     {
         Assert.Null(RtfImagePayload.FromBytes([1, 2, 3, 4, 5]));
         Assert.Null(RtfImagePayload.FromBytes([]));
-    }
-
-    [Fact]
-    public void MissingImageDegradesToReadablePlaceholder()
-    {
-        var rtf = RtfEmitter.Emit(Parse($"![alt text]({MarkdownParser.ImageSchemePrefix}missing)"),
-            _ => null);
-        Assert.Contains("alt text", rtf);
-        Assert.DoesNotContain(@"\pict", rtf);
-    }
-
-    [Fact]
-    public void ImageProviderReceivesReferenceSha()
-    {
-        const string sha = "abc";
-        string? seen = null;
-        RtfEmitter.Emit(Parse($"![]({MarkdownParser.ImageSchemePrefix}{sha})"),
-            s => { seen = s; return null; });
-        Assert.Equal(sha, seen);
-    }
-
-    [Fact]
-    public void PictBytes_RoundTripThroughEmittedRtf_ForIdentityMatching()
-    {
-        // The byte-identity save path end to end (its Core half): MD reference →
-        // emitted RTF hex → (RichEdit passes picts through unmodified) →
-        // RtfPictInspector extraction. The recovered bytes must equal the display
-        // copy bit for bit, so SHA256(pict.Bytes) matches SHA256(display_bytes) and
-        // the controller resolves the reference even after a reload stripped the alt.
-        const string sha = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-        byte[] display = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D];
-        var payload = new RtfImagePayload(display, display.Length, 10, 20.0, 20.0, RtfImagePayload.PngBlip);
-        var md = $"text ![]({MarkdownParser.ImageSchemePrefix}{sha}) tail";
-        var rtf = RtfEmitter.Emit(MarkdownParser.Parse(md), _ => payload);
-
-        var pict = Assert.Single(RtfPictInspector.FindPicts(rtf));
-        Assert.Equal(display, pict.Bytes);
-        // Null alt is expected (the emitter writes none); the bytes alone identify it.
-        Assert.Null(pict.Sha256);
-
-        // Same pict twice → same identity → both references resolve to one sha.
-        var twice = RtfEmitter.Emit(
-            MarkdownParser.Parse($"![]({MarkdownParser.ImageSchemePrefix}{sha}) mid ![]({MarkdownParser.ImageSchemePrefix}{sha})"),
-            _ => payload);
-        var picts = RtfPictInspector.FindPicts(twice);
-        Assert.Equal(2, picts.Count);
-        Assert.All(picts, p => Assert.Equal(display, p.Bytes));
-    }
-
-    [Fact]
-    public void FormatSubset_RoundTripsThroughEmittedRtf()
-    {
-        // Step ⑤ matrix, headless half: every locked-subset construct must survive
-        // MD → model → RTF emission with its control words intact (what RichEdit will
-        // parse); the TOM side of the loop is verified in-app.
-        const string sha = "deadbeef";
-        var md = """
-            # 一级标题
-            ## 二级标题
-            ### 三级标题
-            正文 **粗** *斜* ~~删~~
-            - 无序项
-
-            1. 有序项
-
-            ![](qnote-img:deadbeef)
-            """;
-        var rtf = RtfEmitter.Emit(MarkdownParser.Parse(md.Replace("qnote-img:", MarkdownParser.ImageSchemePrefix)),
-            s => s == sha ? new RtfImagePayload([0x89, 0x50], 2, 1, 2.0, 1.0, RtfImagePayload.PngBlip) : null);
-
-        Assert.Contains(@"\b\fs40 ", rtf);           // H1
-        Assert.Contains(@"\fs32 ", rtf);             // H2
-        Assert.Contains(@"\fs26 ", rtf);             // H3
-        Assert.Contains(@"\b ", rtf);                // bold
-        Assert.Contains(@"\i ", rtf);                // italic
-        Assert.Contains(@"\strike ", rtf);           // strikethrough
-        Assert.Contains(@"{\pict\pngblip", rtf);     // image
-        // List markers: the emitter writes Word-compatible \ls lists OR \pntext —
-        // assert on whichever the emitter produces via round-trip: re-parse the
-        // emitted markdown instead of asserting RTF internals for lists.
-        var emitted = MarkdownEmitter.Emit(MarkdownParser.Parse(md.Replace("qnote-img:", MarkdownParser.ImageSchemePrefix)));
-        Assert.Contains("- 无序项", emitted);
-        Assert.Contains("1. 有序项", emitted);
     }
 }
 

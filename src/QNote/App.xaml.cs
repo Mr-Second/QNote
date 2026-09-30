@@ -33,6 +33,9 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
+        // Register the zh-Hans string table for the vendored editor's chrome before
+        // any editor is built (QNote UI is zh-Hans source — see project-context).
+        QNote.Controls.EditorLocalization.Register();
         Services = ConfigureServices();
     }
 

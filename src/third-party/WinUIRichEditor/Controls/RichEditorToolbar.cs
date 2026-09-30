@@ -107,10 +107,43 @@ public partial class RichEditorToolbar : UserControl
     // the first toolbar's thread the owner of every toolbar's brushes — a toolbar in a window on its own thread got
     // RPC_E_WRONG_THREAD (the editor's brush defaults did, measured 2026-09-14; upstream a66b472 is the same shape).
     [ThreadStatic] private static SolidColorBrush? _activeBrush, _activeHoverBrush, _clearBrush, _blackInk;
-    private static SolidColorBrush ActiveBrush => _activeBrush ??= new(Color.FromArgb(255, 0xDD, 0xE7, 0xF3));
-    private static SolidColorBrush ActiveHoverBrush => _activeHoverBrush ??= new(Color.FromArgb(255, 0xCB, 0xDA, 0xEC));
+    // Theme-aware cache: the "active" faces and ink are rebuilt when the toolbar's
+    // effective theme flips (see IsDarkTheme / RebuildForTheme). Stored per thread for
+    // the same reason as the brushes themselves (a brush is thread-affine).
+    [ThreadStatic] private static bool? _brushThemeIsDark;
+    private static bool IsDarkTheme => CurrentThemeImpl?.Invoke() ?? false;
+    // Hook installed by the first toolbar instance so the static brush caches can read
+    // the live theme without a WinUI dependency in the model-only paths (tests).
+    private static Func<bool>? CurrentThemeImpl;
+
+    // QNOTE VENDORED PATCH (dark-mode toolbar): the active/hover faces and the ink were
+    // hardcoded light-theme colors, which read as glaringly bright on a dark chrome. They
+    // now resolve from the effective theme; EnsureThemeBrushes drops the cached set the
+    // first time a brush is read under a different theme so a live switch recolors.
+    private static void EnsureThemeBrushes(bool isDark)
+    {
+        if (_brushThemeIsDark == isDark) return;
+        _brushThemeIsDark = isDark;
+        _activeBrush = null;
+        _activeHoverBrush = null;
+        _blackInk = null;
+        _dimInk = null;
+        _noColorBrush = null;
+    }
+
+    private static SolidColorBrush ActiveBrush
+    {
+        get { EnsureThemeBrushes(IsDarkTheme); return _activeBrush ??= new(IsDarkTheme ? Color.FromArgb(255, 0x3A, 0x4A, 0x5E) : Color.FromArgb(255, 0xDD, 0xE7, 0xF3)); }
+    }
+    private static SolidColorBrush ActiveHoverBrush
+    {
+        get { EnsureThemeBrushes(IsDarkTheme); return _activeHoverBrush ??= new(IsDarkTheme ? Color.FromArgb(255, 0x46, 0x59, 0x71) : Color.FromArgb(255, 0xCB, 0xDA, 0xEC)); }
+    }
     private static SolidColorBrush ClearBrush => _clearBrush ??= new(Colors.Transparent);
-    private static SolidColorBrush BlackInk => _blackInk ??= new(Colors.Black); // shared: Sync runs per keystroke
+    private static SolidColorBrush BlackInk // shared: Sync runs per keystroke
+    {
+        get { EnsureThemeBrushes(IsDarkTheme); return _blackInk ??= new(IsDarkTheme ? Colors.White : Colors.Black); }
+    }
 
     // Variation Selector-15: forces text (monochrome) presentation of an emoji that has no symbol-font
     // glyph, so the leftover emoji fallbacks don't render as colour and clash with the FontIcon set.
@@ -123,7 +156,10 @@ public partial class RichEditorToolbar : UserControl
     private Button? _quote;                           // quote toggle
     private TextBlock? _bulletPreview, _numberPreview; // current list marker shown in the list boxes
     [ThreadStatic] private static SolidColorBrush? _dimInk; // per UI thread, as _activeBrush
-    private static SolidColorBrush DimInk => _dimInk ??= new(Color.FromArgb(255, 0xBF, 0xC3, 0xC7)); // inactive marker
+    private static SolidColorBrush DimInk // inactive marker; QNOTE dark-mode patch (theme-aware)
+    {
+        get { EnsureThemeBrushes(IsDarkTheme); return _dimInk ??= new(IsDarkTheme ? Color.FromArgb(255, 0x6A, 0x6A, 0x6A) : Color.FromArgb(255, 0xBF, 0xC3, 0xC7)); }
+    }
     private ComboBox? _font, _size, _heading, _align;
     private TextBox? _spacingBox; // editable line-spacing %, reflects/sets the caret paragraph
     private Button? _undo, _redo;
@@ -202,7 +238,10 @@ public partial class RichEditorToolbar : UserControl
     };
 
     [ThreadStatic] private static SolidColorBrush? _noColorBrush; // per UI thread, as _activeBrush
-    private static SolidColorBrush NoColorBrush => _noColorBrush ??= new(Color.FromArgb(255, 0xDD, 0xDD, 0xDD)); // "no highlight" face
+    private static SolidColorBrush NoColorBrush // "no highlight" face; QNOTE dark-mode patch (theme-aware)
+    {
+        get { EnsureThemeBrushes(IsDarkTheme); return _noColorBrush ??= new(IsDarkTheme ? Color.FromArgb(255, 0x55, 0x55, 0x55) : Color.FromArgb(255, 0xDD, 0xDD, 0xDD)); }
+    }
     private Border? _colorSwatch, _highlightSwatch; // current-colour bars under the picker glyphs
 
     // Uniform strip metrics: every control renders in a 32px-tall box (the WinUI ComboBox default
@@ -237,6 +276,17 @@ public partial class RichEditorToolbar : UserControl
         // (and its visual subtree) reachable forever.
         Loaded += (_, _) => { RichEditorLocalization.LanguageChanged += OnLanguageChanged; HookTarget(); Sync(); };
         Unloaded += (_, _) => { RichEditorLocalization.LanguageChanged -= OnLanguageChanged; UnhookTarget(); };
+
+        // QNOTE VENDORED PATCH (dark-mode toolbar): the static brush caches read the live
+        // theme through this hook, and a theme flip rebuilds the strip so the already-built
+        // controls pick up the recolored brushes.
+        CurrentThemeImpl ??= () => ActualTheme == ElementTheme.Dark;
+        ActualThemeChanged += (_, _) =>
+        {
+            EnsureThemeBrushes(ActualTheme == ElementTheme.Dark);
+            Content = Build();
+            Sync();
+        };
     }
 
     // Idempotent: the `-=` before the `+=` means a Loaded that arrives while already hooked (reparenting,

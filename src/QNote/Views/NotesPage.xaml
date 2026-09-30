@@ -7,6 +7,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:QNote.ViewModels"
+    xmlns:wre="using:WinUIRichEditor.Controls"
     KeyboardAcceleratorPlacementMode="Hidden"
     mc:Ignorable="d">
 
@@ -424,8 +425,14 @@
             Style="{StaticResource PanelCardStyle}"
             Translation="0,0,28">
             <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
                 <!--  Empty state  -->
                 <StackPanel
+                    Grid.Row="0"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     Spacing="10"
@@ -437,14 +444,16 @@
                     <TextBlock Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="选择或创建一个便签" />
                 </StackPanel>
 
-                <!--  Editor (Notepads-style: no toolbar — formatting lives in the
-                      right-click context flyout; a bottom status bar carries the
-                      dirty flag / char count / last-edited time)  -->
-                <Grid Padding="24,20" Visibility="{x:Bind ViewModel.HasSelection, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
+                <!--  Editor (WinUIRichEditor: a top formatting toolbar + the editor's
+                      built-in right-click menu; a bottom status bar carries the dirty
+                      flag / char count / last-edited time)  -->
+                <Grid
+                    Grid.Row="0"
+                    Padding="24,20"
+                    Visibility="{x:Bind ViewModel.HasSelection, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <TextBox
@@ -474,153 +483,79 @@
 
 
                     <Grid Grid.Row="1" Margin="0,6,0,0">
-                        <RichEditBox
-                            x:Name="ContentEditor"
-                            Padding="4,10,0,0"
-                            AllowDrop="True"
-                            AutomationProperties.Name="便签内容"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            DragOver="ContentEditor_DragOver"
-                            Drop="ContentEditor_Drop"
-                            ScrollViewer.VerticalScrollBarVisibility="Auto"
-                            SelectionFlyout="{x:Null}">
-                            <!-- Markdown-subset shortcuts, active while the editor has
-                                 focus; the context menu items carry the same gestures
-                                 as KeyboardAcceleratorTextOverride annotations. -->
-                            <RichEditBox.KeyboardAccelerators>
-                                <KeyboardAccelerator Key="B" Modifiers="Control" Invoked="FormatAccelerator_Invoked" />
-                                <KeyboardAccelerator Key="I" Modifiers="Control" Invoked="FormatAccelerator_Invoked" />
-                                <KeyboardAccelerator Key="D" Modifiers="Control,Shift" Invoked="FormatAccelerator_Invoked" />
-                                <KeyboardAccelerator Key="Number1" Modifiers="Control,Menu" Invoked="FormatAccelerator_Invoked" />
-                                <KeyboardAccelerator Key="Number2" Modifiers="Control,Menu" Invoked="FormatAccelerator_Invoked" />
-                                <KeyboardAccelerator Key="Number3" Modifiers="Control,Menu" Invoked="FormatAccelerator_Invoked" />
-                            </RichEditBox.KeyboardAccelerators>
-                            <!-- Formatting lives here now (toolbar deleted): clipboard +
-                                 the Markdown-subset format commands (B2: bold/italic/
-                                 strikethrough, headings, lists, images; colour/font/size/
-                                 underline/alignment retired). -->
-                            <RichEditBox.ContextFlyout>
-                                <MenuFlyout>
-                                    <MenuFlyoutItem Click="CutMenuItem_Click" Text="剪切" />
-                                    <MenuFlyoutItem Click="CopyMenuItem_Click" Text="复制" />
-                                    <MenuFlyoutItem Click="PasteMenuItem_Click" Text="粘贴" />
-                                    <MenuFlyoutSeparator />
-                                    <MenuFlyoutItem
-                                        Click="BoldMenuItem_Click"
-                                        KeyboardAcceleratorTextOverride="Ctrl+B"
-                                        Text="粗体">
-                                        <MenuFlyoutItem.Icon>
-                                            <FontIcon FontSize="14" Glyph="&#xE8DD;" />
-                                        </MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutItem
-                                        Click="ItalicMenuItem_Click"
-                                        KeyboardAcceleratorTextOverride="Ctrl+I"
-                                        Text="斜体">
-                                        <MenuFlyoutItem.Icon>
-                                            <FontIcon FontSize="14" Glyph="&#xE8DB;" />
-                                        </MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutItem
-                                        Click="StrikethroughMenuItem_Click"
-                                        KeyboardAcceleratorTextOverride="Ctrl+Shift+D"
-                                        Text="删除线">
-                                        <MenuFlyoutItem.Icon>
-                                            <FontIcon FontSize="14" Glyph="&#xEDE0;" />
-                                        </MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutSeparator />
-                                    <MenuFlyoutItem
-                                        Click="Heading1MenuItem_Click"
-                                        KeyboardAcceleratorTextOverride="Ctrl+Alt+1"
-                                        Text="标题 1">
-                                        <MenuFlyoutItem.Icon>
-                                            <FontIcon FontFamily="Segoe UI" FontSize="13" FontWeight="SemiBold" Glyph="H1" />
-                                        </MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutItem
-                                        Click="Heading2MenuItem_Click"
-                                        KeyboardAcceleratorTextOverride="Ctrl+Alt+2"
-                                        Text="标题 2">
-                                        <MenuFlyoutItem.Icon>
-                                            <FontIcon FontFamily="Segoe UI" FontSize="13" FontWeight="SemiBold" Glyph="H2" />
-                                        </MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutItem
-                                        Click="Heading3MenuItem_Click"
-                                        KeyboardAcceleratorTextOverride="Ctrl+Alt+3"
-                                        Text="标题 3">
-                                        <MenuFlyoutItem.Icon>
-                                            <FontIcon FontFamily="Segoe UI" FontSize="13" FontWeight="SemiBold" Glyph="H3" />
-                                        </MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutSeparator />
-                                    <MenuFlyoutItem Click="BulletListMenuItem_Click" Text="无序列表">
-                                        <MenuFlyoutItem.Icon>
-                                            <FontIcon FontSize="14" Glyph="&#xE8FD;" />
-                                        </MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutItem Click="NumberListMenuItem_Click" Text="有序列表">
-                                        <MenuFlyoutItem.Icon>
-                                            <FontIcon FontFamily="Segoe UI" FontSize="13" FontWeight="SemiBold" Glyph="1." />
-                                        </MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutSeparator />
-                                    <MenuFlyoutItem Click="InsertImageMenuItem_Click" Text="插入图片">
-                                        <MenuFlyoutItem.Icon>
-                                            <FontIcon FontSize="14" Glyph="&#xE8B9;" />
-                                        </MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                </MenuFlyout>
-                            </RichEditBox.ContextFlyout>
-                            <!-- Kill default focus visuals in every state: paper surface stays borderless. -->
-                            <RichEditBox.Resources>
-                                <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
-                                <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
-                                <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
-                                <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="Transparent" />
-                                <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
-                                <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
-                                <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
-                                <SolidColorBrush x:Key="TextControlBorderBrushDisabled" Color="Transparent" />
-                                <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
-                            </RichEditBox.Resources>
-                        </RichEditBox>
-                        <TextBlock
-                            x:Name="ContentPlaceholder"
-                            Margin="4,10,0,0"
-                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                            IsHitTestVisible="False"
-                            Text="在这里输入便签内容..." />
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <!--  Formatting chrome: the vendored WRE toolbar (Normal level — the
+                              full text-format set; page/zoom + file actions off, tables
+                              off). Trimming is post-stage. The editor's built-in
+                              right-click menu (ShowFormattingMenu) replaces the old
+                              hand-written ContextFlyout.  -->
+                        <wre:RichEditorToolbar
+                            x:Name="EditorToolbar"
+                            Grid.Row="0"
+                            Margin="0,0,0,4"
+                            ShowFileActions="False"
+                            ShowPageControls="False"
+                            Target="{x:Bind Editor}"
+                            ToolbarLevel="Normal" />
+                        <Grid Grid.Row="1">
+                            <!--  The Win2D canvas does NOT follow RequestedTheme by itself
+                                  (host responsibility by design): pin the three appearance
+                                  brushes through ThemeResource, which re-resolves on a live
+                                  Light/Dark switch.  -->
+                            <wre:RichEditor
+                                x:Name="Editor"
+                                AllowDrop="True"
+                                AllowFindReplace="True"
+                                AllowImages="True"
+                                AllowRichPaste="True"
+                                AllowTables="False"
+                                AutomationProperties.Name="便签内容"
+                                CanvasBackground="{ThemeResource NoteSurfaceBrush}"
+                                CaretBrush="{ThemeResource TextFillColorPrimaryBrush}"
+                                Drop="Editor_Drop"
+                                ShowFormattingMenu="True"
+                                TextForeground="{ThemeResource TextFillColorPrimaryBrush}" />
+                            <TextBlock
+                                x:Name="ContentPlaceholder"
+                                Margin="10,10,0,0"
+                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                IsHitTestVisible="False"
+                                Text="在这里输入便签内容..." />
+                        </Grid>
                     </Grid>
 
-                    <!-- Notepads-style status bar: dirty flag / char count / last edited. -->
-                    <Border
-                        Grid.Row="2"
-                        Margin="0,10,0,0"
-                        Padding="0,8,0,0"
-                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                        BorderThickness="0,1,0,0">
-                        <StackPanel Orientation="Horizontal" Spacing="14">
-                            <TextBlock
-                                FontSize="11"
-                                Foreground="{ThemeResource BrandAccentBrush}"
-                                Text="● 未保存"
-                                Visibility="{x:Bind ViewModel.IsDirty, Converter={StaticResource BoolToVisibility}, Mode=OneWay}" />
-                            <TextBlock
-                                x:Name="CharCountText"
-                                FontSize="11"
-                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                Text="0 字" />
-                            <TextBlock
-                                x:Name="EditedTimeText"
-                                FontSize="11"
-                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                Text="" />
-                        </StackPanel>
-                    </Border>
                 </Grid>
+
+                <!--  Notepads-style status bar: dirty flag / char count / last edited.
+                      Edge-to-edge like the list column's count strip (same divider
+                      position, same 6px text insets) so the two bottom rules align.  -->
+                <Border
+                    Grid.Row="1"
+                    Padding="24,6"
+                    BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                    BorderThickness="0,1,0,0"
+                    Visibility="{x:Bind ViewModel.HasSelection, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                        <TextBlock
+                            FontSize="11"
+                            Foreground="{ThemeResource BrandAccentBrush}"
+                            Text="● 未保存"
+                            Visibility="{x:Bind ViewModel.IsDirty, Converter={StaticResource BoolToVisibility}, Mode=OneWay}" />
+                        <TextBlock
+                            x:Name="CharCountText"
+                            FontSize="11"
+                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                            Text="0 字" />
+                        <TextBlock
+                            x:Name="EditedTimeText"
+                            FontSize="11"
+                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                            Text="" />
+                    </StackPanel>
+                </Border>
             </Grid>
         </Border>
 

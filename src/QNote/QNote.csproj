@@ -22,6 +22,9 @@
       single-instance guard (AppLifecycle) runs BEFORE Application.Start.
     -->
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <!-- Win2D projection the vendored WinUIRichEditor surface needs (InlineImage
+         carries a CanvasBitmap); same wiring the spike applied. -->
+    <CsWinRTIncludes>Microsoft.Graphics.Canvas</CsWinRTIncludes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -93,6 +96,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\QNote.Core\QNote.Core.csproj" />
+    <ProjectReference Include="..\QNote.WreMarkdown\QNote.WreMarkdown.csproj" />
   </ItemGroup>
 
   <!--
