@@ -9,9 +9,14 @@ namespace WinUIRichEditor.Controls;
 // relative, implicit repeats — into a PathGeometry. WinUI has no public string→Geometry parse for code
 // (Avalonia's Geometry.Parse); the XAML routes (XamlReader.Load, XamlBindingHelper.ConvertValue) resolve
 // types at run time, which trimming and Native AOT can break silently — this has no such dependency and is
-// small enough to own. Commands the icons do not use (C S T) are rejected rather than guessed.
+// small enough to own.
+// QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): C/S/T (cubic + smooth Bézier) were previously
+// rejected; Lucide icons (QNoteIcons) use `c`, so they are now implemented (S/T reflect the previous
+// control per the SVG spec). Host-provided icons no longer throw FormatException at build time.
 internal static class PathMarkup
 {
+    /// <summary>Parses SVG path mini-language data (<c>M L H V C S Q T A Z</c>, absolute and relative) into
+    /// a <see cref="PathGeometry"/> without any runtime XAML type resolution (trim/AOT safe).</summary>
     public static PathGeometry Parse(string data)
     {
         var geometry = new PathGeometry();
@@ -19,6 +24,11 @@ internal static class PathMarkup
         Point current = default, start = default;
         char command = '\0';
         int i = 0;
+        // Smooth-curve reflection state (SVG S/T commands reflect the previous control point about the
+        // current point). `hasCubic`/`hasQuad` gate the reflection: with no matching preceding command,
+        // the control coincides with the current point (SVG spec), which the branches below handle.
+        Point lastCubicControl = default, lastQuadControl = default;
+        bool hasCubic = false, hasQuad = false;
 
         void Add(PathSegment segment)
         {
@@ -48,6 +58,7 @@ internal static class PathMarkup
                     figure = new PathFigure { StartPoint = current, IsFilled = true };
                     geometry.Figures.Add(figure);
                     command = relative ? 'l' : 'L'; // further coordinate pairs are line-tos
+                    hasCubic = false; hasQuad = false; // a new subpath drops the smooth-curve reference
                     break;
                 case 'L':
                     current = Offset(origin, Number(data, ref i), Number(data, ref i));
@@ -66,6 +77,43 @@ internal static class PathMarkup
                     var control = Offset(origin, Number(data, ref i), Number(data, ref i));
                     current = Offset(origin, Number(data, ref i), Number(data, ref i));
                     Add(new QuadraticBezierSegment { Point1 = control, Point2 = current });
+                    // Reflect the control for a following T by tracking the last quadratic control.
+                    lastQuadControl = control;
+                    hasQuad = true;
+                    hasCubic = false;
+                    break;
+                }
+                case 'T':
+                {
+                    // Smooth quadratic: control is the reflection of the previous quadratic control about
+                    // the current point (SVG spec); with no preceding Q/T the control is the current point.
+                    var control = hasQuad ? new Point(2 * current.X - lastQuadControl.X, 2 * current.Y - lastQuadControl.Y) : current;
+                    current = Offset(relative ? current : default, Number(data, ref i), Number(data, ref i));
+                    Add(new QuadraticBezierSegment { Point1 = control, Point2 = current });
+                    lastQuadControl = control;
+                    hasQuad = true;
+                    break;
+                }
+                case 'C':
+                {
+                    var c1 = Offset(origin, Number(data, ref i), Number(data, ref i));
+                    var c2 = Offset(origin, Number(data, ref i), Number(data, ref i));
+                    current = Offset(origin, Number(data, ref i), Number(data, ref i));
+                    Add(new BezierSegment { Point1 = c1, Point2 = c2, Point3 = current });
+                    lastCubicControl = c2;
+                    hasCubic = true;
+                    break;
+                }
+                case 'S':
+                {
+                    // Smooth cubic: first control is the reflection of the previous cubic control about the
+                    // current point (SVG spec); with no preceding C/S the first control is the current point.
+                    var c1 = hasCubic ? new Point(2 * current.X - lastCubicControl.X, 2 * current.Y - lastCubicControl.Y) : current;
+                    var c2 = Offset(origin, Number(data, ref i), Number(data, ref i));
+                    current = Offset(origin, Number(data, ref i), Number(data, ref i));
+                    Add(new BezierSegment { Point1 = c1, Point2 = c2, Point3 = current });
+                    lastCubicControl = c2;
+                    hasCubic = true;
                     break;
                 }
                 case 'A':
@@ -85,6 +133,7 @@ internal static class PathMarkup
                     if (figure != null) figure.IsClosed = true;
                     figure = null;
                     current = start;
+                    hasCubic = false; hasQuad = false; // closing a subpath drops the smooth-curve reference
                     break;
                 default:
                     throw new FormatException($"Path data: unsupported command '{command}' in \"{data}\".");
@@ -105,7 +154,21 @@ internal static class PathMarkup
         SkipSeparators(s, ref i);
         int begin = i;
         if (i < s.Length && (s[i] == '-' || s[i] == '+')) i++;
-        while (i < s.Length && (char.IsDigit(s[i]) || s[i] == '.')) i++;
+        bool seenDot = false;
+        while (i < s.Length)
+        {
+            char c = s[i];
+            if (char.IsDigit(c)) { i++; continue; }
+            // svg allows a `-`/`+` and a second `.` to start the NEXT number with no separator
+            // (e.g. ".5.5" == "0.5 0.5", "1-2" == "1 -2"): stop the current token there.
+            if (c == '.')
+            {
+                if (seenDot) break;
+                seenDot = true; i++; continue;
+            }
+            if (c == '-' || c == '+') break;
+            break;
+        }
         if (i < s.Length && (s[i] == 'e' || s[i] == 'E'))
         {
             i++;
