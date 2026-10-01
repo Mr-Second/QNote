@@ -31,6 +31,13 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!--
+      CsWinRT AOT optimizer: implementing generic WinRT interfaces (e.g.
+      ObservableCollection<UIElement> in the generated XamlTypeInfo.g.cs)
+      requires generated vtable code that uses unsafe blocks
+      (CsWinRT1030). Standard WinUI Native AOT requirement.
+    -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!--
       Disable the XAML compiler's generated Program.Main (it is guarded by a C#
       preprocessor symbol in the generated App.g.i.cs, so this must go into
       DefineConstants): Program.cs provides the entry point so the
@@ -77,8 +84,13 @@
     runtime backstop — neither AV nor FailFast produced a createdump file in any
     configuration; WER itself captured those crashes to %LOCALAPPDATA%\CrashDumps.
     Kept armed because it is the documented mechanism and costs nothing.
+    NativeAOT exclusion (2026-10-01, AOT experiment): ilc rejects these as
+    "Unexpected feature switch pair" — createdump is a CoreCLR mechanism that
+    does not exist in the AOT runtime, so the ItemGroup is gated to
+    PublishAot != true. WER (%LOCALAPPDATA%\CrashDumps) still covers AOT
+    crashes — see the empirical caveat above.
   -->
-  <ItemGroup>
+  <ItemGroup Condition="'$(PublishAot)' != 'true'">
     <RuntimeHostConfigurationOption Include="DbgEnableMiniDump" Value="1" Trim="true" />
     <RuntimeHostConfigurationOption Include="DbgMiniDumpType" Value="2" Trim="true" />
   </ItemGroup>
