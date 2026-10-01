@@ -1,42 +1,26 @@
-# Release — build, sign, and publish the MSIX package.
+# Release — build the two portable zips (GitHub channel) and publish them.
 #
-# Triggered by pushing a version tag (v1.0.2 → package version 1.0.2.0) or
-# manually via workflow_dispatch (uses the version currently in the manifest).
+# Triggered by pushing a version tag (v1.2.0 → app version 1.2.0.0) or
+# manually via workflow_dispatch (uses the version currently in the repo).
 #
-# ┌─ Required configuration ─────────────────────────────────────────────────┐
-# │ Self-signed mode (works today):                                          │
-# │   secret  QNOTE_PFX_BASE64       base64 of certs/qnote.pfx (CN=QNote)    │
-# │   secret  QNOTE_PFX_PASSWORD     PFX password                            │
-# │                                                                          │
-# │ SignPath mode (once the OSS application is approved — takes precedence   │
-# │ whenever SIGNPATH_ORGANIZATION_ID is set):                               │
-# │   secret  SIGNPATH_API_TOKEN     SignPath user API token                 │
-# │   var     SIGNPATH_ORGANIZATION_ID  SignPath org UUID                    │
-# │   var     SIGNPATH_PUBLISHER     exact cert subject of the SignPath      │
-# │                                  project, e.g. "CN=SignPath Foundation,  │
-# │                                  O=SignPath Foundation, L=Lewes,         │
-# │                                  S=Delaware, C=US" — verify in the       │
-# │                                  SignPath UI before setting!             │
-# │   var     SIGNPATH_PROJECT_SLUG  optional, defaults to "qnote"           │
-# │   var     SIGNPATH_POLICY_SLUG   optional, defaults to "release-signing" │
-# └──────────────────────────────────────────────────────────────────────────┘
+# Channel split (portable-github-channel task, v1.2.0+):
+#   Store  = installed MSIX, Microsoft-trusted signature, auto-update.
+#   GitHub = portable, UNSIGNED zips; integrity via SHA256 checksums only.
+#   The former SignPath / self-signed-PFX / install.ps1 flow is gone — this
+#   file intentionally references no secrets at all.
 #
-# IMPORTANT — MSIX identity:
-#   The manifest Publisher must EXACTLY match the signing certificate subject,
-#   or the package will not install. Publisher is part of the package family
-#   identity: switching CN=QNote → the SignPath subject forces a one-time
-#   uninstall/reinstall for existing installs. After the SignPath switch the
-#   Publisher string must NEVER change again.
+# Flow (each variant is its own job via the matrix — wtq lesson):
+#   resolve-version → [portable self-contained | portable framework-dependent]
+#     → patch manifest + csproj versions (working copy only, never committed)
+#     → dotnet publish → zip (publish output + LICENSE + third-party notices,
+#        no *.pdb / vendor *.xml) → .sha256 sidecar → smoke test → artifact
+#   → release: SHA256SUMS.txt + prepared zh notes (auto-generated changelog
+#     is appended below them by --generate-notes) + gh release create.
 #
-# IMPORTANT — SignPath manual approval:
-#   Every release-signing request must be approved by a human in the SignPath
-#   web UI. The signing step blocks with a 3600s timeout for that reason —
-#   approve the request (email notification) before it expires.
-#
-# Packaging notes (spec §Packaging):
-#   The MSIX must be produced by VS full-framework MSBuild (/t:Publish) —
-#   `dotnet publish` fails MSB4018 on the WinAppSdk manifest validation task.
-#   The package is built UNSIGNED here and signed afterwards (either mode).
+# Smoke-test caveat: this workflow installs the .NET SDK itself
+# (actions/setup-dotnet), so the framework-dependent variant launches on the
+# runner. This is NOT a clean-machine test — clean-machine acceptance of both
+# variants is done manually by the user for each release.
 
 name: Release
 
@@ -49,8 +33,50 @@ permissions:
   contents: write # gh release create
 
 jobs:
-  release:
+  # Single source of truth for the version math; both variant jobs and the
+  # release job consume the output so they can run in parallel.
+  resolve-version:
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Tag push: v1.2.0 → 1.2.0.0 (padded to 4 parts). workflow_dispatch:
+      # keep the repo version (csproj <Version>, kept in sync with the
+      # appxmanifest by the version-single-source convention).
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $parts = ($env:GITHUB_REF_NAME -replace '^v', '').Split('.')
+            while ($parts.Count -lt 4) { $parts += '0' }
+            $version = ($parts | Select-Object -First 4) -join '.'
+          } else {
+            $csproj = [xml](Get-Content 'src/QNote/QNote.csproj' -Raw)
+            $version = ($csproj.Project.PropertyGroup | Where-Object { $_.Version }).Version
+          }
+          if ($version -notmatch '^\d+\.\d+\.\d+\.\d+$') { throw "Invalid version: '$version'" }
+          "version=$version" | Out-File $env:GITHUB_OUTPUT -Append
+          Write-Output "Version: $version"
+
+  portable:
+    needs: resolve-version
+    name: portable (${{ matrix.variant }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: self-contained
+            profile: win-x64-portable-selfcontained
+            publish-dir: publish-portable-selfcontained
+          - variant: framework-dependent
+            profile: win-x64-portable-frameworkdependent
+            publish-dir: publish-portable-frameworkdependent
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -60,9 +86,6 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Setup MSBuild (VS full-framework — required for MSIX packaging)
-        uses: microsoft/setup-msbuild@v3
-
       - name: NuGet cache
         uses: actions/cache@v6
         with:
@@ -70,198 +93,176 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
           restore-keys: nuget-${{ runner.os }}-
 
-      # Tag push: v1.0.2 → 1.0.2.0 patched into the manifest (working copy
-      # only, never committed). workflow_dispatch: keep the manifest version.
-      - name: Resolve version
-        id: version
+      # Tag push: patch the resolved version into the manifest AND the csproj
+      # <Version>/<FileVersion> (the exe VERSIONINFO drives the portable
+      # update check). Working copy only — never committed. Same convention
+      # as the old manifest patch; workflow_dispatch is a no-op rewrite.
+      - name: Patch versions
         shell: pwsh
-        run: |
-          $manifestPath = 'src/QNote/Package.appxmanifest'
-          [xml]$manifest = Get-Content $manifestPath
-          if ($env:GITHUB_REF_TYPE -eq 'tag') {
-            $parts = ($env:GITHUB_REF_NAME -replace '^v', '').Split('.')
-            while ($parts.Count -lt 4) { $parts += '0' }
-            $version = $parts[0..3] -join '.'
-            $manifest.Package.Identity.Version = $version
-            $manifest.Save((Join-Path $PWD $manifestPath))
-          } else {
-            $version = $manifest.Package.Identity.Version
-          }
-          "version=$version" | Out-File $env:GITHUB_OUTPUT -Append
-          Write-Output "Package version: $version"
-
-      # SignPath mode only: patch the manifest Publisher to the SignPath cert
-      # subject. Must happen BEFORE packaging. See the header comments — this
-      # string must never change once set.
-      - name: Patch manifest Publisher (SignPath mode)
-        if: vars.SIGNPATH_ORGANIZATION_ID != ''
-        shell: pwsh
-        run: |
-          $manifestPath = 'src/QNote/Package.appxmanifest'
-          [xml]$manifest = Get-Content $manifestPath
-          $manifest.Package.Identity.Publisher = '${{ vars.SIGNPATH_PUBLISHER }}'
-          $manifest.Save((Join-Path $PWD $manifestPath))
-          Write-Output "Publisher set to: $($manifest.Package.Identity.Publisher)"
-
-      - name: Build unsigned MSIX
-        shell: pwsh
-        run: |
-          msbuild src/QNote/QNote.csproj /restore /t:Publish /p:Configuration=Release `
-            /p:Platform=x64 /p:PublishProfile=win-x64.pubxml `
-            /p:PublishAppxPackage=true /p:AppxPackageSigningEnabled=false /nologo
-          if ($LASTEXITCODE -ne 0) { throw "MSBuild failed ($LASTEXITCODE)" }
-
-      - name: Locate unsigned MSIX
-        id: locate
-        shell: pwsh
-        run: |
-          $msix = Get-ChildItem 'src/QNote/AppPackages' -Recurse -Filter '*.msix' |
-                  Sort-Object LastWriteTime -Descending | Select-Object -First 1
-          if (-not $msix) { throw "No .msix found under src/QNote/AppPackages" }
-          "msix=$($msix.FullName)" | Out-File $env:GITHUB_OUTPUT -Append
-          Write-Output "Unsigned MSIX: $($msix.FullName)"
-
-      # ── SignPath signing ──────────────────────────────────────────────────
-      # upload-artifact always wraps files in a ZIP; the SignPath artifact
-      # configuration therefore expects <zip-file><msix-file path="QNote.msix">.
-      # Stage the package under the fixed name QNote.msix so the artifact
-      # configuration matches regardless of version numbers.
-
-      - name: Stage MSIX for SignPath
-        if: vars.SIGNPATH_ORGANIZATION_ID != ''
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Path signpath-in | Out-Null
-          Copy-Item '${{ steps.locate.outputs.msix }}' 'signpath-in/QNote.msix'
-
-      - name: Upload unsigned artifact
-        if: vars.SIGNPATH_ORGANIZATION_ID != ''
-        id: upload-unsigned
-        uses: actions/upload-artifact@v7
-        with:
-          name: unsigned-msix
-          path: signpath-in/QNote.msix
-
-      # NOTE: release-signing waits for manual approval in the SignPath UI —
-      # the 3600s timeout is deliberate. Approve the request when notified.
-      - name: Submit SignPath signing request
-        if: vars.SIGNPATH_ORGANIZATION_ID != ''
-        uses: signpath/github-action-submit-signing-request@v3
-        with:
-          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
-          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
-          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'qnote' }}
-          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG || 'release-signing' }}
-          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
-          output-artifact-directory: signpath-out
-          wait-for-completion-timeout-in-seconds: '3600'
-          parameters: |
-            productName: QNote
-
-      # The signed artifact mirrors the submitted structure: a ZIP containing
-      # the signed QNote.msix.
-      - name: Extract signed MSIX (SignPath)
-        if: vars.SIGNPATH_ORGANIZATION_ID != ''
-        shell: pwsh
-        run: |
-          $zip = Get-ChildItem 'signpath-out' -Recurse -Filter '*.zip' | Select-Object -First 1
-          if (-not $zip) { throw "No signed artifact ZIP found in signpath-out" }
-          Expand-Archive $zip.FullName -DestinationPath 'signpath-out/extracted' -Force
-          $signed = Get-ChildItem 'signpath-out/extracted' -Recurse -Filter 'QNote.msix' | Select-Object -First 1
-          if (-not $signed) { throw "No QNote.msix inside the signed artifact" }
-          New-Item -ItemType Directory -Path dist | Out-Null
-          Copy-Item $signed.FullName "dist/QNote_${{ steps.version.outputs.version }}_x64.msix"
-
-      # ── Self-signed fallback (pre-SignPath) ───────────────────────────────
-
-      - name: Sign MSIX (self-signed fallback)
-        if: vars.SIGNPATH_ORGANIZATION_ID == ''
-        shell: pwsh
-        env:
-          QNOTE_PFX_BASE64: ${{ secrets.QNOTE_PFX_BASE64 }}
-          QNOTE_PFX_PASSWORD: ${{ secrets.QNOTE_PFX_PASSWORD }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $pfxPath = Join-Path $env:RUNNER_TEMP 'qnote.pfx'
-          try {
-            [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:QNOTE_PFX_BASE64))
-            $signtool = Get-ChildItem 'C:/Program Files (x86)/Windows Kits/10/bin/*/x64/signtool.exe' |
-                        Sort-Object { [version]($_.FullName -replace '.*\\bin\\(\d+\.\d+\.\d+\.\d+)\\.*', '$1') } -Descending |
-                        Select-Object -First 1 -ExpandProperty FullName
-            if (-not $signtool) { throw "signtool.exe not found" }
-            & $signtool sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com `
-              /f $pfxPath /p $env:QNOTE_PFX_PASSWORD '${{ steps.locate.outputs.msix }}'
-            if ($LASTEXITCODE -ne 0) { throw "signtool failed ($LASTEXITCODE)" }
+          $version = '${{ needs.resolve-version.outputs.version }}'
 
-            # Export the public cert for the release assets (users must trust
-            # it once — see docs/msix-install.md).
-            $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(
-              $pfxPath, $env:QNOTE_PFX_PASSWORD)
-            New-Item -ItemType Directory -Path dist | Out-Null
-            [IO.File]::WriteAllBytes("$PWD/dist/qnote.cer",
-              $cert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+          $manifestPath = 'src/QNote/Package.appxmanifest'
+          [xml]$manifest = Get-Content $manifestPath
+          $manifest.Package.Identity.Version = $version
+          $manifest.Save((Resolve-Path $manifestPath).Path)
+          [xml]$manifestCheck = Get-Content $manifestPath
+          if ($manifestCheck.Package.Identity.Version -ne $version) { throw 'manifest patch failed' }
 
-            Copy-Item '${{ steps.locate.outputs.msix }}' "dist/QNote_${{ steps.version.outputs.version }}_x64.msix"
+          # Text replace (not DOM) so the csproj's documentation comments and
+          # formatting survive byte-for-byte.
+          $csprojPath = 'src/QNote/QNote.csproj'
+          $csproj = Get-Content $csprojPath -Raw
+          $csproj = $csproj -replace '<Version>[^<]*</Version>', "<Version>$version</Version>"
+          $csproj = $csproj -replace '<FileVersion>[^<]*</FileVersion>', "<FileVersion>$version</FileVersion>"
+          Set-Content -Path $csprojPath -Value $csproj -NoNewline -Encoding utf8
+          if ((Select-String -Path $csprojPath -Pattern "<Version>$version</Version>" -SimpleMatch).Count -lt 1) { throw 'csproj patch failed' }
+          Write-Output "Patched manifest + csproj to $version"
 
-            # One-download bundle for end users: install.ps1 + qnote.cer + msix.
-            $stage = Join-Path $env:RUNNER_TEMP 'bundle'
-            New-Item -ItemType Directory -Path $stage | Out-Null
-            Copy-Item 'install.ps1', 'dist/qnote.cer', "dist/QNote_${{ steps.version.outputs.version }}_x64.msix" $stage/
-            Compress-Archive -Path "$stage/*" -DestinationPath "dist/QNote_${{ steps.version.outputs.version }}_x64_Installer.zip"
-          } finally {
-            Remove-Item $pfxPath -Force -ErrorAction SilentlyContinue
+      - name: Publish
+        shell: pwsh
+        run: |
+          dotnet publish src/QNote/QNote.csproj -c Release -p:Platform=x64 `
+            -p:PublishProfile=${{ matrix.profile }}.pubxml --nologo
+          if ($LASTEXITCODE -ne 0) { throw "publish failed ($LASTEXITCODE)" }
+
+      # Zip layout (research portable-builds.md §3): publish output at the
+      # zip root + LICENSE + docs/third-party-notices.md. *.pdb and vendor
+      # *.xml are excluded from the staging copy (quick win ②) — the notices
+      # file is staged explicitly and never meets the filter.
+      - name: Stage and zip
+        id: zip
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = '${{ needs.resolve-version.outputs.version }}'
+          $publishDir = 'src/QNote/bin/Release/net10.0-windows10.0.26100.0/win-x64/${{ matrix.publish-dir }}'
+          if (-not (Test-Path (Join-Path $publishDir 'QNote.exe'))) { throw "QNote.exe not found in $publishDir" }
+
+          $stage = Join-Path $env:RUNNER_TEMP "stage-${{ matrix.variant }}"
+          if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
+          New-Item -ItemType Directory -Path $stage | Out-Null
+          robocopy $publishDir $stage /E /XF *.pdb *.xml /NFL /NDL /NJH /NJS | Out-Null
+          if ($LASTEXITCODE -ge 8) { throw "robocopy failed ($LASTEXITCODE)" }
+          Copy-Item LICENSE "$stage/LICENSE"
+          Copy-Item docs/third-party-notices.md "$stage/third-party-notices.md"
+
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          $zip = "dist/QNote_${version}_win-x64_${{ matrix.variant }}.zip"
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Optimal
+          $mb = [Math]::Round((Get-Item $zip).Length / 1MB, 1)
+          Write-Output "Zip: $zip ($mb MB)"
+          "zip=$zip" | Out-File $env:GITHUB_OUTPUT -Append
+
+      - name: SHA256 sidecar
+        shell: pwsh
+        run: |
+          $zip = '${{ steps.zip.outputs.zip }}'
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  $(Split-Path $zip -Leaf)" | Out-File "$zip.sha256" -Encoding utf8
+          Get-Content "$zip.sha256"
+
+      # wtq lesson: launch the ACTUAL release zip and assert the process
+      # stays alive. The app may hide to tray on WorkingSetTrim — that is
+      # fine, process-alive is the oracle.
+      - name: Smoke test (unzip → launch → alive → kill)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = '${{ steps.zip.outputs.zip }}'
+          $smoke = Join-Path $env:RUNNER_TEMP "smoke-${{ matrix.variant }}"
+          if (Test-Path $smoke) { Remove-Item $smoke -Recurse -Force }
+          Expand-Archive $zip -DestinationPath $smoke
+          $exe = Join-Path $smoke 'QNote.exe'
+          if (-not (Test-Path $exe)) { throw 'QNote.exe not found in the zip' }
+
+          function Assert-Alive([string]$Label) {
+            $p = Start-Process -FilePath $exe -WorkingDirectory $smoke -PassThru
+            Start-Sleep -Seconds 20
+            $p.Refresh()
+            if ($p.HasExited) { throw "$Label`: QNote.exe exited early (code $($p.ExitCode))" }
+            $p.Kill($true)
+            if (-not $p.WaitForExit(10000)) { throw "$Label`: process did not exit after kill" }
+            Write-Output "$Label`: alive after 20 s — PASS"
           }
 
-      # ── Verify ────────────────────────────────────────────────────────────
+          # 1. Happy path: portable data root is taken (exe-adjacent data\
+          #    created — proves the full pipeline booted: WinAppSDK bootstrap,
+          #    WinUI, SQLite store, logging).
+          Assert-Alive 'Happy path'
+          if (-not (Test-Path (Join-Path $smoke 'data'))) { throw 'Portable data\ was not created next to the exe' }
+          Write-Output 'Portable data root: PASS'
 
-      - name: Verify signature (SignPath)
-        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+          # 2. Fallback path (research §5.4 data-as-file trick: probe failure
+          #    must fall back to %APPDATA%, not crash).
+          Remove-Item (Join-Path $smoke 'data') -Recurse -Force
+          New-Item -ItemType File -Path (Join-Path $smoke 'data') | Out-Null
+          Assert-Alive 'Read-only fallback'
+          if ((Get-Item (Join-Path $smoke 'data')).PSIsContainer) { throw 'data became a directory — probe did not fail' }
+          if (-not (Test-Path (Join-Path $env:APPDATA 'QNote/QNote'))) { throw 'Roaming fallback root was not created' }
+          Write-Output 'Roaming fallback root: PASS'
+
+          Remove-Item $smoke -Recurse -Force
+          Remove-Item (Join-Path $env:APPDATA 'QNote') -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: portable-${{ matrix.variant }}
+          path: |
+            ${{ steps.zip.outputs.zip }}
+            ${{ steps.zip.outputs.zip }}.sha256
+          if-no-files-found: error
+
+  release:
+    needs: [resolve-version, portable]
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Downloads each variant artifact into dist/<artifact-name>/.
+      - name: Download artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: dist
+
+      - name: SHA256SUMS.txt
         shell: pwsh
         run: |
-          $sig = Get-AuthenticodeSignature "dist/QNote_${{ steps.version.outputs.version }}_x64.msix"
-          if ($sig.Status -ne 'Valid') { throw "Signature invalid: $($sig.Status)" }
-          Write-Output "Signed by: $($sig.SignerCertificate.Subject)"
+          $ErrorActionPreference = 'Stop'
+          # Concatenate the per-zip sidecars (already computed in the variant
+          # jobs; artifact transport preserves bytes) into one checksum file.
+          $sums = Get-ChildItem dist -Recurse -Filter '*.sha256' | Sort-Object Name |
+            ForEach-Object { (Get-Content $_.FullName -Raw).TrimEnd("`r", "`n") }
+          if ($sums.Count -ne 2) { throw "expected 2 sidecars, got $($sums.Count)" }
+          $sums | Set-Content dist/SHA256SUMS.txt -Encoding utf8
+          Get-Content dist/SHA256SUMS.txt
 
-      # Self-signed certs are not trusted on the runner, so Status will not be
-      # Valid — assert the signer subject instead.
-      - name: Verify signature (self-signed)
-        if: vars.SIGNPATH_ORGANIZATION_ID == ''
+      - name: Prepare release notes
         shell: pwsh
         run: |
-          $sig = Get-AuthenticodeSignature "dist/QNote_${{ steps.version.outputs.version }}_x64.msix"
-          if ($sig.SignerCertificate.Subject -ne 'CN=QNote') {
-            throw "Unexpected signer: $($sig.SignerCertificate.Subject)"
-          }
-          Write-Output "Signed by: $($sig.SignerCertificate.Subject) (status: $($sig.Status))"
-
-      # ── Checksums + Release ───────────────────────────────────────────────
-
-      - name: SHA256 checksums
-        shell: pwsh
-        run: |
-          # Checksum the primary downloadable: the Installer.zip in self-signed
-          # mode, the bare signed MSIX in SignPath mode.
-          $zip  = "dist/QNote_${{ steps.version.outputs.version }}_x64_Installer.zip"
-          $msix = "dist/QNote_${{ steps.version.outputs.version }}_x64.msix"
-          $main = if (Test-Path $zip) { $zip } else { $msix }
-          $hash = (Get-FileHash $main -Algorithm SHA256).Hash.ToLower()
-          "$hash  $(Split-Path $main -Leaf)" | Out-File 'dist/SHA256SUMS.txt' -Encoding utf8
-          Get-Content 'dist/SHA256SUMS.txt'
+          $ErrorActionPreference = 'Stop'
+          $version = '${{ needs.resolve-version.outputs.version }}'
+          $notes = (Get-Content '.github/release-notes-template.md' -Raw).Replace('{VERSION}', $version)
+          Set-Content -Path "$env:RUNNER_TEMP/notes.md" -Value $notes -NoNewline -Encoding utf8
+          Write-Output "Release notes prepared ($($notes.Length) chars)"
 
       # On tag pushes the tag already exists; on workflow_dispatch gh creates
-      # it from the triggering commit. Release notes are auto-generated and can
-      # be edited afterwards on GitHub.
+      # it from the triggering commit. gh appends the Release-Notes-API
+      # changelog BELOW the --notes-file body (verified against the gh
+      # manual), so the prepared zh notes stay on top.
       - name: Create GitHub Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $version = '${{ steps.version.outputs.version }}'
+          $version = '${{ needs.resolve-version.outputs.version }}'
           $tag = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME } else { "v$version" }
-          # Self-signed mode ships ONLY the all-in-one Installer.zip (+ sums) —
-          # bare msix/cer/ps1 stay inside the zip to keep the asset list clean.
-          # SignPath mode ships the bare signed MSIX (+ sums).
           $assets = @('dist/SHA256SUMS.txt')
-          $zip = "dist/QNote_${version}_x64_Installer.zip"
-          if (Test-Path $zip) { $assets += $zip } else { $assets += "dist/QNote_${version}_x64.msix" }
-          gh release create $tag --target $env:GITHUB_SHA --title "QNote $version" --generate-notes @assets
+          $assets += Get-ChildItem dist -Recurse -Include *.zip, *.sha256 | Sort-Object Name |
+            ForEach-Object { $_.FullName }
+          Write-Output "Assets:"; $assets | ForEach-Object { Write-Output "  $_" }
+          gh release create $tag --target $env:GITHUB_SHA --title "QNote $version" `
+            --notes-file "$env:RUNNER_TEMP/notes.md" --generate-notes @assets
