@@ -313,6 +313,30 @@
                                     TextWrapping="Wrap" />
                             </StackPanel>
                         </Grid>
+                        <!-- Manual update check (GitHub Releases) — unpackaged/portable
+                             runs only (the VM hides the whole unit, divider included,
+                             for packaged/Store runs). The command disables the button
+                             while running; the button text shows the progress state. -->
+                        <StackPanel Visibility="{x:Bind ViewModel.UpdateCheckVisible, Mode=OneWay}">
+                            <Border
+                                Margin="10,0"
+                                BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                BorderThickness="0,1,0,0" />
+                            <Grid Padding="10,3" ColumnSpacing="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="152" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock VerticalAlignment="Center" Text="软件更新" />
+                                <Button
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Stretch"
+                                    AutomationProperties.AutomationId="SettingsUpdateCheckButton"
+                                    AutomationProperties.Name="检查更新"
+                                    Command="{x:Bind ViewModel.CheckUpdateCommand, Mode=OneWay}"
+                                    Content="{x:Bind ViewModel.UpdateCheckButtonText, Mode=OneWay}" />
+                            </Grid>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
             </StackPanel>

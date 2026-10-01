@@ -6,6 +6,7 @@ using QNote.Controls;
 using QNote.Services;
 using QNote.ViewModels;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.System;
 
 namespace QNote.Views;
 
@@ -321,6 +322,8 @@ public sealed partial class NotesPage : Page
         // is open (the same one-dialog rule): they stash a pending request and close
         // the settings dialog; the follow-up opens after ShowAsync returns.
         var pending = PendingDataDialog.None;
+        UpdateCheckResult? pendingUpdateResult = null;
+        var settingsDialogOpen = true;
         try
         {
             var vm = App.Services.GetRequiredService<SettingsViewModel>();
@@ -339,6 +342,23 @@ public sealed partial class NotesPage : Page
             panel.BackupRequested += () => { pending = PendingDataDialog.Backup; dialog.Hide(); };
             panel.RestoreRequested += () => { pending = PendingDataDialog.Restore; dialog.Hide(); };
 
+            // The manual update check runs while the settings dialog is open (the
+            // row button shows 检查中… via the VM). When the result lands it replaces
+            // this dialog (one-dialog rule); a result arriving after the user closed
+            // settings opens directly instead. Session-scoped like BackupRequested —
+            // the transient VM and the handler die together.
+            vm.UpdateCheckCompleted += result =>
+            {
+                if (!settingsDialogOpen)
+                {
+                    _ = ShowUpdateResultDialogAsync(result);
+                    return;
+                }
+                settingsDialogOpen = false;
+                pendingUpdateResult = result;
+                dialog.Hide();
+            };
+
             // Live-follow theme switches while the dialog is open (the settings panel
             // is where the theme gets changed — reopening to see it would be silly).
             void OnThemeChanged(FrameworkElement sender, object args) => dialog.RequestedTheme = ActualTheme;
@@ -350,6 +370,7 @@ public sealed partial class NotesPage : Page
             finally
             {
                 ActualThemeChanged -= OnThemeChanged;
+                settingsDialogOpen = false;
             }
         }
         finally
@@ -361,6 +382,8 @@ public sealed partial class NotesPage : Page
             await ShowBackupDialogAsync();
         else if (pending == PendingDataDialog.Restore)
             await ShowRestoreDialogAsync();
+        else if (pendingUpdateResult is { } updateResult)
+            await ShowUpdateResultDialogAsync(updateResult);
     }
 
     private enum PendingDataDialog { None, Backup, Restore }
@@ -414,6 +437,79 @@ public sealed partial class NotesPage : Page
         finally
         {
             _dataDialogOpen = false;
+        }
+    }
+
+    /// <summary>
+    /// Update-check result dialog (设置 → 常规 → 检查更新, unpackaged only): newer →
+    /// link to the GitHub release page (Launcher); up-to-date → info; failure →
+    /// friendly zh message (the technical reason stays in the log).
+    /// </summary>
+    private async Task ShowUpdateResultDialogAsync(UpdateCheckResult result)
+    {
+        // Only one ContentDialog may be open at a time (a re-entrant ShowAsync
+        // throws). The _dataDialogOpen check keeps a late check result from
+        // stacking on an open backup/restore dialog; _settingsOpen covers a
+        // result from a PREVIOUS settings session arriving while the user has
+        // already reopened settings (the result is dropped in those corners —
+        // the user's attention is on the open dialog).
+        if (_dialogOpen || _dataDialogOpen || _settingsOpen)
+            return;
+        _dialogOpen = true;
+        try
+        {
+            if (result.Status == UpdateCheckStatus.UpdateAvailable && result.ReleaseUrl is { } url)
+            {
+                var dialog = new ContentDialog
+                {
+                    XamlRoot = XamlRoot,
+                    // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
+                    RequestedTheme = ActualTheme,
+                    Title = "发现新版本",
+                    Content = $"最新版本 {result.LatestVersion} 已发布，可前往 GitHub 下载。",
+                    PrimaryButtonText = "前往下载",
+                    CloseButtonText = "稍后再说",
+                    DefaultButton = ContentDialogButton.Primary,
+                };
+                if (await dialog.ShowAsync() == ContentDialogResult.Primary
+                    && Uri.TryCreate(url, UriKind.Absolute, out var releaseUri))
+                {
+                    // Launch failure (no browser) has no meaningful in-dialog recovery — ignored.
+                    await Launcher.LaunchUriAsync(releaseUri);
+                }
+            }
+            else if (result.Status == UpdateCheckStatus.UpToDate)
+            {
+                var dialog = new ContentDialog
+                {
+                    XamlRoot = XamlRoot,
+                    // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
+                    RequestedTheme = ActualTheme,
+                    Title = "检查更新",
+                    Content = "当前已是最新版本。",
+                    CloseButtonText = "知道了",
+                    DefaultButton = ContentDialogButton.Close,
+                };
+                await dialog.ShowAsync();
+            }
+            else
+            {
+                var dialog = new ContentDialog
+                {
+                    XamlRoot = XamlRoot,
+                    // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
+                    RequestedTheme = ActualTheme,
+                    Title = "检查更新",
+                    Content = "检查更新失败，请检查网络连接后重试。",
+                    CloseButtonText = "知道了",
+                    DefaultButton = ContentDialogButton.Close,
+                };
+                await dialog.ShowAsync();
+            }
+        }
+        finally
+        {
+            _dialogOpen = false;
         }
     }
 
