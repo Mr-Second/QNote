@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using QNote.EdgeHide;
 using QNote.Models;
@@ -18,6 +19,7 @@ public partial class SettingsViewModel : ObservableObject
     private readonly ISettingsService _settings;
     private readonly IGlobalHotkey _hotkey;
     private readonly IStartupTaskService _startup;
+    private readonly IGitHubUpdateService _update;
     private readonly ILogger<SettingsViewModel> _log;
 
     private bool _loading = true;
@@ -28,12 +30,18 @@ public partial class SettingsViewModel : ObservableObject
         ISettingsService settings,
         IGlobalHotkey hotkey,
         IStartupTaskService startup,
+        IGitHubUpdateService update,
+        bool isPackaged,
         ILogger<SettingsViewModel> log)
     {
         _settings = settings;
         _hotkey = hotkey;
         _startup = startup;
+        _update = update;
         _log = log;
+
+        // 检查更新入口仅解包（portable）模式显示：Store 渠道自带自动更新。
+        UpdateCheckVisible = !isPackaged;
     }
 
     // ---------- 显示 ----------
@@ -257,6 +265,44 @@ public partial class SettingsViewModel : ObservableObject
         HotkeyDisplay = _snapshot.EdgeHideHotkeyKey == 0
             ? "未设置"
             : HotkeyFormat.ToDisplay(_snapshot.EdgeHideHotkeyModifiers, _snapshot.EdgeHideHotkeyKey);
+
+    // ---------- 检查更新（仅解包 / portable 模式显示入口） ----------
+
+    /// <summary>是否显示「检查更新」行（由包身份驱动；packaged / Store 渠道隐藏）.</summary>
+    [ObservableProperty]
+    public partial bool UpdateCheckVisible { get; set; }
+
+    /// <summary>检查更新按钮文字；命令运行中显示「检查中…」.</summary>
+    [ObservableProperty]
+    public partial string UpdateCheckButtonText { get; set; } = "检查更新…";
+
+    /// <summary>
+    /// 检查完成（服务结果，非异常）。弹窗编排归视图：设置对话框先关闭，
+    /// 再由 NotesPage 弹结果对话框（同一时刻只允许一个 ContentDialog）。
+    /// </summary>
+    public event Action<UpdateCheckResult>? UpdateCheckCompleted;
+
+    [RelayCommand]
+    private async Task CheckUpdateAsync()
+    {
+        UpdateCheckButtonText = "检查中…";
+        try
+        {
+            var result = await _update.CheckLatestAsync();
+            UpdateCheckCompleted?.Invoke(result);
+        }
+        catch (Exception ex)
+        {
+            // Defensive only — the service contract is result-not-exception. A
+            // violation still surfaces as a Failed result instead of crashing.
+            _log.LogError(ex, "检查更新命令失败");
+            UpdateCheckCompleted?.Invoke(new UpdateCheckResult(UpdateCheckStatus.Failed, null, null, ex.Message));
+        }
+        finally
+        {
+            UpdateCheckButtonText = "检查更新…";
+        }
+    }
 
     private void Save(AppSettings next)
     {

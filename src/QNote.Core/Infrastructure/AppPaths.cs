@@ -4,9 +4,11 @@ namespace QNote.Infrastructure;
 
 /// <summary>
 /// Single source of truth for on-disk data locations. Everything lives under
-/// <c>%APPDATA%\Roaming\QNote\QNote\</c> (decision: explicit Roaming path, human
-/// navigable and shared with the future portable build). Never build these paths
-/// inline anywhere else — depend on this type.
+/// <c>%APPDATA%\Roaming\QNote\QNote\</c> unless the caller roots it elsewhere
+/// (decision: explicit Roaming path, human navigable and shared with the
+/// portable build — unpackaged runs pass <c>&lt;exedir&gt;\data</c>, see
+/// <see cref="PortableDataRoot"/>). Never build these paths inline anywhere
+/// else — depend on this type.
 /// </summary>
 public sealed class AppPaths
 {
@@ -14,7 +16,8 @@ public sealed class AppPaths
 
     /// <summary>
     /// Optional <paramref name="rootOverride"/> roots every path at a caller-supplied
-    /// directory (tests, future portable mode). Production uses the default Roaming path.
+    /// directory (tests, unpackaged portable runs). Packaged runs use the default
+    /// Roaming path.
     /// </summary>
     public AppPaths(string? rootOverride)
     {
