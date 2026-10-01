@@ -6,6 +6,21 @@
     <RootNamespace>QNote</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
+    <!--
+      Version single source (portable channel): the manifest Version (packaged)
+      and the exe VERSIONINFO (unpackaged — read via FileVersionInfo for the
+      manual update check) must stay in sync; release.yml patches both from
+      the tag.
+    -->
+    <Version>1.1.0.0</Version>
+    <FileVersion>1.1.0.0</FileVersion>
+    <!-- Limit NuGet .resources.dll satellites to en + zh-Hans (portable-github-
+         channel Batch 3). NOTE (measured 2026-10-01): this property does NOT
+         remove the ~80 culture dirs in the output — those are WinUI runtime
+         .mui payloads handled by TrimUnusedWindowsAppSdkMuiLanguages below;
+         today only one .resources.dll exists in the graph. Kept as a cheap
+         guard for future package additions. -->
+    <SatelliteResourceLanguages>en;zh-Hans</SatelliteResourceLanguages>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLowerInvariant())</RuntimeIdentifier>
     <PublishProfile Condition="Exists('Properties\PublishProfiles\win-$(Platform).pubxml')">win-$(Platform).pubxml</PublishProfile>
@@ -136,6 +151,100 @@
           Remove="@(RuntimeTargetsCopyLocalItems)"
           Condition="$([System.String]::Copy('%(RuntimeTargetsCopyLocalItems.Identity)').Replace('\', '/').Contains('/libarchive.net/'))
                      and !$([System.String]::Copy('%(RuntimeTargetsCopyLocalItems.Identity)').Replace('\', '/').Contains('/runtimes/win-x64/'))" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+    WinAppSDK unused-split trim (portable-github-channel task, PRD 决策 8): the
+    Microsoft.WindowsAppSDK 2.5.1 meta package drags its AI / ML / Search / Widgets
+    splits along (onnxruntime + DirectML + projections + winmd ≈ 57 MB unpacked at
+    R2R) — none of which QNote calls. Swapping to lean split references is not an
+    option (H.NotifyIcon.WinUI 2.4.1 transitively pins the meta package), so the
+    splits are trimmed at asset-resolution time. Their files reach the output via
+    TWO distinct mechanisms (verified empirically 2026-10-01), hence two targets:
+
+    1. TrimUnusedWindowsAppSdkComponentPackages — the split packages are NOT NuGet
+       runtime assets: each package's props registers its folder in
+       WindowsAppSdkComponentPackages, and Base's SelfContained.targets
+       (AddMicrosoftWindowsAppSDKPayloadFilesFromComponents, active when
+       WindowsAppSDKSelfContained=true) globs `runtimes-framework\win-$(NativePlatform)
+       \native` + `metadata\*.winmd` + workloads json + .pri into None items and
+       ReferenceCopyLocalPaths, and feeds the appxfragments to CreateWinRTRegistration
+       (the generated WinRT-registration manifest embedded in the exe). Dropping the
+       component entries before that target removes the native payload AND keeps the
+       trimmed DLLs out of the generated manifest. In framework-package mode (plain
+       builds / win-x64.pubxml MSIX) SelfContained.targets is not imported, the
+       payload target does not exist, and this hook simply never fires.
+    2. TrimUnusedWindowsAppSdkSplitAssets — the managed projections (lib/net*-windows
+       assets of AI/Search/Widgets + the ML wrapper) resolve to
+       RuntimeCopyLocalItems, and Microsoft.Windows.AI.MachineLearning (transitive
+       of the ML split) ships onnxruntime.dll / DirectML.dll via its NuGet `native`
+       section → NativeCopyLocalItems. Both merge into ReferenceCopyLocalPaths
+       inside ResolveLockFileCopyLocalFiles (Microsoft.PackageDependencyResolution
+       .targets), so the same resolution-time filter as the LibArchive trim above
+       removes them from bin AND publish. Fires on every build.
+
+    InteractiveExperiences is deliberately NOT trimmed: Microsoft.ui.xaml.dll
+    statically imports its natives (Microsoft.UI.Input / Microsoft.UI.Windowing.
+    Core / Microsoft.Internal.FrameworkUdk), and Microsoft.WinUI.dll +
+    H.NotifyIcon.WinUI.dll + WinUIRichEditor.dll reference
+    Microsoft.InteractiveExperiences.Projection (string-swept 2026-10-01 before
+    committing to the list). Base / Foundation / WinUI / DWrite / Runtime stay.
+  -->
+  <Target Name="TrimUnusedWindowsAppSdkComponentPackages" BeforeTargets="AddMicrosoftWindowsAppSDKPayloadFilesFromComponents" Condition="'$(DisableWinAppSdkSplitTrim)' != 'true'">
+    <ItemGroup>
+      <WindowsAppSdkComponentPackages
+          Remove="@(WindowsAppSdkComponentPackages)"
+          Condition="$([System.String]::Copy('%(WindowsAppSdkComponentPackages.Identity)').Replace('\', '/').ToLowerInvariant().Contains('/microsoft.windowsappsdk.ai/'))
+                     or $([System.String]::Copy('%(WindowsAppSdkComponentPackages.Identity)').Replace('\', '/').ToLowerInvariant().Contains('/microsoft.windowsappsdk.ml/'))
+                      or $([System.String]::Copy('%(WindowsAppSdkComponentPackages.Identity)').Replace('\', '/').ToLowerInvariant().Contains('/microsoft.windowsappsdk.search/'))
+                      or $([System.String]::Copy('%(WindowsAppSdkComponentPackages.Identity)').Replace('\', '/').ToLowerInvariant().Contains('/microsoft.windowsappsdk.widgets/'))" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="TrimUnusedWindowsAppSdkSplitAssets" BeforeTargets="ResolveLockFileCopyLocalFiles" Condition="'$(DisableWinAppSdkSplitTrim)' != 'true'">
+    <ItemGroup>
+      <RuntimeCopyLocalItems
+          Remove="@(RuntimeCopyLocalItems)"
+          Condition="$([System.String]::Copy('%(RuntimeCopyLocalItems.Identity)').Replace('\', '/').ToLowerInvariant().Contains('/microsoft.windowsappsdk.ai/'))
+                     or $([System.String]::Copy('%(RuntimeCopyLocalItems.Identity)').Replace('\', '/').ToLowerInvariant().Contains('/microsoft.windowsappsdk.search/'))
+                     or $([System.String]::Copy('%(RuntimeCopyLocalItems.Identity)').Replace('\', '/').ToLowerInvariant().Contains('/microsoft.windowsappsdk.widgets/'))
+                     or $([System.String]::Copy('%(RuntimeCopyLocalItems.Identity)').Replace('\', '/').ToLowerInvariant().Contains('/microsoft.windows.ai.machinelearning/'))" />
+      <NativeCopyLocalItems
+          Remove="@(NativeCopyLocalItems)"
+          Condition="$([System.String]::Copy('%(NativeCopyLocalItems.Identity)').Replace('\', '/').ToLowerInvariant().Contains('/microsoft.windows.ai.machinelearning/'))" />
+      <RuntimeTargetsCopyLocalItems
+          Remove="@(RuntimeTargetsCopyLocalItems)"
+          Condition="$([System.String]::Copy('%(RuntimeTargetsCopyLocalItems.Identity)').Replace('\', '/').ToLowerInvariant().Contains('/microsoft.windows.ai.machinelearning/'))" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+    WinAppSDK MUI language trim (portable-github-channel Batch 3, quick win ①
+    realization): the self-contained payload target in Base's SelfContained
+    .targets (AddMicrosoftWindowsAppSDKPayloadFilesFromComponents) globs
+    runtimes-framework\win-<arch>\native\**\*.mui into None items with
+    CopyToOutputDirectory — the Microsoft.ui.xaml.dll.mui localization dirs,
+    ~80 cultures / ~3.2 MB unpacked per output. WinAppSDK exposes no
+    SatelliteResourceLanguages-style filter for these (verified 2026-10-01:
+    the property had zero effect; the "satellite dirs" in the Batch-2 research
+    are these .mui payloads), so they are trimmed by post-filtering the
+    payload's None items. Keep en-us / en-GB / zh-CN (QNote ships zh-Hans +
+    en UI; WinUI falls back to the .mui default for any other UI language —
+    safe for all users). Gated to the SC payload path exactly like the split
+    trim above: the payload target only exists when
+    WindowsAppSDKSelfContained=true (portable profiles); MSIX / plain builds
+    never import SelfContained.targets and this hook never fires. Shares the
+    DisableWinAppSdkSplitTrim escape hatch.
+  -->
+  <Target Name="TrimUnusedWindowsAppSdkMuiLanguages" AfterTargets="AddMicrosoftWindowsAppSDKPayloadFilesFromComponents" Condition="'$(DisableWinAppSdkSplitTrim)' != 'true'">
+    <ItemGroup>
+      <None Remove="@(None)"
+          Condition="'%(None.Extension)' == '.mui'
+                     and $([System.String]::Copy('%(None.Identity)').Replace('\', '/').ToLowerInvariant().Contains('/microsoft.windowsappsdk.'))
+                     and !$([System.String]::Copy('%(None.Link)').Replace('\', '/').ToLowerInvariant().StartsWith('en-us/'))
+                     and !$([System.String]::Copy('%(None.Link)').Replace('\', '/').ToLowerInvariant().StartsWith('en-gb/'))
+                     and !$([System.String]::Copy('%(None.Link)').Replace('\', '/').ToLowerInvariant().StartsWith('zh-cn/'))" />
     </ItemGroup>
   </Target>
 </Project>
