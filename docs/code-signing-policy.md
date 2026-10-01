@@ -12,7 +12,7 @@ attested by SHA256 checksums instead.
   `<zip>.sha256` sidecar next to each zip plus a combined `SHA256SUMS.txt`:
 
   ```powershell
-  Get-FileHash .\QNote_1.2.0.0_win-x64_self-contained.zip -Algorithm SHA256
+  Get-FileHash .\QNote_1.2.0.0_win-x64_native-aot.zip -Algorithm SHA256
   ```
 
 The release workflow (`.github/workflows/release.yml`) contains no signing

@@ -40,10 +40,10 @@ Two channels, same app:
   Microsoft-trusted signing): [QNote on Microsoft Store](https://apps.microsoft.com/detail/9NV57VJPTPCZ)
 - **Portable zip** (green software — runs from any folder, data travels with
   it) from [Releases](https://github.com/Mr-Second/QNote/releases):
-  - `QNote_<version>_win-x64_self-contained.zip` — recommended; fully
-    self-contained, zero dependencies
-  - `QNote_<version>_win-x64_framework-dependent.zip` — roughly half the
-    size; requires the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
+  - `QNote_<version>_win-x64_native-aot.zip` — recommended; NativeAOT-compiled,
+    smaller download, faster startup, zero dependencies
+  - `QNote_<version>_win-x64_framework-dependent.zip` — requires the
+    [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
 
 Unzip anywhere writable and run `QNote.exe`. All data (notes DB, images,
 logs) lives in a `data\` folder next to the exe — copy the folder to migrate.
