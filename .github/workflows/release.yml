@@ -1,7 +1,9 @@
 # Release — build the two portable zips (GitHub channel) and publish them.
 #
 # Triggered by pushing a version tag (v1.2.0 → app version 1.2.0.0) or
-# manually via workflow_dispatch (uses the version currently in the repo).
+# manually via workflow_dispatch (uses the version currently in the repo;
+# `dry-run` runs the full build/zip/smoke pipeline but skips the release
+# job — used to validate pipeline changes without publishing anything).
 #
 # Channel split (portable-github-channel task, v1.2.0+):
 #   Store  = installed MSIX, Microsoft-trusted signature, auto-update.
@@ -10,12 +12,20 @@
 #   file intentionally references no secrets at all.
 #
 # Flow (each variant is its own job via the matrix — wtq lesson):
-#   resolve-version → [portable self-contained | portable framework-dependent]
+#   resolve-version → [portable native-aot | portable framework-dependent]
 #     → patch manifest + csproj versions (working copy only, never committed)
 #     → dotnet publish → zip (publish output + LICENSE + third-party notices,
 #        no *.pdb / vendor *.xml) → .sha256 sidecar → smoke test → artifact
 #   → release: SHA256SUMS.txt + prepared zh notes (auto-generated changelog
 #     is appended below them by --generate-notes) + gh release create.
+#
+# The self-contained variant was switched to NativeAOT (2026-10-01 AOT
+# experiment, verdict GO): zip 33MB vs 88.4MB, warm-start OnLaunched -60%,
+# zero runtime deps — strictly better than the old SC build. The old
+# win-x64-portable-selfcontained.pubxml stays in the repo as the fallback
+# if a runner/toolchain change ever breaks the AOT path. The AOT exe keeps
+# VERSIONINFO (update-check reads FileVersion — verified 2026-10-01); the
+# 88.6MB native QNote.pdb is excluded by the existing /XF *.pdb filter.
 #
 # Smoke-test caveat: this workflow installs the .NET SDK itself
 # (actions/setup-dotnet), so the framework-dependent variant launches on the
@@ -28,6 +38,11 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Run build/zip/smoke but skip the release job'
+        type: boolean
+        default: false
 
 permissions:
   contents: write # gh release create
@@ -71,9 +86,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - variant: self-contained
-            profile: win-x64-portable-selfcontained
-            publish-dir: publish-portable-selfcontained
+          - variant: native-aot
+            profile: win-x64-portable-aot
+            publish-dir: publish-portable-aot
           - variant: framework-dependent
             profile: win-x64-portable-frameworkdependent
             publish-dir: publish-portable-frameworkdependent
@@ -224,6 +239,9 @@ jobs:
 
   release:
     needs: [resolve-version, portable]
+    # Dry-run (dispatch input) validates the pipeline without publishing:
+    # skip this job, keep the portable build/zip/smoke jobs above.
+    if: ${{ inputs.dry-run != true }}
     runs-on: windows-latest
     steps:
       - name: Checkout
