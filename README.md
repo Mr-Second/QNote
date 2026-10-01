@@ -34,19 +34,26 @@ to keep running all day without thinking about it.
 
 ## Install
 
-Download the latest `.msix` from
-[Releases](https://github.com/Mr-Second/QNote/releases) and follow
-[docs/msix-install.md](docs/msix-install.md).
+Two channels, same app:
 
-Releases are currently signed with a **self-signed certificate**, so a one-time
-certificate trust step is required (explained in the install doc). Free,
-publicly trusted code signing via [SignPath.io](https://signpath.io) is being
-applied for — once approved, packages will install with a plain double-click.
-See [docs/code-signing-policy.md](docs/code-signing-policy.md).
+- **Microsoft Store** (recommended — one-click install, auto-updates,
+  Microsoft-trusted signing): [QNote on Microsoft Store](https://apps.microsoft.com/detail/9NV57VJPTPCZ)
+- **Portable zip** (green software — runs from any folder, data travels with
+  it) from [Releases](https://github.com/Mr-Second/QNote/releases):
+  - `QNote_<version>_win-x64_self-contained.zip` — recommended; fully
+    self-contained, zero dependencies
+  - `QNote_<version>_win-x64_framework-dependent.zip` — roughly half the
+    size; requires the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
 
-**Requirements:** Windows 10 19041+ / Windows 11, x64. Windows App Runtime
-2.3+ (usually preinstalled on Windows 11; the installer will tell you if it is
-missing).
+Unzip anywhere writable and run `QNote.exe`. All data (notes DB, images,
+logs) lives in a `data\` folder next to the exe — copy the folder to migrate.
+Portable zips are not code-signed; verify downloads against the
+`SHA256SUMS.txt` published with each release (see
+[docs/code-signing-policy.md](docs/code-signing-policy.md)).
+
+Store and portable installs are independent — both can coexist on one machine.
+
+**Requirements:** Windows 10 19041+ / Windows 11, x64.
 
 ## Build from source
 
@@ -72,7 +79,7 @@ dotnet test tests/QNote.Tests/QNote.Tests.csproj -c Debug
 | MVVM | CommunityToolkit.Mvvm |
 | Data | SQLite via Microsoft.Data.Sqlite, FTS5 full-text search |
 | Tests | xUnit |
-| Distribution | MSIX installer |
+| Distribution | Microsoft Store (MSIX) + portable zips (GitHub Releases) |
 
 ## License
 
