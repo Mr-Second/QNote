@@ -10,7 +10,7 @@ namespace QNote.Converters;
 /// <see cref="Thickness"/>) or <c>"Spacing"</c> (StackPanel spacing, double).
 /// Standard reproduces the original hardcoded 10,8 / 3 exactly.
 /// </summary>
-public sealed class ListDensityConverter : IValueConverter
+public sealed partial class ListDensityConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)
     {

@@ -11,7 +11,7 @@ namespace QNote.Converters;
 /// casts the converter result straight to <see cref="Brush"/> and crashes on
 /// UnsetValue (classic {Binding} swallows it, x:Bind does not).
 /// </summary>
-public sealed class HexToBrushConverter : IValueConverter
+public sealed partial class HexToBrushConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)
     {
