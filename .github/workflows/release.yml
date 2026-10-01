@@ -155,6 +155,13 @@ jobs:
           Write-Output "Zip: $zip ($mb MB)"
           "zip=$zip" | Out-File $env:GITHUB_OUTPUT -Append
 
+          # GH Actions' pwsh wrapper propagates the LASTEXITCODE of the last
+          # NATIVE command when the script ends without an explicit exit —
+          # robocopy returns 1 on success-with-copies, which failed this step
+          # on v1.2.0's first run (zip was fine, step still went red). All
+          # failure paths above throw; an explicit exit 0 cannot mask errors.
+          exit 0
+
       - name: SHA256 sidecar
         shell: pwsh
         run: |
