@@ -1,6 +1,6 @@
 # QNote Privacy Policy
 
-**Last updated: 2026-09-26**
+**Last updated: 2026-10-01**
 
 QNote ("the app") is a personal, non-commercial open-source project
 (https://github.com/Mr-Second/QNote). This policy explains what data the app
@@ -10,8 +10,9 @@ handles — in short: **everything stays on your device**.
 
 All content you create in QNote — notes, categories, settings, images, and
 backup archives — is stored **locally on your device only**, in the app's
-private data directory (under `%APPDATA%` or the MSIX package's virtualized
-equivalent). Uninstalling the app may delete this data.
+private data directory (next to `QNote.exe` in a `data\` folder for the
+portable edition, under `%APPDATA%` otherwise, or the MSIX package's
+virtualized equivalent). Uninstalling the app may delete this data.
 
 ## Data the app collects or transmits
 
@@ -23,9 +24,10 @@ equivalent). Uninstalling the app may delete this data.
 - contains **no advertising or tracking SDKs**
 
 The app only accesses the network if you explicitly use a feature that
-requires it (for example, checking for updates via the Microsoft Store or
-downloading the installer from GitHub). Those requests go to Microsoft or
-GitHub and are governed by their respective privacy policies.
+requires it (for example, the portable edition's manual "check for updates"
+button, which contacts the GitHub Releases API, app updates delivered via
+the Microsoft Store, or downloading a release from GitHub). Those requests go
+to Microsoft or GitHub and are governed by their respective privacy policies.
 
 ## Crash diagnostics
 
