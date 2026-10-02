@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="QNote.Controls.EditorFindBar"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Visibility="Collapsed"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <FontFamily x:Key="CodiconFont">ms-appx:///Assets/Fonts/codicon.ttf#codicon</FontFamily>
+        <ThemeShadow x:Key="FindBarShadow" />
+
+        <!--  VS Code findWidget .button: 22x22 hit target, radius 5, borderless,
+              16px codicon glyph; transparent at rest. Hover/pressed ride the shared
+              Tertiary fill — Subtle*Secondary read near-invisible on the Dark surface
+              (user report 2026-10-02). The per-state fills live at the shared-parent
+              scope (a Style cannot carry Resources).  -->
+        <Style x:Key="FindBarButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="22" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <ThemeResource x:Key="ButtonBackgroundPointerOver" ResourceKey="SubtleFillColorTertiaryBrush" />
+        <ThemeResource x:Key="ButtonBackgroundPressed" ResourceKey="SubtleFillColorTertiaryBrush" />
+    </UserControl.Resources>
+
+    <!--  VS Code find-widget look (findWidget.css): solid editorWidget surface,
+          1px widget border, radius 6, soft shadow; 34px tall with the find row
+          only. 3-column grid replaces VS Code's absolute zones: [18px full-height
+          toggle chevron, also the DRAG HANDLE] [content rows] [22px close,
+          top-aligned so it stays put when the replace row expands]. Every color is
+          a ThemeResource so Light / Dark / HighContrast all resolve; localized
+          strings + automation names are assigned in code-behind via the vendored
+          RichEditorLocalization.  -->
+    <Border
+        Padding="4,0,4,0"
+        Background="{ThemeResource SolidBackgroundFillColorSecondaryBrush}"
+        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+        BorderThickness="1"
+        CornerRadius="6"
+        Shadow="{StaticResource FindBarShadow}"
+        Translation="0,0,32">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="18" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="22" />
+            </Grid.ColumnDefinitions>
+
+            <!--  Col 0 — toggle chevron (VS Code .button.toggle): full height of the
+                  widget, 18 wide; glyph flips EAB6 → EAB4 with the expanded state. A
+                  plain Button (NOT a ToggleButton): the toggle template's checked
+                  foreground assumes the accent fill and rendered white-on-light /
+                  dark-on-dark once the fill was made transparent. Borderless like the
+                  other strip buttons — hover fill only.  -->
+            <Button
+                x:Name="ExpandReplace"
+                Width="18"
+                Padding="0"
+                HorizontalContentAlignment="Center"
+                VerticalAlignment="Stretch"
+                VerticalContentAlignment="Center"
+                AllowFocusOnInteraction="False"
+                Background="Transparent"
+                BorderThickness="0"
+                Click="ExpandReplace_Click"
+                CornerRadius="4">
+                <FontIcon
+                    x:Name="ExpandGlyph"
+                    FontFamily="{StaticResource CodiconFont}"
+                    FontSize="16"
+                    Glyph="&#xEAB6;" />
+            </Button>
+
+            <!--  Col 1 — content rows (VS Code margin-left 17 + padding-left 9 ≈ the
+                  18px toggle column + inset; the 4px inset is split evenly with the
+                  border padding so the chevron neither hugs the edge nor floats).
+                  Rows are 25px tall (VS Code inputbox min-height 25), 3px gaps,
+                  4px bottom inset → 34px total.  -->
+            <StackPanel
+                Grid.Column="1"
+                Margin="4,3,3,4"
+                Spacing="3">
+
+                <!--  Find row: input with the in-input "Aa" case toggle (VS Code
+                      controls-in-input) + the n/m counter (fixed-width, spanning the
+                      same band the replace/replace-all buttons occupy in the row
+                      below — 22+3+22) + ↑/↓ navigation.  -->
+                <StackPanel Orientation="Horizontal">
+                    <Grid>
+                        <!--  Right padding 58: the in-input Aa sits 32 in from the
+                              right edge so it never overlaps the TextBox template's
+                              built-in CLEAR (×) button that appears on focus with
+                              text (WinUI default; no public property hides it).  -->
+                        <TextBox
+                            x:Name="FindBox"
+                            MinWidth="200"
+                            MinHeight="25"
+                            Padding="6,3,58,3"
+                            FontSize="13"
+                            KeyDown="FindBox_KeyDown"
+                            TextChanged="FindBox_TextChanged" />
+                        <!--  Right-inset case toggle; the TextBox's right padding
+                              keeps typed text from running under the glyph.  -->
+                        <ToggleButton
+                            x:Name="MatchCase"
+                            Width="20"
+                            Height="20"
+                            Margin="0,0,32,0"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Padding="0"
+                            AllowFocusOnInteraction="False"
+                            BorderThickness="0"
+                            Click="MatchCase_Click"
+                            CornerRadius="4">
+                            <ToggleButton.Resources>
+                                <SolidColorBrush x:Key="ToggleButtonBackground" Color="Transparent" />
+                                <ThemeResource x:Key="ToggleButtonBackgroundPointerOver" ResourceKey="SubtleFillColorTertiaryBrush" />
+                                <ThemeResource x:Key="ToggleButtonBackgroundPressed" ResourceKey="SubtleFillColorTertiaryBrush" />
+                                <ThemeResource x:Key="ToggleButtonBackgroundChecked" ResourceKey="SubtleFillColorSecondaryBrush" />
+                                <ThemeResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="SubtleFillColorTertiaryBrush" />
+                                <ThemeResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="SubtleFillColorTertiaryBrush" />
+                                <ThemeResource x:Key="ToggleButtonForegroundPointerOver" ResourceKey="TextFillColorPrimaryBrush" />
+                                <ThemeResource x:Key="ToggleButtonForegroundPressed" ResourceKey="TextFillColorPrimaryBrush" />
+                                <ThemeResource x:Key="ToggleButtonForegroundChecked" ResourceKey="TextFillColorPrimaryBrush" />
+                                <ThemeResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="TextFillColorPrimaryBrush" />
+                                <ThemeResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="TextFillColorPrimaryBrush" />
+                            </ToggleButton.Resources>
+                            <FontIcon
+                                FontFamily="{StaticResource CodiconFont}"
+                                FontSize="16"
+                                Glyph="&#xEAB1;" />
+                        </ToggleButton>
+                    </Grid>
+                    <!--  Counter: FIXED width spanning the replace-button band below
+                          (left edge aligns 替换, right edge aligns 全部替换) so the
+                          two rows read as one grid; turns error-red on a non-empty
+                          query with 0 matches (VS Code .no-results).  -->
+                    <TextBlock
+                        x:Name="MatchLabel"
+                        Width="47"
+                        Margin="5,0,0,0"
+                        VerticalAlignment="Center"
+                        FontSize="12"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        TextAlignment="Center" />
+                    <Button
+                        x:Name="PrevButton"
+                        AllowFocusOnInteraction="False"
+                        Click="PrevButton_Click"
+                        Style="{StaticResource FindBarButtonStyle}">
+                        <FontIcon
+                            FontFamily="{StaticResource CodiconFont}"
+                            FontSize="16"
+                            Glyph="&#xEAA1;" />
+                    </Button>
+                    <Button
+                        x:Name="NextButton"
+                        Margin="3,0,0,0"
+                        AllowFocusOnInteraction="False"
+                        Click="NextButton_Click"
+                        Style="{StaticResource FindBarButtonStyle}">
+                        <FontIcon
+                            FontFamily="{StaticResource CodiconFont}"
+                            FontSize="16"
+                            Glyph="&#xEA9A;" />
+                    </Button>
+                </StackPanel>
+
+                <!--  Replace row (collapsed until the chevron or Ctrl+H expands it):
+                      input aligned under the find input, replace / replace-all buttons
+                      under the counter band above.  -->
+                <StackPanel
+                    x:Name="ReplaceRow"
+                    Orientation="Horizontal"
+                    Visibility="Collapsed">
+                    <TextBox
+                        x:Name="ReplaceBox"
+                        MinWidth="200"
+                        MinHeight="25"
+                        Padding="6,3,6,3"
+                        FontSize="13"
+                        KeyDown="ReplaceBox_KeyDown" />
+                    <Button
+                        x:Name="ReplaceNextButton"
+                        Margin="5,0,0,0"
+                        AllowFocusOnInteraction="False"
+                        Click="ReplaceNextButton_Click"
+                        Style="{StaticResource FindBarButtonStyle}">
+                        <FontIcon
+                            FontFamily="{StaticResource CodiconFont}"
+                            FontSize="16"
+                            Glyph="&#xEB3D;" />
+                    </Button>
+                    <Button
+                        x:Name="ReplaceAllButton"
+                        Margin="3,0,0,0"
+                        AllowFocusOnInteraction="False"
+                        Click="ReplaceAllButton_Click"
+                        Style="{StaticResource FindBarButtonStyle}">
+                        <FontIcon
+                            FontFamily="{StaticResource CodiconFont}"
+                            FontSize="16"
+                            Glyph="&#xEB3C;" />
+                    </Button>
+                </StackPanel>
+
+            </StackPanel>
+
+            <!--  Col 2 — close (VS Code .codicon-widget-close: top 5, right 4), stays
+                  put while the replace row expands.  -->
+            <Button
+                x:Name="CloseButton"
+                Grid.Column="2"
+                Margin="0,5,0,0"
+                AllowFocusOnInteraction="False"
+                Click="CloseButton_Click"
+                Style="{StaticResource FindBarButtonStyle}"
+                VerticalAlignment="Top">
+                <FontIcon
+                    FontFamily="{StaticResource CodiconFont}"
+                    FontSize="16"
+                    Glyph="&#xEA76;" />
+            </Button>
+
+        </Grid>
+    </Border>
+</UserControl>
