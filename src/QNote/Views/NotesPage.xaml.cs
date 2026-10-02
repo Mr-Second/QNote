@@ -40,6 +40,10 @@ public sealed partial class NotesPage : Page
             new NotesPageViewModel.EditorSnapshot(_editor.GetMarkdown(), _editor.IsDirty);
         _editor.CurrentNoteIdProvider = () => ViewModel.SelectedNote?.Id;
         _editor.ImportFailed += OnImageError;
+        // The toolbar image button stays disabled without a host picker; route it
+        // through the controller's full pipeline (the raw InsertImageBlock path
+        // would bypass the image store / note link / sha remap entirely).
+        EditorToolbar.ImagePicker = PickAndInsertImageAsync;
 
         // Mirror the page's actual theme onto the editor. The appearance brushes
         // (canvas/text/caret) are pinned via ThemeResource in XAML; RequestedTheme here
@@ -71,6 +75,28 @@ public sealed partial class NotesPage : Page
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e) => await ViewModel.LoadAsync();
+
+    /// <summary>
+    /// Toolbar image-button hook: multi-select file picker routed through the
+    /// controller's insert pipeline. Returns null — the controller has already
+    /// inserted, so the toolbar must not run its own raw insert path.
+    /// </summary>
+    private async Task<byte[]?> PickAndInsertImageAsync()
+    {
+        var picker = new Windows.Storage.Pickers.FileOpenPicker
+        {
+            SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.PicturesLibrary,
+            ViewMode = Windows.Storage.Pickers.PickerViewMode.Thumbnail,
+        };
+        foreach (var ext in WicImageNormalizer.SupportedExtensions)
+            picker.FileTypeFilter.Add($".{ext}");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, App.WindowHandle);
+
+        var files = await picker.PickMultipleFilesAsync();
+        if (files.Count > 0)
+            await _editor.InsertImageFilesAsync(files.Select(f => f.Path));
+        return null;
+    }
 
     private void OnFocusTitleRequested() => TitleBox.Focus(FocusState.Programmatic);
 
