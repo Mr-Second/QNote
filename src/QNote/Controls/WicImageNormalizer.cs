@@ -29,6 +29,9 @@ public static class WicImageNormalizer
     /// <summary>True when the extension is a WIC-decodable raster format.</summary>
     public static bool IsSupported(string extension) => SupportedExt.Contains(Normalize(extension));
 
+    /// <summary>The supported source extensions (no dot), for file-picker filters.</summary>
+    public static IReadOnlyCollection<string> SupportedExtensions => SupportedExt;
+
     /// <summary>
     /// Decodes <paramref name="sourceBytes"/>, detects alpha, decides a plan, and
     /// produces the display copy. Throws <see cref="InvalidDataException"/> for an
