@@ -46,4 +46,21 @@ public interface INoteService
     /// rendering resolves <c>qnote-img:</c> references to these).
     /// </summary>
     Task<IReadOnlyList<NoteImage>> GetNoteImagesWithDisplayAsync(long noteId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Known metadata (INCLUDING <see cref="NoteImage.DisplayBytes"/>) for the given
+    /// content addresses, from any note that references them — the row-clone source
+    /// for save-time adoption of a pasted image (no WIC decode needed).
+    /// </summary>
+    Task<IReadOnlyDictionary<string, NoteImage>> GetImageMetadataByShaAsync(
+        IReadOnlyList<string> sha256, CancellationToken ct = default);
+
+    /// <summary>
+    /// Of the given display-copy hashes, the ones some <c>note_images</c> row already
+    /// carries, mapped to the row's original content address — save-time adoption
+    /// uses this to relink a cross-note pasted image to the shared original
+    /// (task 10-03). Full-table scan; call only when unlinked images exist.
+    /// </summary>
+    Task<IReadOnlyDictionary<string, string>> FindOriginalShaByDisplayHashAsync(
+        IReadOnlyList<string> displaySha256, CancellationToken ct = default);
 }

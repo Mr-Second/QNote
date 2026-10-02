@@ -113,4 +113,16 @@ public interface INoteRepository
     /// </summary>
     Task<IReadOnlyDictionary<string, NoteImage>> GetImageMetadataByShaAsync(
         IReadOnlyList<string> sha256, CancellationToken ct = default);
+
+    /// <summary>
+    /// Of the given display-copy hashes (SHA256 of <see cref="NoteImage.DisplayBytes"/>),
+    /// the ones some <c>note_images</c> row anywhere already carries, mapped to that
+    /// row's ORIGINAL content address. Save-time image adoption uses this to recognize
+    /// a pasted image as another note's display copy and relink the shared original
+    /// instead of importing a duplicate (task 10-03). Full-table scan — call it only
+    /// when unlinked images exist; a stored display_sha256 column is the future
+    /// optimization, not a schema change now.
+    /// </summary>
+    Task<IReadOnlyDictionary<string, string>> FindOriginalShaByDisplayHashAsync(
+        IReadOnlyList<string> displaySha256, CancellationToken ct = default);
 }

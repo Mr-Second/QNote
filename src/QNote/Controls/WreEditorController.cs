@@ -169,14 +169,18 @@ public sealed class WreEditorController
     /// Saves the document as Markdown: <see cref="MarkdownDocumentFormatter.ToDocumentContent"/>
     /// → (reference remap) → <see cref="MarkdownEmitter"/>. Each inline image is
     /// content-addressed by hashing its bytes; a display copy's hash is rewritten to the
-    /// original sha it was loaded from (see <see cref="_displayBytesSha"/>), so the
+    /// original sha it resolves to (see <see cref="_displayBytesSha"/>), so the
     /// emitted references keep matching <c>note_images</c>.
     /// </summary>
     public string GetMarkdown()
     {
         if (_editor.Document is not { } document)
             return string.Empty;
+        return GetMarkdown(document);
+    }
 
+    private string GetMarkdown(FlowDocument document)
+    {
         var content = MarkdownDocumentFormatter.ToDocumentContent(document);
         return MarkdownEmitter.Emit(RemapImageReferences(content));
     }
@@ -296,12 +300,32 @@ public sealed class WreEditorController
 
     private async Task<bool> InsertImageBytesAsync(byte[] bytes, string extension)
     {
-        if (_images is null)
+        var (imported, error) = await TryImportAndLinkAsync(bytes, extension, CurrentNoteIdProvider?.Invoke());
+        if (imported is null)
         {
-            _log?.LogWarning("No IImageService wired; image insert skipped");
-            ImportFailed?.Invoke("图片服务不可用，无法插入图片");
+            ImportFailed?.Invoke(error ?? "插入图片失败，请查看日志");
             return false;
         }
+
+        _editor.Focus(FocusState.Programmatic);
+        _editor.InsertInlineImage(imported.DisplayBytes, BlipToMime(imported.DisplayBlip));
+        ContentChanged?.Invoke();
+        return true;
+    }
+
+    /// <summary>
+    /// The import core shared by the insert path and save-time adoption: normalize a
+    /// compressed display copy, store the original content-addressed (dedup), link the
+    /// row to the given note, and record the display-bytes remap entry. No editor
+    /// mutation and no user-facing failure event — the insert path surfaces the message
+    /// via <see cref="ImportFailed"/>, adoption just logs and skips. Returns
+    /// (imported, null) or (null, message) on failure.
+    /// </summary>
+    private async Task<(ImportedImage? Image, string? Error)> TryImportAndLinkAsync(
+        byte[] bytes, string extension, long? noteId)
+    {
+        if (_images is null)
+            return (null, "图片服务不可用，无法插入图片");
 
         NormalizedImage normalized;
         try
@@ -311,8 +335,7 @@ public sealed class WreEditorController
         catch (Exception ex)
         {
             _log?.LogWarning(ex, "Image decode failed ({Ext})", extension);
-            ImportFailed?.Invoke("无法解码该图片（可能是不支持的格式）");
-            return false;
+            return (null, "无法解码该图片（可能是不支持的格式）");
         }
 
         ImportedImage imported;
@@ -325,21 +348,20 @@ public sealed class WreEditorController
         catch (Exception ex)
         {
             _log?.LogError(ex, "Storing original image failed");
-            ImportFailed?.Invoke("保存图片失败，请查看日志");
-            return false;
+            return (null, "保存图片失败，请查看日志");
         }
 
-        // Link the original to the current note now — import-time is the only moment
+        // Link the original to the note now — import-time is the only moment
         // the byte size / dimensions are known without a WIC round-trip on reload.
-        if (_notes is not null && CurrentNoteIdProvider?.Invoke() is { } noteId)
+        if (_notes is not null && noteId is { } id)
         {
             try
             {
-                await _notes.AddNoteImagesAsync(noteId, [ToNoteImage(noteId, imported)]);
+                await _notes.AddNoteImagesAsync(id, [ToNoteImage(id, imported)]);
             }
             catch (Exception ex)
             {
-                _log?.LogWarning(ex, "Linking image {Sha} to note {NoteId} failed", imported.Sha256, noteId);
+                _log?.LogWarning(ex, "Linking image {Sha} to note {NoteId} failed", imported.Sha256, id);
             }
         }
 
@@ -347,10 +369,7 @@ public sealed class WreEditorController
         // original sha (the same entry a later load rebuilds from note_images).
         _displayBytesSha[Sha256Hex(imported.DisplayBytes)] = imported.Sha256;
 
-        _editor.Focus(FocusState.Programmatic);
-        _editor.InsertInlineImage(imported.DisplayBytes, BlipToMime(imported.DisplayBlip));
-        ContentChanged?.Invoke();
-        return true;
+        return (imported, null);
     }
 
     private static NoteImage ToNoteImage(long noteId, ImportedImage image) => new()
@@ -367,6 +386,178 @@ public sealed class WreEditorController
 
     private static string BlipToMime(string blip) =>
         string.Equals(blip, RtfImagePayload.JpegBlip, StringComparison.Ordinal) ? "image/jpeg" : "image/png";
+
+    // ---------- Save-time image adoption (cross-note paste / external bitmap) ----------
+
+    /// <summary>
+    /// Save-time adoption of unlinked inline images (task 10-03). A paste can put
+    /// bytes into the document that no <c>note_images</c> row of the open note backs:
+    /// an in-app copy from ANOTHER note carries that note's display copy (its hash
+    /// resolves to no original here), an external bitmap was never imported at all.
+    /// The emitted Markdown would carry a dead <c>qnote-img:</c> reference — the next
+    /// reload degrades it to alt text and the sync then prunes it. This walks the
+    /// current document and links every such image to the open note: a display hash
+    /// that some row anywhere already carries clones that row (zero extra disk — the
+    /// original file is shared, content-addressed); anything else goes through the
+    /// full import pipeline. Only rows and <see cref="_displayBytesSha"/> entries are
+    /// added — the document itself is not touched (the image is already visible).
+    /// </summary>
+    public Task AdoptUnlinkedImagesAsync() => AdoptUnlinkedImagesAsync(_editor.Document);
+
+    /// <summary>
+    /// Save-time entry point: adopt unlinked images, then capture the flush snapshot
+    /// (Markdown + dirty flag) from the SAME document instance the adoption walked.
+    /// Snapshotting via the plain <see cref="GetMarkdown"/> instead would race a note
+    /// switch swapping <see cref="RichEditor.Document"/> during the adoption's DB
+    /// awaits — the flush would then persist the NEW note's Markdown into the OLD
+    /// note. The captured reference is immune to that wholesale swap. In-place edits
+    /// landing inside the (rare — SQLite awaits complete synchronously) yielding
+    /// awaits are benign: text edits simply appear in the snapshot; only a mid-window
+    /// image PASTE could skip adoption, which degrades to the pre-task dead-ref
+    /// behavior and is re-adopted by the next save.
+    /// </summary>
+    public async Task<(string Markdown, bool Changed)> AdoptAndSnapshotAsync()
+    {
+        if (_editor.Document is not { } document)
+            return (string.Empty, false);
+
+        await AdoptUnlinkedImagesAsync(document);
+        var markdown = GetMarkdown(document);
+        return (markdown, markdown != _baseline);
+    }
+
+    private async Task AdoptUnlinkedImagesAsync(FlowDocument? document)
+    {
+        if (_notes is null || _images is null || document is null)
+            return;
+
+        // Read the note id ONCE up front: every row links to the note whose content
+        // the adoption walked, even if a note switch lands inside the awaits below.
+        if (CurrentNoteIdProvider?.Invoke() is not { } noteId)
+            return;
+
+        // Doc-walk cost equals the save path's own walk in GetMarkdown right after —
+        // the accepted double-walk (adoption must precede the emission so the remap
+        // entries below are in place when the references are rewritten).
+        var unknown = CollectUnlinkedImages(document);
+        if (unknown.Count == 0)
+            return;
+
+        IReadOnlyDictionary<string, string> originalByDisplay;
+        try
+        {
+            originalByDisplay = await _notes.FindOriginalShaByDisplayHashAsync(
+                unknown.Select(image => image.Sha).ToList());
+        }
+        catch (Exception ex)
+        {
+            _log?.LogWarning(ex, "Adoption lookup of original images failed");
+            return; // the save continues with unlinked refs (pre-adoption behavior)
+        }
+
+        foreach (var (displaySha, bytes, extension) in unknown)
+        {
+            try
+            {
+                if (originalByDisplay.TryGetValue(displaySha, out var originalSha))
+                {
+                    // Cross-note paste: clone the original's row (incl. its display
+                    // copy) onto this note — the pasted bytes ARE that copy.
+                    var metadata = await _notes.GetImageMetadataByShaAsync([originalSha]);
+                    if (metadata.TryGetValue(originalSha, out var row))
+                    {
+                        await _notes.AddNoteImagesAsync(noteId,
+                            [row with { NoteId = noteId, CreatedAt = DateTimeOffset.UtcNow }]);
+                        _displayBytesSha[displaySha] = originalSha;
+                    }
+                }
+                else
+                {
+                    // External bitmap: full pipeline. The remap key is the sha of the
+                    // bytes ACTUALLY in the document; the emitted ref becomes the
+                    // imported ORIGINAL's sha. The row's re-normalized display copy may
+                    // differ in compression from the pasted bytes — expected; the reload
+                    // renders the row's copy.
+                    var (imported, _) = await TryImportAndLinkAsync(bytes, extension, noteId);
+                    if (imported is not null)
+                        _displayBytesSha[displaySha] = imported.Sha256;
+                }
+            }
+            catch (Exception ex)
+            {
+                _log?.LogWarning(ex, "Adopting pasted image {DisplaySha} into note {NoteId} failed",
+                    displaySha, noteId);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Every image in the document whose content address is NOT in
+    /// <see cref="_displayBytesSha"/> (linked to no row of the open note), with its
+    /// inline bytes and best-guess extension. Deduped by address — one remap entry
+    /// covers all instances. Byte-less images (render cache only) are skipped,
+    /// mirroring the formatter's emission rule (they cannot be content-addressed).
+    /// Walks table cells and inline tables at any nesting depth, like the formatter.
+    /// </summary>
+    private List<(string Sha, byte[] Bytes, string Extension)> CollectUnlinkedImages(FlowDocument document)
+    {
+        var found = new List<(string, byte[], string)>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        void Visit(byte[]? rawBytes, string? mimeType)
+        {
+            if (rawBytes is not { Length: > 0 })
+                return;
+            var sha = Sha256Hex(rawBytes);
+            if (_displayBytesSha.ContainsKey(sha) || !seen.Add(sha))
+                return;
+            found.Add((sha, rawBytes, MimeToExtension(mimeType)));
+        }
+
+        void WalkBlocks(IEnumerable<Block> blocks)
+        {
+            foreach (var block in blocks)
+            {
+                switch (block)
+                {
+                    case Paragraph paragraph:
+                        foreach (var inline in paragraph.Inlines)
+                        {
+                            switch (inline)
+                            {
+                                case InlineImage image:
+                                    Visit(image.RawBytes, image.MimeType);
+                                    break;
+                                case InlineTable inlineTable:
+                                    WalkBlocks(CellBlocks(inlineTable.Table));
+                                    break;
+                            }
+                        }
+                        break;
+
+                    case ImageBlock imageBlock:
+                        Visit(imageBlock.RawBytes, imageBlock.MimeType);
+                        break;
+
+                    case TableBlock table:
+                        WalkBlocks(CellBlocks(table));
+                        break;
+                }
+            }
+        }
+
+        WalkBlocks(document.Blocks);
+        return found;
+    }
+
+    private static IEnumerable<Block> CellBlocks(TableBlock table) =>
+        table.Cells.SelectMany(row => row).SelectMany(cell => cell.Blocks);
+
+    /// <summary>Import extension for the pasted bytes: WRE carries a MIME type on its
+    /// images (what the clipboard/insert handed it); anything unknown is PNG — the
+    /// WinRT bitmap read re-encodes to PNG.</summary>
+    private static string MimeToExtension(string? mimeType) =>
+        string.Equals(mimeType, "image/jpeg", StringComparison.OrdinalIgnoreCase) ? "jpg" : "png";
 
     // ---------- Save-as (built-in image context menu) ----------
 

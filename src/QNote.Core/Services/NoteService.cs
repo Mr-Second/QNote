@@ -114,4 +114,12 @@ public sealed class NoteService : INoteService
 
     public Task<IReadOnlyList<NoteImage>> GetNoteImagesWithDisplayAsync(long noteId, CancellationToken ct = default) =>
         _repo.GetNoteImagesWithDisplayAsync(noteId, ct);
+
+    public Task<IReadOnlyDictionary<string, NoteImage>> GetImageMetadataByShaAsync(
+        IReadOnlyList<string> sha256, CancellationToken ct = default) =>
+        _repo.GetImageMetadataByShaAsync(sha256, ct);
+
+    public Task<IReadOnlyDictionary<string, string>> FindOriginalShaByDisplayHashAsync(
+        IReadOnlyList<string> displaySha256, CancellationToken ct = default) =>
+        _repo.FindOriginalShaByDisplayHashAsync(displaySha256, ct);
 }

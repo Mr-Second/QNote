@@ -91,9 +91,11 @@ public partial class NotesPageViewModel : ObservableObject
 
     /// <summary>
     /// Set by the view: returns the editor's current state so flushes always persist
-    /// what is on screen, no matter who triggered them.
+    /// what is on screen, no matter who triggered them. Asynchronous — the view adopts
+    /// unlinked pasted images into the note before snapshotting (task 10-03), so the
+    /// emitted references and the <c>note_images</c> rows the flush syncs stay in step.
     /// </summary>
-    public Func<EditorSnapshot>? EditorContentProvider { get; set; }
+    public Func<Task<EditorSnapshot>>? EditorContentProvider { get; set; }
 
     public ObservableCollection<NoteItemViewModel> Notes { get; } = new();
 
@@ -106,6 +108,15 @@ public partial class NotesPageViewModel : ObservableObject
 
     /// <summary>Markdown of the note currently loaded in the editor (set on load; read by the view).</summary>
     public string EditingContent { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Id of the note currently loaded in the editor. Unlike <see cref="SelectedNote"/>,
+    /// this stays pinned to the on-screen content during the selection-change flush
+    /// window (SelectedNote already points at the NEW note while the editor still
+    /// shows the flushed one), so image-row linking and display-copy loading resolve
+    /// against the note that actually owns the visible content.
+    /// </summary>
+    public long? LoadedNoteId => _loaded?.Id;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
@@ -336,7 +347,9 @@ public partial class NotesPageViewModel : ObservableObject
 
         try
         {
-            var snapshot = EditorContentProvider?.Invoke() ?? new EditorSnapshot(EditingContent, false);
+            var snapshot = EditorContentProvider is { } provider
+                ? await provider()
+                : new EditorSnapshot(EditingContent, false);
 
             // No-op guard. Previously this compared only title + plain text, so a
             // format-only edit (bold/list — which leaves the plain text identical)

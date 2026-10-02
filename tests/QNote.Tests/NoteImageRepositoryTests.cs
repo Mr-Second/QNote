@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using QNote.Markdown;
 using QNote.Models;
 using QNote.Services;
@@ -7,11 +8,13 @@ namespace QNote.Tests;
 /// <summary>
 /// <c>note_images</c> link table: upsert dedup, save-time sync, cascade on note
 /// delete, and orphaned-original pruning across notes sharing a content address (D2).
+/// Save-time adoption primitives (task 10-03): display-hash lookup and row cloning.
 /// </summary>
 public sealed class NoteImageRepositoryTests
 {
     private const string ShaA = "aa11bb22cc33dd44ee55ff6600778899aabbccddeeff00112233445566778899";
     private const string ShaB = "bb11bb22cc33dd44ee55ff6600778899aabbccddeeff00112233445566778899";
+    private const string ShaC = "cc11bb22cc33dd44ee55ff6600778899aabbccddeeff00112233445566778899";
 
     [Fact]
     public async Task AddNoteImagesAsync_PersistsLink_AndDedupsRepeat()
@@ -216,6 +219,115 @@ public sealed class NoteImageRepositoryTests
 
         Assert.Empty(await db.NewRepository().GetNoteImagesAsync(note.Id));
     }
+
+    // ---------- Save-time adoption primitives (task 10-03) ----------
+
+    [Fact]
+    public async Task FindOriginalShaByDisplayHash_MatchesDisplayCopyToOriginal()
+    {
+        using var db = new TestDatabase();
+        var repo = db.NewRepository();
+        var note = await repo.CreateAsync(NewNote());
+        var display = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3 };
+        await repo.AddNoteImagesAsync(note.Id,
+            [Image(note.Id, ShaA) with { DisplayBytes = display }]);
+
+        var map = await repo.FindOriginalShaByDisplayHashAsync([Sha256Hex(display)]);
+
+        var hit = Assert.Single(map);
+        Assert.Equal(Sha256Hex(display), hit.Key);
+        Assert.Equal(ShaA, hit.Value);
+    }
+
+    [Fact]
+    public async Task FindOriginalShaByDisplayHash_UnknownOrEmpty_NoMapping()
+    {
+        using var db = new TestDatabase();
+        var repo = db.NewRepository();
+        var note = await repo.CreateAsync(NewNote());
+        var display = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 4, 5 };
+        await repo.AddNoteImagesAsync(note.Id, [Image(note.Id, ShaA) with { DisplayBytes = display }]);
+        // Legacy row without a display copy must be skipped by the scan, not crash it.
+        await repo.AddNoteImagesAsync(note.Id, [Image(note.Id, ShaB)]);
+
+        Assert.Empty(await repo.FindOriginalShaByDisplayHashAsync([ShaB, ShaC]));
+        Assert.Empty(await repo.FindOriginalShaByDisplayHashAsync([]));
+    }
+
+    [Fact]
+    public async Task FindOriginalShaByDisplayHash_TwoNotesSameOriginal_SingleMapping()
+    {
+        using var db = new TestDatabase();
+        var repo = db.NewRepository();
+        var first = await repo.CreateAsync(NewNote());
+        var second = await repo.CreateAsync(NewNote());
+        var display = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 1, 2 };
+        await repo.AddNoteImagesAsync(first.Id, [Image(first.Id, ShaA) with { DisplayBytes = display }]);
+        await repo.AddNoteImagesAsync(second.Id, [Image(second.Id, ShaA) with { DisplayBytes = display }]);
+
+        var map = await repo.FindOriginalShaByDisplayHashAsync([Sha256Hex(display), ShaC]);
+
+        var hit = Assert.Single(map);
+        Assert.Equal(ShaA, hit.Value);
+    }
+
+    [Fact]
+    public async Task AdoptionClonedRow_LinksAndSyncsAroundTheSharedOriginal()
+    {
+        using var db = new TestDatabase();
+        var repo = db.NewRepository();
+        var a = await repo.CreateAsync(NewNote());
+        var b = await repo.CreateAsync(NewNote());
+        var display = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 7, 7, 7 };
+        await repo.AddNoteImagesAsync(a.Id, [Image(a.Id, ShaA) with { DisplayBytes = display }]);
+
+        // The controller's adoption hit path, via repo primitives: resolve the
+        // original by display hash, then clone its metadata row onto note B.
+        var originalSha = Assert.Single(await repo.FindOriginalShaByDisplayHashAsync([Sha256Hex(display)])).Value;
+        var metadata = await repo.GetImageMetadataByShaAsync([originalSha]);
+        await repo.AddNoteImagesAsync(b.Id, [metadata[originalSha] with { NoteId = b.Id }]);
+
+        // B now holds the row, and content referencing the adopted o keeps it.
+        Assert.Equal(ShaA, Assert.Single(await repo.GetNoteImagesAsync(b.Id)).Sha256);
+        Assert.Empty(await repo.SyncNoteImagesAsync(b.Id, [ShaA]));
+        Assert.Single(await repo.GetNoteImagesAsync(b.Id));
+
+        // Dropping B's reference unlinks B's row but does NOT orphan the original
+        // while A still holds a row for it.
+        Assert.Empty(await repo.SyncNoteImagesAsync(b.Id, []));
+        Assert.Empty(await repo.GetNoteImagesAsync(b.Id));
+        Assert.Single(await repo.GetNoteImagesAsync(a.Id));
+
+        // The LAST reference going away finally reports the orphan for pruning.
+        Assert.Equal(new[] { ShaA }, (await repo.SyncNoteImagesAsync(a.Id, [])).ToArray());
+    }
+
+    [Fact]
+    public async Task AdoptionClonedRow_RendersOnReloadAndSurvivesSourceDelete()
+    {
+        using var db = new TestDatabase();
+        var noteService = db.NewNoteService();
+        var repo = db.NewRepository();
+        var a = await noteService.CreateAsync();
+        var b = await noteService.CreateAsync();
+        var display = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 9, 9 };
+        await repo.AddNoteImagesAsync(a.Id, [Image(a.Id, ShaA) with { DisplayBytes = display }]);
+
+        var originalSha = Assert.Single(await repo.FindOriginalShaByDisplayHashAsync([Sha256Hex(display)])).Value;
+        var metadata = await repo.GetImageMetadataByShaAsync([originalSha]);
+        await repo.AddNoteImagesAsync(b.Id, [metadata[originalSha] with { NoteId = b.Id }]);
+
+        // Deleting the source note must not prune anything B still links (the
+        // delete's orphan set is computed across ALL notes' rows).
+        await noteService.DeleteAsync(a.Id);
+
+        var row = Assert.Single(await repo.GetNoteImagesWithDisplayAsync(b.Id));
+        Assert.Equal(ShaA, row.Sha256);
+        Assert.Equal(display, row.DisplayBytes); // reload renders from the cloned copy
+    }
+
+    private static string Sha256Hex(byte[] bytes) =>
+        Convert.ToHexStringLower(SHA256.HashData(bytes));
 
     private static NoteImage Image(long noteId, string sha) => new()
     {

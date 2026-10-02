@@ -36,9 +36,19 @@ public sealed partial class NotesPage : Page
             App.Services.GetService<Microsoft.Extensions.Logging.ILogger<WreEditorController>>(),
             App.Services.GetService<IImageService>(),
             App.Services.GetService<INoteService>());
-        ViewModel.EditorContentProvider = () =>
-            new NotesPageViewModel.EditorSnapshot(_editor.GetMarkdown(), _editor.IsDirty);
-        _editor.CurrentNoteIdProvider = () => ViewModel.SelectedNote?.Id;
+        // Flush snapshot: adopt unlinked pasted images into the open note first
+        // (cross-note copies / external bitmaps — task 10-03), then emit. The
+        // controller's combined call snapshots from the SAME document it adopted, so
+        // a note switch racing the adoption's DB awaits cannot swap the content
+        // underneath this flush.
+        ViewModel.EditorContentProvider = async () =>
+        {
+            var (markdown, changed) = await _editor.AdoptAndSnapshotAsync();
+            return new NotesPageViewModel.EditorSnapshot(markdown, changed);
+        };
+        // Image links and display-copy loads must target the note whose content the
+        // editor holds — SelectedNote diverges from it during the switch flush window.
+        _editor.CurrentNoteIdProvider = () => ViewModel.LoadedNoteId;
         _editor.ImportFailed += OnImageError;
         // The toolbar image button stays disabled without a host picker; route it
         // through the controller's full pipeline (the raw InsertImageBlock path
