@@ -6,6 +6,9 @@ using Windows.Storage.Pickers;
 
 namespace QNote.Views;
 
+/// <summary>An auto-backup entry for the restore dialog's one-click list (file + display name).</summary>
+public sealed record AutoBackupEntry(string Path, string Display);
+
 /// <summary>
 /// Restore dialog (PRD D5): pick file → (password if encrypted) → conflict analysis
 /// (冲突 / 仅备份 / 仅当前 three counts) → mode (覆盖 / 合并 / 仅导入新增) → run.
@@ -30,6 +33,7 @@ public sealed partial class RestoreDialog : ContentDialog
         // in the background while the freed UI would keep editing the OLD file.
         Closing += (_, args) => { if (_running) args.Cancel = true; };
         Closed += (_, _) => ResultTip.Dismiss();
+        LoadAutoBackups();
     }
 
     /// <summary>True when a restore ran to completion; the caller must reload its data.</summary>
@@ -51,13 +55,20 @@ public sealed partial class RestoreDialog : ContentDialog
         if (await picker.PickSingleFileAsync() is not { } file)
             return;
 
-        _archivePath = file.Path;
-        FilePathText.Text = file.Path;
+        await SelectArchiveAsync(file.Path);
+    }
+
+    // Shared by the file picker and the auto-backup list: sets the archive, checks
+    // encryption, and reveals the analysis step. Failures surface as in-dialog toasts.
+    private async Task SelectArchiveAsync(string path)
+    {
+        _archivePath = path;
+        FilePathText.Text = path;
         ResetAnalysis();
 
         try
         {
-            _encrypted = await _backup.IsEncryptedAsync(file.Path);
+            _encrypted = await _backup.IsEncryptedAsync(path);
             PasswordBox.Visibility = _encrypted ? Visibility.Visible : Visibility.Collapsed;
             AnalyzeButton.Visibility = Visibility.Visible;
         }
@@ -65,6 +76,41 @@ public sealed partial class RestoreDialog : ContentDialog
         {
             ResultTip.ShowError("无法读取备份", BackupErrorText.Describe(ex));
         }
+    }
+
+    // Auto-backup entry (D4 safety net): lists backups\auto-backup-*.qns newest
+    // first; the display name parses the timestamp out of the file name.
+    private void LoadAutoBackups()
+    {
+        var backups = _backup.ListAutoBackups();
+        if (backups.Count == 0)
+            return;
+
+        AutoBackupsList.ItemsSource = backups.Select(p => new AutoBackupEntry(p, FormatAutoBackupName(p))).ToList();
+        AutoBackupsPanel.Visibility = Visibility.Visible;
+    }
+
+    private static string FormatAutoBackupName(string path)
+    {
+        var name = Path.GetFileNameWithoutExtension(path);
+        const string prefix = "auto-backup-";
+        if (name.StartsWith(prefix, StringComparison.Ordinal)
+            && DateTime.TryParseExact(
+                name[(prefix.Length)..], "yyyyMMdd-HHmmss",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var created))
+        {
+            return created.ToString("yyyy-MM-dd HH:mm:ss");
+        }
+        return name;
+    }
+
+    private async void AutoBackup_Click(object sender, ItemClickEventArgs e)
+    {
+        if (_running || e.ClickedItem is not AutoBackupEntry entry)
+            return;
+
+        await SelectArchiveAsync(entry.Path);
     }
 
     private async void Analyze_Click(object sender, RoutedEventArgs e)

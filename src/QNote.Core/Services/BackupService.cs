@@ -80,6 +80,27 @@ public sealed class BackupService : IBackupService
         $"QNote-backup-{DateTime.Now:yyyyMMdd-HHmmss}{IBackupService.ArchiveExtension}";
 
     /// <inheritdoc/>
+    public IReadOnlyList<string> ListAutoBackups()
+    {
+        try
+        {
+            // The timestamp file name sorts lexicographically = chronologically.
+            return Directory.EnumerateFiles(_paths.BackupsDir, $"auto-backup-*{IBackupService.ArchiveExtension}")
+                .OrderDescending(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return [];
+        }
+        catch (IOException ex)
+        {
+            _log.LogWarning(ex, "Listing auto-backups failed");
+            return [];
+        }
+    }
+
+    /// <inheritdoc/>
     public async Task BackupAsync(
         string destinationPath,
         string? password = null,

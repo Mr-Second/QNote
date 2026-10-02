@@ -33,6 +33,9 @@ public sealed partial class MainWindow : Window
     private readonly EdgeHideController _edgeHide;
     private readonly WorkingSetTrimController _workingSetTrim;
     private readonly IGlobalHotkey _hotkey;
+    private int _hotkeyModifiers;
+    private int _hotkeyKey;
+    private DateTime _lastHotkeyRetry;
     private AppSettings _snapshot = new();
 
     /// <summary>Tray double-click command (bound from XAML).</summary>
@@ -64,9 +67,12 @@ public sealed partial class MainWindow : Window
 
         // Global hotkey (ADR D6): subclass the HWND for WM_HOTKEY; registration
         // happens once settings load (below) and on every change from the panel.
+        // Activation retries silently while registration keeps failing (see
+        // OnActivatedRetryHotkey).
         _hotkey = App.Services.GetRequiredService<IGlobalHotkey>();
         _hotkey.Attach(WinRT.Interop.WindowNative.GetWindowHandle(this));
         _hotkey.Pressed += OnHotkeyPressed;
+        Activated += OnActivatedRetryHotkey;
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
@@ -116,6 +122,27 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
+    /// Silent hotkey retry on window activation: registration failure is often
+    /// transient (the app that owns the combo was still running at launch), so each
+    /// foregrounding re-attempts the PERSISTED combo while it stays unregistered.
+    /// Rate-limited — Activated fires on every focus gain, and TryRegister logs a
+    /// warning per failed attempt. Success is silent; the settings panel re-reads
+    /// the registration state the next time it opens.
+    /// </summary>
+    private void OnActivatedRetryHotkey(object sender, WindowActivatedEventArgs args)
+    {
+        if (args.WindowActivationState == WindowActivationState.Deactivated
+            || _hotkeyKey == 0 || _hotkey.IsRegistered
+            || DateTime.UtcNow - _lastHotkeyRetry < TimeSpan.FromSeconds(30))
+        {
+            return;
+        }
+
+        _lastHotkeyRetry = DateTime.UtcNow;
+        _hotkey.TryRegister(_hotkeyModifiers, _hotkeyKey);
+    }
+
+    /// <summary>
     /// Hotkey pressed (WM_HOTKEY, UI thread): toggle edge-hide from any position.
     /// A reveal also foregrounds the window — same Win32 path as the tray show.
     /// </summary>
@@ -136,6 +163,8 @@ public sealed partial class MainWindow : Window
     private void Apply(AppSettings s, bool restoreGeometry)
     {
         _snapshot = s;
+        _hotkeyModifiers = s.EdgeHideHotkeyModifiers;
+        _hotkeyKey = s.EdgeHideHotkeyKey;
 
         // Theme: Mica + ThemeResources follow the root element's RequestedTheme.
         _currentTheme = s.ThemeMode switch

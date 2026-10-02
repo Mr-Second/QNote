@@ -6,6 +6,7 @@
     xmlns:controls="using:QNote.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="using:QNote.Views"
     Title="恢复数据"
     CloseButtonText="取消"
     DefaultButton="None"
@@ -44,6 +45,26 @@
                     Click="Pick_Click"
                     Content="选择…" />
             </Grid>
+        </StackPanel>
+
+        <!-- Step 1b: automatic pre-restore backups (D4 safety net) — one click
+             selects one, no folder browsing. Hidden when none exist. -->
+        <StackPanel x:Name="AutoBackupsPanel" Spacing="4" Visibility="Collapsed">
+            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="从自动备份恢复（覆盖恢复前自动创建）" />
+            <ListView
+                x:Name="AutoBackupsList"
+                MaxHeight="112"
+                AutomationProperties.AutomationId="AutoBackupsList"
+                AutomationProperties.Name="自动备份列表"
+                IsItemClickEnabled="True"
+                ItemClick="AutoBackup_Click"
+                SelectionMode="None">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="views:AutoBackupEntry">
+                        <TextBlock Text="{x:Bind Display}" TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
         </StackPanel>
 
         <!-- Step 2: password (only when the archive is encrypted) -->
