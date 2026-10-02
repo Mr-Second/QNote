@@ -39,10 +39,15 @@ public sealed record DocumentRun(string Text, bool Bold = false, bool Italic = f
     bool Strikethrough = false, string? NavigateUri = null) : DocumentInline;
 
 /// <summary>
-/// An image reference — <c>![alt](qnote-img:&lt;sha256&gt;)</c> in storage. The RTF side
-/// resolves the sha to inline bytes via an image provider; nothing else knows about files.
+/// An image reference — <c>![alt](qnote-img:&lt;sha256&gt;)</c> in storage, optionally with the
+/// persisted display size as an <c>@&lt;w&gt;x&lt;h&gt;</c> suffix on the reference (DIP, rounded).
+/// The editor side resolves the sha to inline bytes via an image provider; nothing else
+/// knows about files.
 /// </summary>
-public sealed record DocumentImage(string Sha256, string AltText = "") : DocumentInline;
+/// <param name="Width">Persisted display width in DIP; 0 = intrinsic size.</param>
+/// <param name="Height">Persisted display height in DIP; 0 = intrinsic size.</param>
+public sealed record DocumentImage(string Sha256, string AltText = "", int Width = 0, int Height = 0)
+    : DocumentInline;
 
 /// <summary>One paragraph-level block of the document, in order.</summary>
 public sealed record DocumentBlock(BlockKind Kind, IReadOnlyList<DocumentInline> Inlines)

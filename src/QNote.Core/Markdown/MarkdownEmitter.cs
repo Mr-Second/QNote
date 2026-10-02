@@ -139,7 +139,16 @@ public static class MarkdownEmitter
                     var alt = inTableCell ? image.AltText.Replace("\n", " ") : image.AltText;
                     buffer.Append("![").Append(Escape(alt, AtLineStart: false, inTableCell))
                         .Append("](").Append(MarkdownParser.ImageSchemePrefix)
-                        .Append(image.Sha256).Append(')');
+                        .Append(image.Sha256);
+                    // Persisted display size (DIP) — only when the editor set one; the
+                    // sha is plain hex so the '@' separator is unambiguous, and the
+                    // parser degrades a missing/malformed suffix to intrinsic size.
+                    if (image.Width > 0 && image.Height > 0)
+                        buffer.Append('@')
+                            .Append(image.Width.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                            .Append('x')
+                            .Append(image.Height.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    buffer.Append(')');
                     break;
             }
         }

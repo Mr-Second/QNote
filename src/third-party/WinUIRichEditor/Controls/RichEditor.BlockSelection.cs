@@ -19,6 +19,7 @@ public partial class RichEditor
     private (Paragraph host, InlineTable it)? _selectedInlineTable; // currently selected inline table
     private ImageBlock? _resizingImage;     // block image being drag-resized, if any
     private InlineImage? _resizingInline;   // inline image being drag-resized, if any
+    private bool _imageResized;             // QNOTE VENDORED PATCH (P4): the drag actually wrote a size
     private double _imageAspect;            // width/height captured at resize start (aspect lock)
     private double _resizeStartX;           // pointer x at resize start
     private double _resizeStartW;           // image width at resize start
@@ -289,6 +290,7 @@ public partial class RichEditor
             _resizingInline.Height = h;
             _tableRowHeights.Clear(); // an inline image may live in a table cell — re-measure rows
         }
+        _imageResized = true; // QNOTE VENDORED PATCH (P4): see FinishImageResize
         RelayoutToViewport();
         return true;
     }
@@ -306,6 +308,19 @@ public partial class RichEditor
         _resizingImage = null;
         _resizingInline = null;
         _dragUndoPending = false; // released without dragging: nothing was pushed
+        // QNOTE VENDORED PATCH (P4): a drag-resize IS an edit — it pushed an undo step
+        // and changes the persisted content (the host's document model carries image
+        // display sizes) — but never called AfterEdit, so TextChanged never fired and
+        // the host's dirty tracking missed a resize-only edit entirely (Ctrl+S became
+        // a no-op until some other edit dirtied the note). The context-menu resizes
+        // (Reset/Scale Inline/BlockImageNatural) all call AfterEdit; the drag now does
+        // too — but ONLY when a size was actually written (a press-and-release on a
+        // handle without moving is not an edit).
+        if (_imageResized)
+        {
+            _imageResized = false;
+            AfterEdit();
+        }
         RaiseStatusChanged();
     }
 

@@ -191,7 +191,7 @@ public static class MarkdownDocumentFormatter
             case ImageBlock image:
                 // md has only the inline reference form, so a block picture lands in
                 // a paragraph of its own — the reference survives the same way.
-                CollectInlines([.. ImageInlines(image.RawBytes, image.AltText)],
+                CollectInlines([.. ImageInlines(image.RawBytes, image.AltText, image.Width, image.Height)],
                     BlockKind.Paragraph, HeadingLevel.H1, ordered: false, blocks, numbering);
                 break;
 
@@ -251,7 +251,7 @@ public static class MarkdownDocumentFormatter
                     break;
 
                 case InlineImage image:
-                    inlines.AddRange(ImageInlines(image.RawBytes, image.AltText));
+                    inlines.AddRange(ImageInlines(image.RawBytes, image.AltText, image.Width, image.Height));
                     break;
 
                 case InlineTable inlineTable:
@@ -342,7 +342,7 @@ public static class MarkdownDocumentFormatter
                     if (!first && inlines.Count > 0)
                         AppendRun(inlines, new DocumentRun(" "));
                     first = false;
-                    AppendCellInlines(inlines, ImageInlines(image.RawBytes, image.AltText));
+                    AppendCellInlines(inlines, ImageInlines(image.RawBytes, image.AltText, image.Width, image.Height));
                     break;
 
                 case TableBlock nested:
@@ -379,7 +379,7 @@ public static class MarkdownDocumentFormatter
                     break;
 
                 case InlineImage image:
-                    AppendCellInlines(inlines, ImageInlines(image.RawBytes, image.AltText));
+                    AppendCellInlines(inlines, ImageInlines(image.RawBytes, image.AltText, image.Width, image.Height));
                     break;
 
                 case InlineTable inlineTable:
@@ -481,12 +481,29 @@ public static class MarkdownDocumentFormatter
     /// Image bytes → model inlines: content-addressed reference (DocumentImage) when
     /// bytes exist; otherwise the alt text as a plain readable run (the RTF emitter's
     /// missing-image degradation); a byte-less, alt-less image drops — WRE's own
-    /// HTML export drops it too.
+    /// HTML export drops it too. The editor-side display size (DIP) is persisted ONLY
+    /// when it differs from the intrinsic geometry (payload sniff, same as the load
+    /// path): an intrinsic-sized image keeps the suffix-free reference, so existing
+    /// notes' Markdown stays byte-stable across the upgrade, and the suffix genuinely
+    /// means "the user resized this".
     /// </summary>
-    private static IReadOnlyList<DocumentInline> ImageInlines(byte[]? rawBytes, string? altText)
+    private static IReadOnlyList<DocumentInline> ImageInlines(byte[]? rawBytes, string? altText,
+        double width = 0, double height = 0)
     {
         if (rawBytes is { Length: > 0 })
-            return [new DocumentImage(Convert.ToHexStringLower(SHA256.HashData(rawBytes)), altText ?? "")];
+        {
+            var w = 0;
+            var h = 0;
+            if (width > 0 && !double.IsNaN(width) && height > 0 && !double.IsNaN(height)
+                && RtfImagePayload.FromBytes(rawBytes) is { } payload
+                && ((int)Math.Round(width) != payload.PixelWidth
+                    || (int)Math.Round(height) != payload.PixelHeight))
+            {
+                w = (int)Math.Round(width);
+                h = (int)Math.Round(height);
+            }
+            return [new DocumentImage(Convert.ToHexStringLower(SHA256.HashData(rawBytes)), altText ?? "", w, h)];
+        }
 
         if (!string.IsNullOrEmpty(altText))
             return [new DocumentRun(altText)];
@@ -513,6 +530,14 @@ public static class MarkdownDocumentFormatter
                 inline.Width = payload.PixelWidth;
                 inline.Height = payload.PixelHeight;
             }
+        }
+
+        // A persisted size (the @<w>x<h> reference suffix) overrides the intrinsic
+        // dimensions — the editor's resize handles survive a save/reload round-trip.
+        if (image.Width > 0 && image.Height > 0)
+        {
+            inline.Width = image.Width;
+            inline.Height = image.Height;
         }
 
         return inline;

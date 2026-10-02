@@ -211,8 +211,7 @@ public static class MarkdownParser
                 {
                     if (url.StartsWith(ImageSchemePrefix, StringComparison.Ordinal))
                     {
-                        result.Add(new DocumentImage(url[ImageSchemePrefix.Length..],
-                            ExtractText(link)));
+                        result.Add(ParseImageReference(url, ExtractText(link)));
                     }
                     else
                     {
@@ -292,8 +291,7 @@ public static class MarkdownParser
 
             case LinkInline { IsImage: true, Url: not null } image
                     when image.Url.StartsWith(ImageSchemePrefix, StringComparison.Ordinal):
-                result.Add(new DocumentImage(image.Url[ImageSchemePrefix.Length..],
-                    ExtractText(image)));
+                result.Add(ParseImageReference(image.Url, ExtractText(image)));
                 break;
 
             // A link nested inside emphasis keeps BOTH: the accumulated outer flags
@@ -334,6 +332,37 @@ public static class MarkdownParser
         var buffer = new System.Text.StringBuilder();
         AppendAllText(container, buffer);
         return buffer.ToString();
+    }
+
+    /// <summary>
+    /// Parse a <c>qnote-img:&lt;sha256&gt;[@&lt;w&gt;x&lt;h&gt;]</c> reference URL (scheme already
+    /// matched). The optional size suffix persists the editor-side display size (DIP);
+    /// a missing or malformed suffix degrades to the intrinsic size (0/0) — references
+    /// written before the suffix existed parse unchanged, and a hand-edited junk suffix
+    /// must never lose the image.
+    /// </summary>
+    internal static DocumentImage ParseImageReference(string url, string altText)
+    {
+        var tail = url[ImageSchemePrefix.Length..];
+        var width = 0;
+        var height = 0;
+        var at = tail.IndexOf('@');
+        if (at > 0)
+        {
+            var size = tail[(at + 1)..];
+            tail = tail[..at];
+            var x = size.IndexOf('x');
+            if (x > 0 &&
+                int.TryParse(size[..x], System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out var w) && w > 0 &&
+                int.TryParse(size[(x + 1)..], System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out var h) && h > 0)
+            {
+                width = w;
+                height = h;
+            }
+        }
+        return new DocumentImage(tail, altText, width, height);
     }
 
     private static void AppendAllText(ContainerInline container, System.Text.StringBuilder buffer)
