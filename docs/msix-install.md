@@ -15,8 +15,8 @@
 ## 便携版（GitHub）
 
 见 [README](https://github.com/Mr-Second/QNote#install) 与
-[Releases](https://github.com/Mr-Second/QNote/releases)：两个变体（自包含 /
-框架依赖）解压即用；笔记数据保存在 `QNote.exe` 同级的 `data\` 目录，随文件夹
+[Releases](https://github.com/Mr-Second/QNote/releases)：便携版（NativeAOT
+编译，零依赖）解压即用；笔记数据保存在 `QNote.exe` 同级的 `data\` 目录，随文件夹
 整体移动。下载校验用随 Release 发布的 `SHA256SUMS.txt`。
 
 ## 历史说明（自签 MSIX 渠道，≤ v1.1.0）

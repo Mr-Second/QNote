@@ -259,4 +259,51 @@
                      and !$([System.String]::Copy('%(None.Link)').Replace('\', '/').ToLowerInvariant().StartsWith('zh-cn/'))" />
     </ItemGroup>
   </Target>
+
+  <!--
+    NativeAOT runtimeconfig trim (drop-fdd task, 2026-10-02): a NativeAOT exe
+    has NO CoreCLR and never reads QNote.runtimeconfig.json — yet the SDK still
+    generates the file, and it leaked into the store MSIX (verified 2026-10-01:
+    a 2 KB copy inside the 11.8 MB AOT MSIX). CoreCLR-based builds DO need it
+    at runtime (SC fallback profile, dev dotnet run / dotnet build, plain MSIX),
+    so every filter below is gated to PublishAot=true only. The file reaches
+    outputs through TWO distinct mechanisms (same shape as the WinAppSDK split
+    trim pair above), hence two targets:
+
+    1. TrimRuntimeConfigFromAotPublish — removes the file from
+       ResolvedFileToPublish once the publish list is final
+       (ComputeFilesToPublish is the SDK target that computes it; the publish
+       copy AND the MSIX publish-items output group __GetPublishItems consume
+       the same list right after). Belt-and-braces: current .NET 10 SDKs
+       already skip this entry under PublishAot (Microsoft.NET.Publish.targets
+       gates the direct add with '$(PublishAot)' != 'true'), so on today's SDKs
+       the removal finds nothing — the target exists to keep the portable zip
+       deterministic across SDK patches.
+    2. TrimRuntimeConfigFromAotAppxPayload — under GenerateAppxPackageOnBuild
+       the MSIX map is NOT built from the publish dir but from
+       @(PackagingOutputs), a merge of build output groups; the runtimeconfig
+       rides in via BuiltProjectOutputGroup
+       (AddRuntimeConfigFileToBuiltProjectOutputGroupOutput in the SDK has no
+       AOT gate). Filter it right before the payload is computed — the same
+       BeforeTargets anchor the MSIX targets themselves use for their AOT
+       managed-payload removal (WinAppSdkRemoveLinkedFilesFromPayload), which
+       is guaranteed to run after GetPackagingOutputs completed.
+  -->
+  <Target Name="TrimRuntimeConfigFromAotPublish"
+          AfterTargets="ComputeFilesToPublish"
+          Condition="'$(PublishAot)' == 'true'">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)"
+          Condition="'%(ResolvedFileToPublish.Filename)%(ResolvedFileToPublish.Extension)' == 'QNote.runtimeconfig.json'" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="TrimRuntimeConfigFromAotAppxPayload"
+          BeforeTargets="_ComputeAppxPackagePayload"
+          Condition="'$(PublishAot)' == 'true'">
+    <ItemGroup>
+      <PackagingOutputs Remove="@(PackagingOutputs)"
+          Condition="'%(PackagingOutputs.Filename)%(PackagingOutputs.Extension)' == 'QNote.runtimeconfig.json'" />
+    </ItemGroup>
+  </Target>
 </Project>

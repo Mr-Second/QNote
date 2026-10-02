@@ -1,4 +1,4 @@
-# Release — build the two portable zips (GitHub channel) and publish them.
+# Release — build the portable zip (GitHub channel) and publish it.
 #
 # Triggered by pushing a version tag (v1.2.0 → app version 1.2.0.0) or
 # manually via workflow_dispatch (uses the version currently in the repo;
@@ -7,12 +7,12 @@
 #
 # Channel split (portable-github-channel task, v1.2.0+):
 #   Store  = installed MSIX, Microsoft-trusted signature, auto-update.
-#   GitHub = portable, UNSIGNED zips; integrity via SHA256 checksums only.
+#   GitHub = portable, UNSIGNED zip; integrity via SHA256 checksums only.
 #   The former SignPath / self-signed-PFX / install.ps1 flow is gone — this
 #   file intentionally references no secrets at all.
 #
-# Flow (each variant is its own job via the matrix — wtq lesson):
-#   resolve-version → [portable native-aot | portable framework-dependent]
+# Flow (the variant is its own job via the matrix — wtq lesson):
+#   resolve-version → [portable native-aot]
 #     → patch manifest + csproj versions (working copy only, never committed)
 #     → dotnet publish → zip (publish output + LICENSE + third-party notices,
 #        no *.pdb / vendor *.xml) → .sha256 sidecar → smoke test → artifact
@@ -28,9 +28,9 @@
 # 88.6MB native QNote.pdb is excluded by the existing /XF *.pdb filter.
 #
 # Smoke-test caveat: this workflow installs the .NET SDK itself
-# (actions/setup-dotnet), so the framework-dependent variant launches on the
-# runner. This is NOT a clean-machine test — clean-machine acceptance of both
-# variants is done manually by the user for each release.
+# (actions/setup-dotnet), so the runner is NOT a clean machine. The native-aot
+# zip is zero-dependency and should boot anywhere, but genuine clean-machine
+# acceptance is still done manually by the user for each release.
 
 name: Release
 
@@ -48,8 +48,8 @@ permissions:
   contents: write # gh release create
 
 jobs:
-  # Single source of truth for the version math; both variant jobs and the
-  # release job consume the output so they can run in parallel.
+  # Single source of truth for the version math; the portable job and the
+  # release job both consume the output instead of recomputing it.
   resolve-version:
     runs-on: windows-latest
     outputs:
@@ -89,9 +89,6 @@ jobs:
           - variant: native-aot
             profile: win-x64-portable-aot
             publish-dir: publish-portable-aot
-          - variant: framework-dependent
-            profile: win-x64-portable-frameworkdependent
-            publish-dir: publish-portable-frameworkdependent
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -160,6 +157,11 @@ jobs:
           New-Item -ItemType Directory -Path $stage | Out-Null
           robocopy $publishDir $stage /E /XF *.pdb *.xml /NFL /NDL /NJH /NJS | Out-Null
           if ($LASTEXITCODE -ge 8) { throw "robocopy failed ($LASTEXITCODE)" }
+          # AOT payload guard: QNote.runtimeconfig.json is a CoreCLR-only
+          # file (the native exe never reads it); its presence here means the
+          # csproj TrimRuntimeConfigFromAotPublish filter stopped firing
+          # (e.g. an SDK change broke the publish-items hook).
+          if (Test-Path (Join-Path $stage 'QNote.runtimeconfig.json')) { throw 'QNote.runtimeconfig.json leaked into the AOT publish output' }
           Copy-Item LICENSE "$stage/LICENSE"
           Copy-Item docs/third-party-notices.md "$stage/third-party-notices.md"
 
@@ -240,14 +242,14 @@ jobs:
   release:
     needs: [resolve-version, portable]
     # Dry-run (dispatch input) validates the pipeline without publishing:
-    # skip this job, keep the portable build/zip/smoke jobs above.
+    # skip this job, keep the portable build/zip/smoke job above.
     if: ${{ inputs.dry-run != true }}
     runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # Downloads each variant artifact into dist/<artifact-name>/.
+      # Downloads the portable artifact into dist/<artifact-name>/.
       - name: Download artifacts
         uses: actions/download-artifact@v8
         with:
@@ -258,10 +260,13 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           # Concatenate the per-zip sidecars (already computed in the variant
-          # jobs; artifact transport preserves bytes) into one checksum file.
-          $sums = Get-ChildItem dist -Recurse -Filter '*.sha256' | Sort-Object Name |
-            ForEach-Object { (Get-Content $_.FullName -Raw).TrimEnd("`r", "`n") }
-          if ($sums.Count -ne 2) { throw "expected 2 sidecars, got $($sums.Count)" }
+          # job; artifact transport preserves bytes) into one checksum file.
+          # @() keeps the guard correct when only one sidecar exists
+          # (ForEach-Object output collapses to a scalar string, and $null
+          # if the artifact download failed — .Count would lie in both).
+          $sums = @(Get-ChildItem dist -Recurse -Filter '*.sha256' | Sort-Object Name |
+            ForEach-Object { (Get-Content $_.FullName -Raw).TrimEnd("`r", "`n") })
+          if ($sums.Count -ne 1) { throw "expected 1 sidecar, got $($sums.Count)" }
           $sums | Set-Content dist/SHA256SUMS.txt -Encoding utf8
           Get-Content dist/SHA256SUMS.txt
 
