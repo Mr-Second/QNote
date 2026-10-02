@@ -52,6 +52,38 @@ public sealed class BackupServiceTests
         Assert.True(await host.Backup.IsEncryptedAsync(encrypted));
     }
 
+    // ---------- Auto-backup listing (restore-dialog entry) ----------
+
+    [Fact]
+    public void ListAutoBackups_ReturnsNewestFirst_AndOnlyAutoBackups()
+    {
+        using var host = new BackupHost();
+        Directory.CreateDirectory(host.Paths.BackupsDir);
+        var dir = host.Paths.BackupsDir;
+        File.WriteAllText(Path.Combine(dir, "auto-backup-20260101-090000.qns"), "a");
+        File.WriteAllText(Path.Combine(dir, "auto-backup-20260103-120000.qns"), "b");
+        File.WriteAllText(Path.Combine(dir, "auto-backup-20260102-080000.qns"), "c");
+        // Manual backups live in the same folder but must not be listed.
+        File.WriteAllText(Path.Combine(dir, "QNote-backup-20260103-130000.qns"), "m");
+        File.WriteAllText(Path.Combine(dir, "notes.txt"), "x");
+
+        var list = host.Backup.ListAutoBackups();
+
+        Assert.Equal(
+        [
+            Path.Combine(dir, "auto-backup-20260103-120000.qns"),
+            Path.Combine(dir, "auto-backup-20260102-080000.qns"),
+            Path.Combine(dir, "auto-backup-20260101-090000.qns"),
+        ], list);
+    }
+
+    [Fact]
+    public void ListAutoBackups_EmptyWhenDirMissing()
+    {
+        using var host = new BackupHost();
+        Assert.Empty(host.Backup.ListAutoBackups());
+    }
+
     [Fact]
     public async Task EncryptedBackup_RoundTrips_WithCorrectPassword()
     {

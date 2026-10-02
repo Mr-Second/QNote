@@ -21,6 +21,13 @@ public interface IBackupService
     string SuggestedBackupFileName();
 
     /// <summary>
+    /// The automatic pre-restore backups (D4 safety net, <c>backups\auto-backup-*.qns</c>,
+    /// newest first). The restore dialog lists them so an overwrite restore can be rolled
+    /// back without browsing the folder by hand. Missing directory → empty list, never throws.
+    /// </summary>
+    IReadOnlyList<string> ListAutoBackups();
+
+    /// <summary>
     /// Writes a full backup to <paramref name="destinationPath"> (created or
     /// overwritten). When <paramref name="password"/> is non-empty the archive is
     /// AES-256 encrypted. Reports a 0–1 fraction through <paramref name="progress"/>.
