@@ -19,7 +19,10 @@ internal sealed class TestDatabase : IDisposable
     public TestDatabase()
     {
         _dbPath = Path.Combine(Path.GetTempPath(), $"qnote-test-{Guid.NewGuid():N}.db");
-        Factory = new DbConnectionFactory(_dbPath);
+        // Pooling off (see DbConnectionFactory): non-pooled closes release the WAL
+        // files immediately, so no ClearAllPools is needed (or safe — it is GLOBAL
+        // and races parallel neighbours into ObjectDisposedException).
+        Factory = new DbConnectionFactory(_dbPath, pooling: false);
         new SchemaInitializer(Factory).EnsureCreated();
 
         // Image storage is rooted in a per-test temp dir so original files never
@@ -50,7 +53,6 @@ internal sealed class TestDatabase : IDisposable
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
         TryDelete(_dbPath);
         TryDelete(_dbPath + "-wal");
         TryDelete(_dbPath + "-shm");

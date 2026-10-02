@@ -17,7 +17,7 @@ public sealed class SchemaInitializerTests
         var dbPath = Path.Combine(Path.GetTempPath(), $"qnote-test-{Guid.NewGuid():N}.db");
         try
         {
-            var factory = new DbConnectionFactory(dbPath);
+            var factory = new DbConnectionFactory(dbPath, pooling: false);
             var schema = new SchemaInitializer(factory);
 
             schema.EnsureCreated();
@@ -32,7 +32,6 @@ public sealed class SchemaInitializerTests
         }
         finally
         {
-            SqliteConnection.ClearAllPools();
             TryDelete(dbPath);
             TryDelete(dbPath + "-wal");
             TryDelete(dbPath + "-shm");
@@ -45,7 +44,7 @@ public sealed class SchemaInitializerTests
         var dbPath = Path.Combine(Path.GetTempPath(), $"qnote-test-{Guid.NewGuid():N}.db");
         try
         {
-            var factory = new DbConnectionFactory(dbPath);
+            var factory = new DbConnectionFactory(dbPath, pooling: false);
             using (var conn = factory.OpenWrite())
             {
                 using var cmd = conn.CreateCommand();
@@ -79,7 +78,6 @@ public sealed class SchemaInitializerTests
         }
         finally
         {
-            SqliteConnection.ClearAllPools();
             TryDelete(dbPath);
             TryDelete(dbPath + "-wal");
             TryDelete(dbPath + "-shm");
@@ -93,7 +91,7 @@ public sealed class SchemaInitializerTests
         try
         {
             // A v4 db with FTS rows already populated — the rebuild must not desync them.
-            var factory = new DbConnectionFactory(dbPath);
+            var factory = new DbConnectionFactory(dbPath, pooling: false);
             using (var conn = factory.OpenWrite())
             {
                 using var cmd = conn.CreateCommand();
@@ -152,7 +150,6 @@ public sealed class SchemaInitializerTests
         }
         finally
         {
-            SqliteConnection.ClearAllPools();
             TryDelete(dbPath);
             TryDelete(dbPath + "-wal");
             TryDelete(dbPath + "-shm");
@@ -202,7 +199,7 @@ public sealed class SchemaInitializerTests
         try
         {
             // Simulate a v1 database: notes table without PlainText, user_version = 1.
-            var factory = new DbConnectionFactory(dbPath);
+            var factory = new DbConnectionFactory(dbPath, pooling: false);
             using (var conn = factory.OpenWrite())
             {
                 using var cmd = conn.CreateCommand();
@@ -229,7 +226,6 @@ public sealed class SchemaInitializerTests
         }
         finally
         {
-            SqliteConnection.ClearAllPools();
             TryDelete(dbPath);
             TryDelete(dbPath + "-wal");
             TryDelete(dbPath + "-shm");

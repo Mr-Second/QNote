@@ -366,7 +366,7 @@ public sealed class BackupServiceTests
             Root = Path.Combine(Path.GetTempPath(), $"qnote-backup-test-{Guid.NewGuid():N}");
             Paths = new AppPaths(Root);
             Paths.EnsureCreated();
-            Factory = new DbConnectionFactory(Paths.DatabasePath);
+            Factory = new DbConnectionFactory(Paths.DatabasePath, pooling: false);
             Schema = new SchemaInitializer(Factory);
             Schema.EnsureCreated();
             Repo = new NoteRepository(Factory);
@@ -406,7 +406,6 @@ public sealed class BackupServiceTests
 
         public void Dispose()
         {
-            SqliteConnection.ClearAllPools();
             try
             {
                 if (Directory.Exists(Root))
