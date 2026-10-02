@@ -7,12 +7,13 @@ Count these on every upstream sync and re-apply them.
 
 **Diff inventory vs upstream HEAD** (verified 2026-10-01, hash-compared, excluding
 `bin|obj`): 2 new files (`Controls/OverflowRowPanel.cs`,
-`Controls/RichEditorIconRenderer.cs`) and 8 changed files
-(`Controls/PathMarkup.cs`, `Controls/RichEditor.ContextMenu.cs`,
-`Controls/RichEditor.Input.cs`, `Controls/RichEditorIcons.cs`,
-`Controls/RichEditor.TableDraw.cs`, `Controls/RichEditor.Tables.cs`,
-`Controls/RichEditorToolbar.cs`, `Controls/RichEditorToolbar.PageFile.cs`).
-Nothing else differs.
+`Controls/RichEditorIconRenderer.cs`) and 9 changed files
+(`Controls/PathMarkup.cs`, `Controls/RichEditor.BlockSelection.cs`,
+`Controls/RichEditor.ContextMenu.cs`, `Controls/RichEditor.Input.cs`,
+`Controls/RichEditorIcons.cs`, `Controls/RichEditor.TableDraw.cs`,
+`Controls/RichEditor.Tables.cs`, `Controls/RichEditorToolbar.cs`,
+`Controls/RichEditorToolbar.PageFile.cs`). Nothing else differs.
+(BlockSelection.cs joined the changed list 2026-10-03 with P4.)
 
 ## P1 — Toolbar dark-mode active faces (`Controls/RichEditorToolbar.cs`)
 
@@ -136,6 +137,29 @@ re-merge of the visual spec, not a textual one: re-apply the *decisions*
 (Visual Spec in the task PRD `09-30-editor-toolbar-restyle/prd.md`), not the
 hunks. If upstream ships its own density/restyle system, evaluate replacing the
 visual half while keeping the high-contrast mapping (which upstream lacks).
+
+## P4 — Drag-resize now fires the edit notification (`Controls/RichEditor.BlockSelection.cs`)
+
+**Why.** A drag-resize of a block/inline image pushed an undo step
+(`PushDragUndoOnce`) and wrote `Width`/`Height` — i.e. it was an edit in every
+respect except notification: `FinishImageResize` never called `AfterEdit`, so
+`TextChanged` never fired. Hosts whose dirty tracking keys off `TextChanged`
+(QNote) then missed a resize-ONLY edit entirely — Ctrl+S became a no-op until
+some other edit dirtied the note. The context-menu resizes
+(`ResetInlineImageNatural` / `ScaleInlineImage` / block twins) all call
+`AfterEdit`; the drag path now does too (2026-10-03; exposed once QNote's
+Markdown bridge began persisting image display sizes, making a resize an
+actual content change).
+
+**What.** `TryResizeImage` sets `_imageResized = true` after a size write;
+`FinishImageResize` calls `AfterEdit()` only when a write actually happened
+(a press-and-release on a handle without moving is not an edit). The Esc
+mid-drag path (`RichEditor.Input.cs`) runs the same `FinishImageResize`, and
+the already-written partial size is a real edit there too.
+
+**Upstream-sync impact.** LOW — three lines around `FinishImageResize`; any
+upstream rework of the resize drag should be checked for whether it now calls
+`AfterEdit` itself (drop the patch if so).
 
 _Last verified against the vendored HEAD adopted 2026-09-30 (re-verified
 2026-10-01)._

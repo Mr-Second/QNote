@@ -218,6 +218,69 @@ public class WreMarkdownRoundTripTests
         Assert.Equal(16, image.Height);
     }
 
+    // ---- image display-size persistence (@<w>x<h> suffix, 2026-10-03) -----------------------
+
+    [Fact]
+    public void SizeSuffixOverridesIntrinsicGeometryOnLoad()
+    {
+        var paragraph = Assert.IsType<Paragraph>(MarkdownDocumentFormatter
+            .ToFlowDocument(Parse($"![截图](qnote-img:{PngSha}@9x7)"), Provider).Blocks[0]);
+        var image = Assert.IsType<InlineImage>(Assert.Single(paragraph.Inlines));
+
+        // The persisted size wins over the payload's intrinsic 2×2.
+        Assert.Equal(9, image.Width);
+        Assert.Equal(7, image.Height);
+    }
+
+    [Theory]
+    [InlineData("junk")]
+    [InlineData("0x7")]
+    [InlineData("9x0")]
+    [InlineData("9")]
+    [InlineData("9x")]
+    [InlineData("x7")]
+    [InlineData("-9x7")]
+    public void MalformedSizeSuffixDegradesToIntrinsicGeometry(string suffix)
+    {
+        var paragraph = Assert.IsType<Paragraph>(MarkdownDocumentFormatter
+            .ToFlowDocument(Parse($"![截图](qnote-img:{PngSha}@{suffix})"), Provider).Blocks[0]);
+        var image = Assert.IsType<InlineImage>(Assert.Single(paragraph.Inlines));
+
+        Assert.Equal(2, image.Width);
+        Assert.Equal(2, image.Height);
+    }
+
+    [Fact]
+    public void ResizedImageKeepsItsSizeThroughTheRoundTrip()
+    {
+        // Parse an intrinsic reference, "resize" in the editor, save, emit: the size
+        // rides the @<w>x<h> suffix and reloads to the resized geometry — the
+        // editor's resize handles survive a save/reload round-trip.
+        var document = MarkdownDocumentFormatter.ToFlowDocument(Parse($"![图](qnote-img:{PngSha})"), Provider);
+        var image = Assert.IsType<InlineImage>(Assert.IsType<Paragraph>(document.Blocks[0]).Inlines[0]);
+        image.Width = 9;
+        image.Height = 7;
+
+        var md = MarkdownEmitter.Emit(MarkdownDocumentFormatter.ToDocumentContent(document));
+        Assert.Equal($"![图](qnote-img:{PngSha}@9x7)\n", md);
+        Assert.Equal($"![图](qnote-img:{PngSha}@9x7)\n", RoundTrip(md));
+    }
+
+    [Fact]
+    public void IntrinsicSizedImageStaysSuffixFree()
+    {
+        // The suffix is emitted ONLY for a user resize: existing notes' Markdown
+        // never grows an @<w>x<h> just from being loaded and saved.
+        Assert.Equal($"![截图](qnote-img:{PngSha})", RoundTrip($"![截图](qnote-img:{PngSha})").TrimEnd('\n'));
+    }
+
+    [Fact]
+    public void CellImageKeepsResizedSizeThroughTheRoundTrip()
+    {
+        var md = $"| 图 | b |\n| --- | --- |\n| ![图](qnote-img:{PngSha}@9x7) | d |";
+        Assert.Contains($"![图](qnote-img:{PngSha}@9x7)", RoundTrip(md));
+    }
+
     // ---- save direction: WRE → model semantics ----------------------------------------------
 
     private static FlowDocument Document(params Block[] blocks)
