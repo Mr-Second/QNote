@@ -5,9 +5,8 @@ QNote {VERSION} 起便携版主推变体升级为 **NativeAOT 原生编译**：�
 | 文件 | 说明 |
 |---|---|
 | `QNote_{VERSION}_win-x64_native-aot.zip` | **推荐**：NativeAOT 原生编译，体积更小、启动更快，零运行时依赖，解压即用 |
-| `QNote_{VERSION}_win-x64_framework-dependent.zip` | 需先安装 [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)（x64）；自 AOT 版上线后体积优势已无，仅按需保留 |
 
-两个变体内容完全相同，均为免安装绿色版：解压到任意**可写**目录，运行 `QNote.exe` 即可；「卸载」= 删除整个目录。
+该变体为免安装绿色版：解压到任意**可写**目录，运行 `QNote.exe` 即可；「卸载」= 删除整个目录。
 
 ## 从旧便携版升级
 
