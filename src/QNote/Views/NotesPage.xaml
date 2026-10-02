@@ -525,6 +525,18 @@
                                 Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                 IsHitTestVisible="False"
                                 Text="在这里输入便签内容..." />
+
+                            <!--  Floating find/replace overlay, VS Code find-widget
+                                  placement: flush right, 4px below the editor top,
+                                  on top of the canvas, reserving NO layout space.
+                                  Opened by the engine's Ctrl+F / Ctrl+H via
+                                  FindRequested (wired in code-behind); hidden with
+                                  the editor column when no note is loaded.  -->
+                            <controls:EditorFindBar
+                                x:Name="FindBar"
+                                Margin="0,4,0,0"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top" />
                         </Grid>
                     </Grid>
 

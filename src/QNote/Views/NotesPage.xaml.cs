@@ -59,6 +59,22 @@ public sealed partial class NotesPage : Page
         _editor.ContentChanged += OnEditorContentChanged;
         _editor.SelectionChanged += OnEditorSelectionChanged;
 
+        // Find/replace: the engine raises FindRequested on Ctrl+F / Ctrl+H (editor focus
+        // domain); the floating bar is QNote's host-side find UI (the RichEditorView one is
+        // excluded with the rest of that chrome). Subscribing also arms the engine's own
+        // F3 / Shift+F3 (FindAgain). Without a note loaded the editor column is collapsed,
+        // so Ctrl+F cannot fire — the guard is defensive only.
+        FindBar.Target = Editor;
+        Editor.FindRequested += (_, withReplace) =>
+        {
+            if (ViewModel.HasSelection) FindBar.Show(withReplace);
+        };
+        // Replace-all result toast (page-level AppToast, same as backup/restore outcomes);
+        // the count message uses the editor localization table's ReplacedFormat key.
+        FindBar.ReplaceAllCompleted += count => ResultTip.ShowSuccess(
+            WinUIRichEditor.RichEditorLocalization.GetString("ReplaceAll"),
+            string.Format(WinUIRichEditor.RichEditorLocalization.GetString("ReplacedFormat"), count));
+
         Loaded += OnLoaded;
     }
 
@@ -145,6 +161,9 @@ public sealed partial class NotesPage : Page
         await _editor.SetMarkdownAsync(ViewModel.EditingContent);
         UpdatePlaceholder();
         UpdateEditorStatus();
+        // A note switch swapped the document under an open find bar — keep its live
+        // highlight + "n/m" counter in step with the new content (no focus side-effects).
+        FindBar.Refresh();
     }
 
     private void OnEditorContentChanged()

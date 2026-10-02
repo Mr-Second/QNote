@@ -24,3 +24,15 @@ distributed under the Pictogrammers Free License (free to use and distribute;
 derived from Google's Material icon set, originally Apache-2.0). Seven paths
 are embedded: `table-row-plus-before/after`, `table-row-remove`,
 `table-column-plus-before/after`, `table-column-remove`, `table-remove`.
+
+## vscode-codicons font — `src/QNote/Assets/Fonts/codicon.ttf`
+
+The find/replace bar's icons use the official Microsoft vscode-codicons font
+(https://github.com/microsoft/vscode-codicons, from the `@vscode/codicons` npm
+dist; internal family name `codicon`), referenced at runtime as
+`ms-appx:///Assets/Fonts/codicon.ttf#codicon`. vscode-codicons is distributed
+under the Creative Commons Attribution 4.0 International license
+(https://creativecommons.org/licenses/by/4.0/). Only the find-widget glyph
+subset is exercised: chevron-right / chevron-down (replace toggle),
+case-sensitive (match case), arrow-up / arrow-down (previous / next match),
+replace / replace-all, and widget-close.
