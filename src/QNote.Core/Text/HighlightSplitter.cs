@@ -5,7 +5,7 @@ namespace QNote.Text;
 /// parity with the Qt build's client-side literal highlight: the WHOLE keyword,
 /// case-insensitive substring, never tokenized. A bigram/AND match whose keyword is
 /// not contiguous in the text simply shows no highlight (accepted Qt behaviour).
-/// Pure function; lives in Core for headless tests (same rule as RtfPictStripper).
+/// Pure function; lives in Core for headless tests.
 /// </summary>
 public static class HighlightSplitter
 {
