@@ -8,7 +8,8 @@ namespace QNote.Converters;
 /// <see cref="NoteListDensity"/> → row metrics for the note-list item template.
 /// <c>ConverterParameter</c> picks the metric: <c>"Padding"</c> (template-root
 /// <see cref="Thickness"/>) or <c>"Spacing"</c> (StackPanel spacing, double).
-/// Standard reproduces the original hardcoded 10,8 / 3 exactly.
+/// Standard reproduces the original hardcoded 10,8 / 3 exactly. The <c>partial</c>
+/// modifier is load-bearing for NativeAOT publishes (CsWinRT1028).
 /// </summary>
 public sealed partial class ListDensityConverter : IValueConverter
 {

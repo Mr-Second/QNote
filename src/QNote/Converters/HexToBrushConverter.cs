@@ -9,7 +9,8 @@ namespace QNote.Converters;
 /// falls back to the CURRENT theme's <c>TextFillColorPrimaryBrush</c>. NOTE: do NOT
 /// return <see cref="DependencyProperty.UnsetValue"/> — compiled <c>x:Bind</c>
 /// casts the converter result straight to <see cref="Brush"/> and crashes on
-/// UnsetValue (classic {Binding} swallows it, x:Bind does not).
+/// UnsetValue (classic {Binding} swallows it, x:Bind does not). The <c>partial</c>
+/// modifier is load-bearing for NativeAOT publishes (CsWinRT1028).
 /// </summary>
 public sealed partial class HexToBrushConverter : IValueConverter
 {

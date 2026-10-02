@@ -5,7 +5,8 @@ namespace QNote.Converters;
 
 /// <summary>
 /// <see cref="bool"/> → <see cref="Visibility"/>. Pass <c>ConverterParameter="Invert"</c>
-/// to flip the mapping (true → Collapsed).
+/// to flip the mapping (true → Collapsed). The <c>partial</c> modifier is load-bearing
+/// for NativeAOT publishes (CsWinRT1028): the generator emits the WinRT vtable half.
 /// </summary>
 public sealed partial class BoolToVisibilityConverter : IValueConverter
 {
