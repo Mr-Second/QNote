@@ -443,6 +443,33 @@ public sealed class NoteRepository : INoteRepository
         return map;
     }
 
+    public async Task<IReadOnlyDictionary<string, string>> FindOriginalShaByDisplayHashAsync(
+        IReadOnlyList<string> displaySha256, CancellationToken ct = default)
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        var wanted = displaySha256.Distinct(StringComparer.Ordinal).ToHashSet(StringComparer.Ordinal);
+        if (wanted.Count == 0)
+            return map;
+
+        // Full-table scan (accepted v1 cost — only called when a note holds unlinked
+        // pasted images): the display hash is not a column, so every blob must be
+        // hashed in memory to match. Rows of different notes sharing the same original
+        // (same display bytes) all resolve to the same address; the first wins, which
+        // is exactly the load path's first-wins rule for identical display copies.
+        await using var conn = _factory.OpenRead();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT sha256, display_bytes FROM note_images WHERE display_bytes IS NOT NULL;";
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            var display = (byte[])reader[1];
+            var displaySha = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(display));
+            if (wanted.Contains(displaySha))
+                map.TryAdd(displaySha, reader.GetString(0));
+        }
+        return map;
+    }
+
     private static async Task<IReadOnlyList<NoteImage>> GetNoteImagesAsync(
         SqliteConnection conn, SqliteTransaction? tx, long noteId, CancellationToken ct)
     {
