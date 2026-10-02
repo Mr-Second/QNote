@@ -2,8 +2,8 @@
 #
 # Triggered by pushing a version tag (v1.2.0 → app version 1.2.0.0) or
 # manually via workflow_dispatch (uses the version currently in the repo;
-# `dry-run` runs the full build/zip/smoke pipeline but skips the release
-# job — used to validate pipeline changes without publishing anything).
+# `dry-run` validates the WHOLE pipeline — artifact download, SHA256SUMS,
+# notes prep — and skips only the final `gh release create` step).
 #
 # Channel split (portable-github-channel task, v1.2.0+):
 #   Store  = installed MSIX, Microsoft-trusted signature, auto-update.
@@ -40,12 +40,19 @@ on:
   workflow_dispatch:
     inputs:
       dry-run:
-        description: 'Run build/zip/smoke but skip the release job'
+        description: 'Validate the whole pipeline but skip the final publish step'
         type: boolean
         default: false
 
 permissions:
   contents: write # gh release create
+
+# Queue (not cancel) overlapping runs for the same ref: a dry-run dispatched
+# while a tag push is in flight must not race the real release for
+# gh release create.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   # Single source of truth for the version math; the portable job and the
@@ -82,6 +89,9 @@ jobs:
     needs: resolve-version
     name: portable (${{ matrix.variant }})
     runs-on: windows-latest
+    # The AOT leg (ILCompiler + native link) is the longest job in the file;
+    # fail fast on a hung toolchain instead of burning the 6 h default.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -241,10 +251,13 @@ jobs:
 
   release:
     needs: [resolve-version, portable]
-    # Dry-run (dispatch input) validates the pipeline without publishing:
-    # skip this job, keep the portable build/zip/smoke job above.
-    if: ${{ inputs.dry-run != true }}
     runs-on: windows-latest
+    timeout-minutes: 15
+    # The job ALWAYS runs (a dry-run validates the artifact download,
+    # SHA256SUMS assembly and notes prep too); only the final publish
+    # step below is gated per event. Tag push → publish. Dispatch →
+    # publish unless dry-run was checked. Any future trigger (e.g. a
+    # schedule) would NOT match the event allowlist → never publishes.
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -284,6 +297,11 @@ jobs:
       # changelog BELOW the --notes-file body (verified against the gh
       # manual), so the prepared zh notes stay on top.
       - name: Create GitHub Release
+        # Publish gate (event-explicit, fail-closed): only tag pushes and
+        # non-dry-run dispatches reach gh release create. The old job-level
+        # `inputs.dry-run != true` was fail-open — any future trigger kind
+        # (schedule, etc.) would have published.
+        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry-run != true) }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
