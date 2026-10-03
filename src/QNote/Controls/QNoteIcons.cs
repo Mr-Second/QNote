@@ -8,8 +8,8 @@ namespace QNote.Controls;
 /// <summary>
 /// QNote's host-side icon provider for the vendored WinUIRichEditor chrome. Maps
 /// <see cref="RichEditorIcon"/> slots to glyphs from the bundled <b>CM_EDITOR</b> icon font
-/// (<c>Assets/Fonts/CM_EDITOR.ttf</c>) — the icon set the user selected (the HarmonyOS a reference editor
-/// editor's KindEditor theme, <c>KindEditor-plugin/theme.css</c>). Install once at startup, before
+/// (<c>Assets/Fonts/CM_EDITOR.ttf</c>) — the icon-font set selected as the toolbar reference
+/// (a KindEditor plugin's <c>KindEditor-plugin/theme.css</c>). Install once at startup, before
 /// any editor chrome is built: <c>RichEditorIcons.Provider = icon =&gt; QNoteIcons.Create(icon);</c>.
 /// <para>
 /// Slots the font has no glyph for fall through to the <see cref="VectorMap"/>: table row/column
@@ -42,7 +42,7 @@ public static class QNoteIcons
                 ? RichEditorIconRenderer.CreatePathIcon(data, box)
                 : null;
 
-    // CM_EDITOR code points (KindEditor-plugin/theme.css in the reference editor). All are 4-hex BMP
+    // CM_EDITOR code points (from the KindEditor-plugin/theme.css icon font). All are 4-hex BMP
     // private-use code points (U+E6xx / U+EAxx).
     private const int Bold = 0xE614;
     private const int Italic = 0xE61D;

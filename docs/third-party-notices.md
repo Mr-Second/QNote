@@ -4,11 +4,11 @@ Assets and embedded data QNote ships that originate from third-party projects.
 
 ## CM_EDITOR icon font — `src/QNote/Assets/Fonts/CM_EDITOR.ttf`
 
-Extracted (2026-09-30) from the HarmonyOS a reference editor editor's bundled KindEditor
-plugin (`products/pc/.../libs/KindEditor-plugin/theme.css`, where the TTF is
-inlined as base64; internal family name `iconfont`). KindEditor is distributed
-under the LGPL-2.1; the icon set follows the license of the project it ships
-with. Used as the editor toolbar's icon font.
+An icon-font TTF (internal family name `iconfont`) extracted (2026-09-30)
+from the base64 payload inlined in a KindEditor plugin's
+`KindEditor-plugin/theme.css`. KindEditor is distributed under the LGPL-2.1;
+the icon set follows the license of the project it ships with. Used as the
+editor toolbar's icon font.
 
 ## Lucide icons — `src/third-party/WinUIRichEditor/Controls/RichEditorToolbar.cs`
 

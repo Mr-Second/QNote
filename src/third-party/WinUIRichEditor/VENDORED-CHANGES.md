@@ -67,7 +67,7 @@ vendored side unless upstream grew its own C/S/T support — then drop the patch
 
 **Why.** Task `09-30-editor-toolbar-restyle`: the stock toolbar (bare 26×28
 buttons, faint stock hover, single wrapping row, `ToolbarWrapPanel` wrap) was
-rebuilt to the user's reference UI (a reference editor): a **fixed
+rebuilt to a reference editor UI: a **fixed
 two-row bar** — row 1 = icon buttons, row 2 = every dropdown — with
 theme-aware rounded hover/pressed/active faces, group separators, border+radius
 combos, a searchable font picker, and a per-row trailing "More ⋮" that folds
