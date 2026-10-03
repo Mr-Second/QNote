@@ -12,8 +12,8 @@
       manual update check) must stay in sync; release.yml patches both from
       the tag.
     -->
-    <Version>1.4.0.0</Version>
-    <FileVersion>1.4.0.0</FileVersion>
+    <Version>1.4.1.0</Version>
+    <FileVersion>1.4.1.0</FileVersion>
     <!-- Limit NuGet .resources.dll satellites to en + zh-Hans (portable-github-
          channel Batch 3). NOTE (measured 2026-10-01): this property does NOT
          remove the ~80 culture dirs in the output — those are WinUI runtime
