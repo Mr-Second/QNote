@@ -1,5 +1,7 @@
 # QNote
 
+**English** | [简体中文](README.zh-CN.md)
+
 [![CI](https://github.com/Mr-Second/QNote/actions/workflows/ci.yml/badge.svg)](https://github.com/Mr-Second/QNote/actions/workflows/ci.yml)
 [![Release](https://github.com/Mr-Second/QNote/actions/workflows/release.yml/badge.svg)](https://github.com/Mr-Second/QNote/actions/workflows/release.yml)
 
@@ -19,11 +21,11 @@ to keep running all day without thinking about it.
 
 ## Features
 
-- **Notes CRUD** with an RTF rich-text editor and a formatting toolbar
+- **Notes CRUD** with a rich-text editor and a formatting toolbar
   (bold / italic / lists / colors / …)
 - **Instant search** powered by SQLite FTS5, with keyword highlighting
 - **Categories** in the sidebar, drag-to-reorder
-- **Image insertion** in notes; double-click opens the system image viewer
+- **Image insertion** in notes (right-click to save as / alt text / replace)
 - **Backup & restore** — `.qns` archives (ZIP + AES-256 encrypted) with three
   restore modes
 - **Top-edge auto-hide** — dock notes to the screen edge; plus a global hotkey
@@ -72,7 +74,7 @@ dotnet test tests/QNote.Tests/QNote.Tests.csproj -c Debug
 
 | Concern | Choice |
 |---|---|
-| UI | WinUI 3 / Windows App SDK 2.3.1, XAML with `x:Bind` |
+| UI | WinUI 3 / Windows App SDK 2.5.1, XAML with `x:Bind` |
 | Runtime | .NET 10 |
 | MVVM | CommunityToolkit.Mvvm |
 | Data | SQLite via Microsoft.Data.Sqlite, FTS5 full-text search |
