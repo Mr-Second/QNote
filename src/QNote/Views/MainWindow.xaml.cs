@@ -231,11 +231,25 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
+    /// Re-reads the tray menu item texts from <see cref="AppStrings"/> in the
+    /// current language (x:Uid only resolves at element load, so a runtime
+    /// switch needs an explicit re-read). Called from both
+    /// <see cref="SwitchLanguageAsync"/> (the shipped SecondWindow tray path)
+    /// and <see cref="TrayMenu_Opened"/> (any mode where the source flyout
+    /// itself shows).
+    /// </summary>
+    private void RefreshTrayMenuTexts()
+    {
+        TrayShowItem.Text = AppStrings.GetString("TrayShow");
+        TrayQuitItem.Text = AppStrings.GetString("TrayQuit");
+    }
+
+    /// <summary>
     /// Runtime language switch: flush the open note, re-point every language
     /// surface (resw override + editor string table), then re-navigate so the
-    /// x:Uid'd elements re-resolve in the new language. The tray menu texts are
-    /// re-read on every open (see <see cref="TrayMenu_Opened"/>) and open
-    /// ContentDialogs keep their previous language until reopened (PRD-accepted).
+    /// x:Uid'd elements re-resolve in the new language. The tray menu items
+    /// are refreshed directly here (see below); open ContentDialogs keep their
+    /// previous language until reopened (PRD-accepted).
     /// </summary>
     private async Task SwitchLanguageAsync(string mode)
     {
@@ -244,6 +258,14 @@ public sealed partial class MainWindow : Window
             await page.ViewModel.FlushAsync();
 
         AppLanguage.Apply(mode);
+
+        // Tray menu: with ContextMenuMode="SecondWindow", H.NotifyIcon moves
+        // these item instances into its own flyout when the window loads and
+        // never re-reads them (the source flyout — and its Opened handler,
+        // TrayMenu_Opened — is not on the tray right-click path). The instances
+        // are shared, so refreshing their Text here makes the NEXT menu open
+        // render the new language.
+        RefreshTrayMenuTexts();
 
         // Same-type Navigate creates a fresh page instance (no page caching), so
         // every x:Uid'd element re-resolves against the new language.
@@ -348,9 +370,13 @@ public sealed partial class MainWindow : Window
     {
         // Texts are re-read on every open so a runtime language switch takes
         // effect on the tray menu without rebuilding anything (x:Uid only
-        // resolves at element load).
-        TrayShowItem.Text = AppStrings.GetString("TrayShow");
-        TrayQuitItem.Text = AppStrings.GetString("TrayQuit");
+        // resolves at element load). NOTE: in SecondWindow mode (the shipped
+        // tray path) this handler does not run — H.NotifyIcon moves the menu
+        // items into its own internal flyout, so the tray right-click never
+        // opens this source flyout — the runtime-switch refresh lives in
+        // SwitchLanguageAsync instead. Kept as belt-and-braces for any mode
+        // where the source flyout itself shows.
+        RefreshTrayMenuTexts();
 
         // Flyout popups do not inherit the window root's RequestedTheme (same
         // gotcha as ContentDialog) — pin the presenter so the tray menu follows
