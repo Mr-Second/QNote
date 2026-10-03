@@ -13,6 +13,7 @@ using QNote.Memory;
 using QNote.Models;
 using QNote.Services;
 using Windows.Graphics;
+using Windows.UI;
 
 namespace QNote.Views;
 
@@ -76,6 +77,16 @@ public sealed partial class MainWindow : Window
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
+
+        // Caption-button colors, owned explicitly: the WinUI TitleBar control's
+        // propagation misses the flip back to light — after dark→light the ACTIVE
+        // foreground stays white (microsoft/microsoft-ui-xaml#9722/#9788; the
+        // INACTIVE color is never explicitly set and stays correct, which is why
+        // the bug only shows while the window is focused). Same workaround as
+        // WinUI-Gallery (PR #2016); re-applied on every theme evaluation.
+        AppTitleBar.Loaded += (_, _) => ApplyCaptionButtonColors();
+        AppTitleBar.ActualThemeChanged += (_, _) => ApplyCaptionButtonColors();
+
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
         ResizeToDefault();
         // QNOTE: the editor toolbar is a FIXED TWO-ROW bar (icons + dropdowns), so it needs a floor on the
@@ -107,6 +118,29 @@ public sealed partial class MainWindow : Window
         var dpi = GetDpiForWindow(hwnd);
         var scale = dpi <= 0 ? 1.0 : dpi / 96.0;
         AppWindow.Resize(new SizeInt32((int)(940 * scale), (int)(620 * scale)));
+    }
+
+    /// <summary>
+    /// Caption-button glyph colors, applied on load and every theme evaluation
+    /// (see the ctor comment for why the TitleBar control cannot be trusted
+    /// with them). INACTIVE colors are deliberately left untouched: the
+    /// system's automatic value tracks the theme correctly. Values mirror the
+    /// WinUI-Gallery workaround.
+    /// </summary>
+    private void ApplyCaptionButtonColors()
+    {
+        var dark = AppTitleBar.ActualTheme == ElementTheme.Dark;
+        var foreground = dark
+            ? Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF)
+            : Color.FromArgb(0xFF, 0x19, 0x19, 0x19);
+        var hoverBackground = dark
+            ? Color.FromArgb(0x0F, 0xFF, 0xFF, 0xFF)
+            : Color.FromArgb(0x09, 0x00, 0x00, 0x00);
+        AppWindow.TitleBar.ButtonForegroundColor = foreground;
+        AppWindow.TitleBar.ButtonHoverForegroundColor = foreground;
+        AppWindow.TitleBar.ButtonPressedForegroundColor = foreground;
+        AppWindow.TitleBar.ButtonHoverBackgroundColor = hoverBackground;
+        AppWindow.TitleBar.ButtonPressedBackgroundColor = hoverBackground;
     }
 
     private async Task ApplyInitialSettingsAsync()
