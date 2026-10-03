@@ -18,7 +18,7 @@
   <Identity
     Name="71E74B05-BE20-45DC-B948-E90C0A09B4F8"
     Publisher="CN=QNote"
-    Version="1.3.0.0" />
+    Version="1.4.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="71E74B05-BE20-45DC-B948-E90C0A09B4F8" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
