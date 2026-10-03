@@ -16,6 +16,7 @@ public sealed class SettingsService : ISettingsService
     private static class Keys
     {
         public const string ThemeMode = "themeMode";
+        public const string LanguageMode = "languageMode";
         public const string AlwaysOnTop = "alwaysOnTop";
         public const string RememberWindowGeometry = "rememberWindowGeometry";
         public const string StartMinimized = "startMinimized";
@@ -90,6 +91,7 @@ public sealed class SettingsService : ISettingsService
         _cache = new AppSettings
         {
             ThemeMode = Get(Keys.ThemeMode) ?? defaults.ThemeMode,
+            LanguageMode = Get(Keys.LanguageMode) ?? defaults.LanguageMode,
             AlwaysOnTop = GetBool(Keys.AlwaysOnTop, defaults.AlwaysOnTop),
             RememberWindowGeometry = GetBool(Keys.RememberWindowGeometry, defaults.RememberWindowGeometry),
             StartMinimized = GetBool(Keys.StartMinimized, defaults.StartMinimized),
@@ -165,6 +167,7 @@ public sealed class SettingsService : ISettingsService
         static string Int(int v) => v.ToString(CultureInfo.InvariantCulture);
 
         yield return (Keys.ThemeMode, s.ThemeMode);
+        yield return (Keys.LanguageMode, s.LanguageMode);
         yield return (Keys.AlwaysOnTop, Bool(s.AlwaysOnTop));
         yield return (Keys.RememberWindowGeometry, Bool(s.RememberWindowGeometry));
         yield return (Keys.StartMinimized, Bool(s.StartMinimized));

@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using QNote.Models;
+using QNote.Services;
 using QNote.Text;
 
 namespace QNote.ViewModels;
@@ -63,10 +64,12 @@ public partial class NoteItemViewModel : ObservableObject
     public partial string Keyword { get; set; } = string.Empty;
 
     /// <summary>Title with the empty-note fallback used by the Qt build.</summary>
-    public string DisplayTitle => string.IsNullOrWhiteSpace(Title) ? "新便签" : Title;
+    public string DisplayTitle => string.IsNullOrWhiteSpace(Title)
+        ? AppStrings.GetString("UntitledNote")
+        : Title;
 
     /// <summary>Local timestamp shown on the list card, styled per <see cref="TimeFormat"/>.</summary>
-    public string TimeDisplay => NoteTimeFormatter.Format(UpdatedAt, TimeFormat);
+    public string TimeDisplay => NoteTimeFormatter.Format(UpdatedAt, TimeFormat, strings: AppLanguage.TimeStrings);
 
     /// <summary>Refresh display fields after the note is saved.</summary>
     public void Apply(string title, string preview, DateTimeOffset updatedAt)

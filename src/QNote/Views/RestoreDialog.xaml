@@ -7,6 +7,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:views="using:QNote.Views"
+    x:Uid="RestoreDialog"
     Title="恢复数据"
     CloseButtonText="取消"
     DefaultButton="None"
@@ -24,7 +25,7 @@
 
         <!-- Step 1: pick the archive -->
         <StackPanel Spacing="4">
-            <TextBlock Text="备份文件" />
+            <TextBlock x:Uid="RestoreFileLabel" Text="备份文件" />
             <Grid ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -32,6 +33,7 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock
                     x:Name="FilePathText"
+                    x:Uid="RestoreFilePath"
                     VerticalAlignment="Center"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                     Text="未选择文件"
@@ -39,9 +41,9 @@
                     TextWrapping="NoWrap" />
                 <Button
                     x:Name="PickButton"
+                    x:Uid="RestorePickButton"
                     Grid.Column="1"
                     AutomationProperties.AutomationId="RestorePickButton"
-                    AutomationProperties.Name="选择备份文件"
                     Click="Pick_Click"
                     Content="选择…" />
             </Grid>
@@ -50,12 +52,12 @@
         <!-- Step 1b: automatic pre-restore backups (D4 safety net) — one click
              selects one, no folder browsing. Hidden when none exist. -->
         <StackPanel x:Name="AutoBackupsPanel" Spacing="4" Visibility="Collapsed">
-            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="从自动备份恢复（覆盖恢复前自动创建）" />
+            <TextBlock x:Uid="AutoBackupsLabel" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="从自动备份恢复（覆盖恢复前自动创建）" />
             <ListView
                 x:Name="AutoBackupsList"
+                x:Uid="AutoBackupsList"
                 MaxHeight="112"
                 AutomationProperties.AutomationId="AutoBackupsList"
-                AutomationProperties.Name="自动备份列表"
                 IsItemClickEnabled="True"
                 ItemClick="AutoBackup_Click"
                 SelectionMode="None">
@@ -70,20 +72,22 @@
         <!-- Step 2: password (only when the archive is encrypted) -->
         <PasswordBox
             x:Name="PasswordBox"
+            x:Uid="RestorePasswordBox"
             AutomationProperties.AutomationId="RestorePasswordBox"
-            AutomationProperties.Name="备份密码"
             Header="备份密码（该备份已加密）"
             Visibility="Collapsed" />
 
         <Button
             x:Name="AnalyzeButton"
+            x:Uid="RestoreAnalyzeButton"
             AutomationProperties.AutomationId="RestoreAnalyzeButton"
-            AutomationProperties.Name="分析备份"
             Click="Analyze_Click"
             Content="分析备份"
             Visibility="Collapsed" />
 
-        <!-- Step 3: conflict analysis + mode -->
+        <!-- Step 3: conflict analysis + mode. The mode items are RadioButtons
+             (x:String items cannot carry x:Uid); SelectedIndex semantics are
+             unchanged. -->
         <StackPanel
             x:Name="AnalysisPanel"
             Spacing="8"
@@ -91,16 +95,17 @@
             <TextBlock x:Name="CountsText" TextWrapping="Wrap" />
             <RadioButtons
                 x:Name="ModeRadios"
+                x:Uid="RestoreModeRadios"
                 AutomationProperties.AutomationId="RestoreModeRadios"
-                AutomationProperties.Name="恢复模式"
                 SelectedIndex="1"
                 SelectionChanged="ModeRadios_SelectionChanged">
-                <x:String>覆盖：完全替换当前数据（会先自动备份当前数据）</x:String>
-                <x:String>合并：冲突便签保留较新版本，并导入新便签</x:String>
-                <x:String>仅导入新增：只导入当前不存在的便签</x:String>
+                <RadioButton x:Uid="RestoreModeOverwrite" Content="覆盖：完全替换当前数据（会先自动备份当前数据）" />
+                <RadioButton x:Uid="RestoreModeMerge" Content="合并：冲突便签保留较新版本，并导入新便签" />
+                <RadioButton x:Uid="RestoreModeImportNew" Content="仅导入新增：只导入当前不存在的便签" />
             </RadioButtons>
             <TextBlock
                 x:Name="OverwriteWarning"
+                x:Uid="OverwriteWarning"
                 Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                 Text="覆盖将删除当前全部便签、分类和设置，替换为备份内容。"
                 TextWrapping="Wrap"

@@ -28,9 +28,9 @@
             ToolTipText="QNote">
             <tb:TaskbarIcon.ContextFlyout>
                 <MenuFlyout x:Name="TrayMenuFlyout" Opened="TrayMenu_Opened">
-                    <MenuFlyoutItem Click="TrayShow_Click" Text="显示窗口" />
+                    <MenuFlyoutItem x:Name="TrayShowItem" x:Uid="TrayShowItem" Click="TrayShow_Click" Text="显示窗口" />
                     <MenuFlyoutSeparator />
-                    <MenuFlyoutItem Click="TrayQuit_Click" Text="退出" />
+                    <MenuFlyoutItem x:Name="TrayQuitItem" x:Uid="TrayQuitItem" Click="TrayQuit_Click" Text="退出" />
                 </MenuFlyout>
             </tb:TaskbarIcon.ContextFlyout>
         </tb:TaskbarIcon>

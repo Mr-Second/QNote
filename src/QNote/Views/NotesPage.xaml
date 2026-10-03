@@ -45,6 +45,7 @@
                 <StackPanel Grid.Row="0" Spacing="1">
                     <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="QNote" />
                     <TextBlock
+                        x:Uid="NotesSubtitle"
                         Style="{StaticResource CaptionTextBlockStyle}"
                         Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                         Text="便签整理" />
@@ -78,6 +79,7 @@
                                     <Grid.ContextFlyout>
                                         <MenuFlyout>
                                             <MenuFlyoutItem
+                                                x:Uid="CategoryRename"
                                                 Click="RenameCategoryMenu_Click"
                                                 IsEnabled="{x:Bind CanEdit, Mode=OneWay}"
                                                 Tag="{x:Bind}"
@@ -87,6 +89,7 @@
                                                 </MenuFlyoutItem.Icon>
                                             </MenuFlyoutItem>
                                             <MenuFlyoutItem
+                                                x:Uid="CategoryDelete"
                                                 Click="DeleteCategoryMenu_Click"
                                                 IsEnabled="{x:Bind CanEdit, Mode=OneWay}"
                                                 Tag="{x:Bind}"
@@ -121,7 +124,7 @@
                                             Grid.Column="1"
                                             VerticalAlignment="Center"
                                             Foreground="{x:Bind ActiveColorHex, Converter={StaticResource HexToBrush}, Mode=OneWay}"
-                                            Text="{x:Bind Name, Mode=OneWay}"
+                                            Text="{x:Bind DisplayName, Mode=OneWay}"
                                             TextTrimming="CharacterEllipsis" />
                                         <TextBlock
                                             Grid.Column="2"
@@ -138,29 +141,29 @@
 
                 <StackPanel Grid.Row="2" Spacing="2">
                     <Button
+                        x:Uid="NewCategoryButton"
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Left"
-                        AutomationProperties.Name="新建分类"
                         Background="Transparent"
                         BorderThickness="0"
                         Click="NewCategoryButton_Click"
                         ToolTipService.ToolTip="新建分类">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon FontSize="14" Glyph="&#xE710;" />
-                            <TextBlock Text="新建分类" />
+                            <TextBlock x:Uid="NewCategory" Text="新建分类" />
                         </StackPanel>
                     </Button>
                     <Button
+                        x:Uid="SettingsButton"
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Left"
-                        AutomationProperties.Name="设置"
                         Background="Transparent"
                         BorderThickness="0"
                         Click="SettingsButton_Click"
                         ToolTipService.ToolTip="设置">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon FontSize="14" Glyph="&#xE713;" />
-                            <TextBlock Text="设置" />
+                            <TextBlock x:Uid="Settings" Text="设置" />
                         </StackPanel>
                     </Button>
                 </StackPanel>
@@ -192,18 +195,19 @@
                     <StackPanel Grid.Column="0" Spacing="1">
                         <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind ViewModel.CurrentCategoryTitle, Mode=OneWay}" />
                         <TextBlock
+                            x:Uid="NotesSummary"
                             FontSize="11"
                             Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                             Text="便签摘要" />
                     </StackPanel>
                     <Button
                         x:Name="NewNoteButton"
+                        x:Uid="NewNoteButton"
                         Grid.Column="1"
                         Width="34"
                         Height="34"
                         Padding="0"
                         VerticalAlignment="Center"
-                        AutomationProperties.Name="新建便签"
                         Command="{x:Bind ViewModel.NewNoteCommand}"
                         CornerRadius="17"
                         Style="{StaticResource NewNoteButtonStyle}"
@@ -256,19 +260,19 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <AutoSuggestBox
+                        x:Uid="SearchNotes"
                         Padding="10,6"
-                        AutomationProperties.Name="搜索便签"
                         PlaceholderText="搜索便签"
                         QueryIcon="Find"
                         Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                     <Button
+                        x:Uid="SearchSortButton"
                         Grid.Column="1"
                         Width="32"
                         Height="32"
                         Padding="0"
                         VerticalAlignment="Center"
                         AutomationProperties.AutomationId="SearchSortButton"
-                        AutomationProperties.Name="搜索排序"
                         Background="Transparent"
                         BorderThickness="0"
                         ToolTipService.ToolTip="搜索结果排序"
@@ -281,16 +285,19 @@
                             <MenuFlyout Opened="SearchSortFlyout_Opened" Placement="Bottom">
                                 <MenuFlyoutItem
                                     x:Name="SortByRelevanceItem"
+                                    x:Uid="SortByRelevance"
                                     Click="SearchSortItem_Click"
                                     Tag="0"
                                     Text="按匹配度" />
                                 <MenuFlyoutItem
                                     x:Name="SortByNewestItem"
+                                    x:Uid="SortByNewest"
                                     Click="SearchSortItem_Click"
                                     Tag="1"
                                     Text="最新优先" />
                                 <MenuFlyoutItem
                                     x:Name="SortByOldestItem"
+                                    x:Uid="SortByOldest"
                                     Click="SearchSortItem_Click"
                                     Tag="2"
                                     Text="最早优先" />
@@ -346,12 +353,12 @@
                                 <!-- Hover-reveal delete badge (Qt parity: delete lives on the item, not the editor). -->
                                 <Button
                                     x:Name="ItemDeleteButton"
+                                    x:Uid="ItemDelete"
                                     Width="24"
                                     Height="24"
                                     Margin="4"
                                     HorizontalAlignment="Right"
                                     VerticalAlignment="Top"
-                                    AutomationProperties.Name="删除便签"
                                     Click="ItemDeleteButton_Click"
                                     Style="{StaticResource NoteItemDeleteButtonStyle}"
                                     ToolTipService.ToolTip="删除便签"
@@ -396,6 +403,7 @@
                 </ListView>
 
                 <TextBlock
+                    x:Uid="NotesEmpty"
                     Grid.Row="2"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
@@ -441,7 +449,7 @@
                         FontSize="42"
                         Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                         Glyph="&#xE8A5;" />
-                    <TextBlock Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="选择或创建一个便签" />
+                    <TextBlock x:Uid="EditorEmpty" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="选择或创建一个便签" />
                 </StackPanel>
 
                 <!--  Editor (WinUIRichEditor: a top formatting toolbar + the editor's
@@ -458,9 +466,9 @@
 
                     <TextBox
                         x:Name="TitleBox"
+                        x:Uid="TitleBox"
                         Grid.Row="0"
                         Padding="0"
-                        AutomationProperties.Name="便签标题"
                         Background="Transparent"
                         BorderThickness="0"
                         FontSize="18"
@@ -508,12 +516,12 @@
                                   Light/Dark switch.  -->
                             <wre:RichEditor
                                 x:Name="Editor"
+                                x:Uid="NoteContent"
                                 AllowDrop="True"
                                 AllowFindReplace="True"
                                 AllowImages="True"
                                 AllowRichPaste="True"
                                 AllowTables="True"
-                                AutomationProperties.Name="便签内容"
                                 CanvasBackground="{ThemeResource NoteSurfaceBrush}"
                                 CaretBrush="{ThemeResource TextFillColorPrimaryBrush}"
                                 Drop="Editor_Drop"
@@ -521,6 +529,7 @@
                                 TextForeground="{ThemeResource TextFillColorPrimaryBrush}" />
                             <TextBlock
                                 x:Name="ContentPlaceholder"
+                                x:Uid="ContentPlaceholder"
                                 Margin="10,10,0,0"
                                 Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                 IsHitTestVisible="False"
@@ -553,12 +562,14 @@
                     Visibility="{x:Bind ViewModel.HasSelection, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
                     <StackPanel Orientation="Horizontal" Spacing="14">
                         <TextBlock
+                            x:Uid="DirtyBadge"
                             FontSize="11"
                             Foreground="{ThemeResource BrandAccentBrush}"
                             Text="● 未保存"
                             Visibility="{x:Bind ViewModel.IsDirty, Converter={StaticResource BoolToVisibility}, Mode=OneWay}" />
                         <TextBlock
                             x:Name="CharCountText"
+                            x:Uid="CharCount"
                             FontSize="11"
                             Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                             Text="0 字" />

@@ -1,0 +1,760 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    QNote app strings — NEUTRAL file = ENGLISH (product source language is zh-Hans;
+    the mechanical layout is neutral=EN so "follow system" falls back to English on
+    non-Chinese systems). Keys must stay identical with Strings/zh-Hans/Resources.resw
+    (enforced by ReswKeyParityTests). Dotted keys carry the x:Uid property suffix;
+    keys with [using:...] target attached properties.
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- ===== Tray (MainWindow) ===== -->
+  <data name="TrayShowItem.Text" xml:space="preserve">
+    <value>显示窗口</value>
+  </data>
+  <data name="TrayQuitItem.Text" xml:space="preserve">
+    <value>退出</value>
+  </data>
+  <data name="TrayShow" xml:space="preserve">
+    <value>显示窗口</value>
+  </data>
+  <data name="TrayQuit" xml:space="preserve">
+    <value>退出</value>
+  </data>
+
+  <!-- ===== Notes page (three-pane) ===== -->
+  <data name="NotesSubtitle.Text" xml:space="preserve">
+    <value>便签整理</value>
+  </data>
+  <data name="CategoryRename.Text" xml:space="preserve">
+    <value>重命名</value>
+  </data>
+  <data name="CategoryDelete.Text" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="NewCategory.Text" xml:space="preserve">
+    <value>新建分类</value>
+  </data>
+  <data name="NewCategoryButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>新建分类</value>
+  </data>
+  <data name="NewCategoryButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>新建分类</value>
+  </data>
+  <data name="Settings.Text" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="SettingsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="SettingsButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="NotesSummary.Text" xml:space="preserve">
+    <value>便签摘要</value>
+  </data>
+  <data name="NewNoteButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>新建便签</value>
+  </data>
+  <data name="NewNoteButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>新建便签</value>
+  </data>
+  <data name="SearchNotes.PlaceholderText" xml:space="preserve">
+    <value>搜索便签</value>
+  </data>
+  <data name="SearchNotes.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>搜索便签</value>
+  </data>
+  <data name="SearchSortButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>搜索排序</value>
+  </data>
+  <data name="SearchSortButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>搜索结果排序</value>
+  </data>
+  <data name="SortByRelevance.Text" xml:space="preserve">
+    <value>按匹配度</value>
+  </data>
+  <data name="SortByNewest.Text" xml:space="preserve">
+    <value>最新优先</value>
+  </data>
+  <data name="SortByOldest.Text" xml:space="preserve">
+    <value>最早优先</value>
+  </data>
+  <data name="NotesEmpty.Text" xml:space="preserve">
+    <value>暂无便签</value>
+  </data>
+  <data name="ItemDelete.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>删除便签</value>
+  </data>
+  <data name="ItemDelete.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>删除便签</value>
+  </data>
+  <data name="EditorEmpty.Text" xml:space="preserve">
+    <value>选择或创建一个便签</value>
+  </data>
+  <data name="TitleBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>便签标题</value>
+  </data>
+  <data name="TitleBox.PlaceholderText" xml:space="preserve">
+    <value>无标题便签</value>
+  </data>
+  <data name="NoteContent.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>便签内容</value>
+  </data>
+  <data name="ContentPlaceholder.Text" xml:space="preserve">
+    <value>在这里输入便签内容...</value>
+  </data>
+  <data name="DirtyBadge.Text" xml:space="preserve">
+    <value>● 未保存</value>
+  </data>
+  <data name="CharCount.Text" xml:space="preserve">
+    <value>0 字</value>
+  </data>
+
+  <!-- ===== Settings panel ===== -->
+  <data name="SettingsDisplaySection.Text" xml:space="preserve">
+    <value>显示</value>
+  </data>
+  <data name="SettingsDensityLabel.Text" xml:space="preserve">
+    <value>列表密度</value>
+  </data>
+  <data name="SettingsDensityBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>列表密度</value>
+  </data>
+  <data name="DensityCompact.Content" xml:space="preserve">
+    <value>紧凑</value>
+  </data>
+  <data name="DensityStandard.Content" xml:space="preserve">
+    <value>标准</value>
+  </data>
+  <data name="DensityComfortable.Content" xml:space="preserve">
+    <value>宽松</value>
+  </data>
+  <data name="SettingsTimeFormatLabel.Text" xml:space="preserve">
+    <value>时间格式</value>
+  </data>
+  <data name="SettingsTimeFormatBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>时间格式</value>
+  </data>
+  <data name="TimeFormatRelative.Content" xml:space="preserve">
+    <value>相对（3 分钟前）</value>
+  </data>
+  <data name="TimeFormatTiered.Content" xml:space="preserve">
+    <value>分级（今日时分）</value>
+  </data>
+  <data name="TimeFormatFull.Content" xml:space="preserve">
+    <value>完整（年-月-日 时分）</value>
+  </data>
+  <data name="SettingsSortLabel.Text" xml:space="preserve">
+    <value>便签排序</value>
+  </data>
+  <data name="SettingsSortBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>便签排序</value>
+  </data>
+  <data name="SortUpdated.Content" xml:space="preserve">
+    <value>更新时间</value>
+  </data>
+  <data name="SortCreated.Content" xml:space="preserve">
+    <value>创建时间</value>
+  </data>
+  <data name="SortTitle.Content" xml:space="preserve">
+    <value>标题</value>
+  </data>
+  <data name="SettingsConfirmDeleteLabel.Text" xml:space="preserve">
+    <value>删除前确认</value>
+  </data>
+  <data name="SettingsConfirmDeleteSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>删除前确认</value>
+  </data>
+  <data name="SettingsGeneralSection.Text" xml:space="preserve">
+    <value>常规</value>
+  </data>
+  <data name="SettingsThemeLabel.Text" xml:space="preserve">
+    <value>主题</value>
+  </data>
+  <data name="SettingsThemeBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>主题</value>
+  </data>
+  <data name="ThemeSystem.Content" xml:space="preserve">
+    <value>跟随系统</value>
+  </data>
+  <data name="ThemeLight.Content" xml:space="preserve">
+    <value>浅色</value>
+  </data>
+  <data name="ThemeDark.Content" xml:space="preserve">
+    <value>深色</value>
+  </data>
+  <data name="SettingsLanguageLabel.Text" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="SettingsLanguageBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="LangSystem.Content" xml:space="preserve">
+    <value>跟随系统</value>
+  </data>
+  <data name="LangChinese.Content" xml:space="preserve">
+    <value>中文</value>
+  </data>
+  <data name="LangEnglish.Content" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="SettingsAutoSaveLabel.Text" xml:space="preserve">
+    <value>自动保存</value>
+  </data>
+  <data name="SettingsAutoSaveBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>自动保存</value>
+  </data>
+  <data name="AutoSaveOff.Content" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="AutoSave500Ms.Content" xml:space="preserve">
+    <value>500 毫秒</value>
+  </data>
+  <data name="AutoSave1S.Content" xml:space="preserve">
+    <value>1 秒</value>
+  </data>
+  <data name="AutoSave2S.Content" xml:space="preserve">
+    <value>2 秒</value>
+  </data>
+  <data name="AutoSave5S.Content" xml:space="preserve">
+    <value>5 秒</value>
+  </data>
+  <data name="AutoSave10S.Content" xml:space="preserve">
+    <value>10 秒</value>
+  </data>
+  <data name="AutoSave30S.Content" xml:space="preserve">
+    <value>30 秒</value>
+  </data>
+  <data name="SettingsTopmostLabel.Text" xml:space="preserve">
+    <value>窗口置顶</value>
+  </data>
+  <data name="SettingsTopmostSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>窗口置顶</value>
+  </data>
+  <data name="SettingsEdgeHideLabel.Text" xml:space="preserve">
+    <value>贴边自动隐藏</value>
+  </data>
+  <data name="SettingsEdgeHideSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>贴边自动隐藏</value>
+  </data>
+  <data name="SettingsEdgeHideTaskbarLabel.Text" xml:space="preserve">
+    <value>贴边隐藏时隐藏任务栏图标</value>
+  </data>
+  <data name="SettingsEdgeHideTaskbarSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>贴边隐藏时隐藏任务栏图标</value>
+  </data>
+  <data name="SettingsHotkeyLabel.Text" xml:space="preserve">
+    <value>隐藏/显示快捷键</value>
+  </data>
+  <data name="SettingsHotkeyButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>隐藏/显示快捷键</value>
+  </data>
+  <data name="SettingsHotkeyButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>点击后按下新快捷键；Esc 取消，Backspace 清空</value>
+  </data>
+  <data name="SettingsGeometryLabel.Text" xml:space="preserve">
+    <value>记住窗口位置和大小</value>
+  </data>
+  <data name="SettingsGeometrySwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>记住窗口位置和大小</value>
+  </data>
+  <data name="SettingsStartMinimizedLabel.Text" xml:space="preserve">
+    <value>启动时最小化到托盘</value>
+  </data>
+  <data name="SettingsStartMinimizedSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>启动时最小化到托盘</value>
+  </data>
+  <data name="SettingsLaunchAtStartupLabel.Text" xml:space="preserve">
+    <value>开机自启动</value>
+  </data>
+  <data name="SettingsLaunchAtStartupSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>开机自启动</value>
+  </data>
+  <data name="SettingsUpdateCheckLabel.Text" xml:space="preserve">
+    <value>软件更新</value>
+  </data>
+  <data name="SettingsUpdateCheckButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>检查更新</value>
+  </data>
+  <data name="SettingsDataSection.Text" xml:space="preserve">
+    <value>数据</value>
+  </data>
+  <data name="SettingsBackupRestoreLabel.Text" xml:space="preserve">
+    <value>备份与恢复（.qns 文件）</value>
+  </data>
+  <data name="SettingsBackupButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>备份数据</value>
+  </data>
+  <data name="SettingsBackupButton.Content" xml:space="preserve">
+    <value>备份…</value>
+  </data>
+  <data name="SettingsRestoreButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>恢复数据</value>
+  </data>
+  <data name="SettingsRestoreButton.Content" xml:space="preserve">
+    <value>恢复…</value>
+  </data>
+
+  <!-- ===== Backup dialog ===== -->
+  <data name="BackupDialog.Title" xml:space="preserve">
+    <value>备份数据</value>
+  </data>
+  <data name="BackupDialog.PrimaryButtonText" xml:space="preserve">
+    <value>开始备份</value>
+  </data>
+  <data name="BackupDialog.CloseButtonText" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="BackupDescription.Text" xml:space="preserve">
+    <value>包含全部便签、分类、设置和原始图片。备份为单个 .qns 文件（ZIP，可选 AES-256 加密）。</value>
+  </data>
+  <data name="BackupLocationLabel.Text" xml:space="preserve">
+    <value>保存位置</value>
+  </data>
+  <data name="BackupPathBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>备份保存位置</value>
+  </data>
+  <data name="BackupBrowseButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>浏览备份保存位置</value>
+  </data>
+  <data name="BackupBrowseButton.Content" xml:space="preserve">
+    <value>浏览…</value>
+  </data>
+  <data name="BackupPasswordBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>备份密码</value>
+  </data>
+  <data name="BackupPasswordBox.Header" xml:space="preserve">
+    <value>密码（可选，留空则不加密）</value>
+  </data>
+  <data name="BackupConfirmBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>确认备份密码</value>
+  </data>
+  <data name="BackupConfirmBox.Header" xml:space="preserve">
+    <value>确认密码</value>
+  </data>
+
+  <!-- ===== Restore dialog ===== -->
+  <data name="RestoreDialog.Title" xml:space="preserve">
+    <value>恢复数据</value>
+  </data>
+  <data name="RestoreDialog.PrimaryButtonText" xml:space="preserve">
+    <value>开始恢复</value>
+  </data>
+  <data name="RestoreDialog.CloseButtonText" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="RestoreFileLabel.Text" xml:space="preserve">
+    <value>备份文件</value>
+  </data>
+  <data name="RestoreFilePath.Text" xml:space="preserve">
+    <value>未选择文件</value>
+  </data>
+  <data name="RestorePickButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>选择备份文件</value>
+  </data>
+  <data name="RestorePickButton.Content" xml:space="preserve">
+    <value>选择…</value>
+  </data>
+  <data name="AutoBackupsLabel.Text" xml:space="preserve">
+    <value>从自动备份恢复（覆盖恢复前自动创建）</value>
+  </data>
+  <data name="AutoBackupsList.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>自动备份列表</value>
+  </data>
+  <data name="RestorePasswordBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>备份密码</value>
+  </data>
+  <data name="RestorePasswordBox.Header" xml:space="preserve">
+    <value>备份密码（该备份已加密）</value>
+  </data>
+  <data name="RestoreAnalyzeButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>分析备份</value>
+  </data>
+  <data name="RestoreAnalyzeButton.Content" xml:space="preserve">
+    <value>分析备份</value>
+  </data>
+  <data name="RestoreModeRadios.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>恢复模式</value>
+  </data>
+  <data name="RestoreModeOverwrite.Content" xml:space="preserve">
+    <value>覆盖：完全替换当前数据（会先自动备份当前数据）</value>
+  </data>
+  <data name="RestoreModeMerge.Content" xml:space="preserve">
+    <value>合并：冲突便签保留较新版本，并导入新便签</value>
+  </data>
+  <data name="RestoreModeImportNew.Content" xml:space="preserve">
+    <value>仅导入新增：只导入当前不存在的便签</value>
+  </data>
+  <data name="OverwriteWarning.Text" xml:space="preserve">
+    <value>覆盖将删除当前全部便签、分类和设置，替换为备份内容。</value>
+  </data>
+
+  <!-- ===== Category edit dialog ===== -->
+  <data name="CategoryEditDialog.PrimaryButtonText" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="CategoryEditDialog.CloseButtonText" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="CategoryNameBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>分类名称</value>
+  </data>
+  <data name="CategoryNameBox.Header" xml:space="preserve">
+    <value>名称</value>
+  </data>
+  <data name="CategoryNameBox.PlaceholderText" xml:space="preserve">
+    <value>分类名称</value>
+  </data>
+  <data name="CategoryColorLabel.Text" xml:space="preserve">
+    <value>颜色</value>
+  </data>
+  <data name="SwatchBlue.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>蓝色</value>
+  </data>
+  <data name="SwatchGreen.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>绿色</value>
+  </data>
+  <data name="SwatchRed.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>红色</value>
+  </data>
+  <data name="SwatchAmber.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>琥珀色</value>
+  </data>
+  <data name="CustomColorBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>自定义颜色</value>
+  </data>
+  <data name="CategoryIconLabel.Text" xml:space="preserve">
+    <value>图标</value>
+  </data>
+  <data name="CategoryGlyphGrid.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>分类图标</value>
+  </data>
+
+  <!-- ===== Toast ===== -->
+  <data name="ToastCloseButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>关闭提示</value>
+  </data>
+  <data name="ToastCloseButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+
+  <!-- ===== Shared dialog buttons ===== -->
+  <data name="DeleteButton" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="CancelButton" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="CloseButton" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="GotItButton" xml:space="preserve">
+    <value>知道了</value>
+  </data>
+  <data name="GoDownloadButton" xml:space="preserve">
+    <value>前往下载</value>
+  </data>
+  <data name="LaterButton" xml:space="preserve">
+    <value>稍后再说</value>
+  </data>
+
+  <!-- ===== Notes page (code-behind / VM) ===== -->
+  <data name="CharsFormat" xml:space="preserve">
+    <value>{0} 字</value>
+  </data>
+  <data name="EditedAtFormat" xml:space="preserve">
+    <value>编辑于 {0}</value>
+  </data>
+  <data name="DeleteNoteTitle" xml:space="preserve">
+    <value>删除便签</value>
+  </data>
+  <data name="DeleteNoteContent" xml:space="preserve">
+    <value>确认删除这条便签?此操作无法撤销。</value>
+  </data>
+  <data name="NewCategoryTitle" xml:space="preserve">
+    <value>新建分类</value>
+  </data>
+  <data name="EditCategoryTitle" xml:space="preserve">
+    <value>编辑分类</value>
+  </data>
+  <data name="DeleteCategoryTitle" xml:space="preserve">
+    <value>删除分类</value>
+  </data>
+  <data name="DeleteCategoryWithNotesContent" xml:space="preserve">
+    <value>将删除分类「{0}」及其中的 {1} 条便签，此操作无法撤销。</value>
+  </data>
+  <data name="DeleteCategoryContent" xml:space="preserve">
+    <value>确认删除分类「{0}」？此操作无法撤销。</value>
+  </data>
+  <data name="SettingsTitle" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="UpdateAvailableTitle" xml:space="preserve">
+    <value>发现新版本</value>
+  </data>
+  <data name="UpdateAvailableContent" xml:space="preserve">
+    <value>最新版本 {0} 已发布，可前往 GitHub 下载。</value>
+  </data>
+  <data name="CheckUpdateTitle" xml:space="preserve">
+    <value>检查更新</value>
+  </data>
+  <data name="UpToDateContent" xml:space="preserve">
+    <value>当前已是最新版本。</value>
+  </data>
+  <data name="CheckUpdateFailedContent" xml:space="preserve">
+    <value>检查更新失败，请检查网络连接后重试。</value>
+  </data>
+  <data name="ImageErrorTitle" xml:space="preserve">
+    <value>图片</value>
+  </data>
+  <data name="CategoryAll" xml:space="preserve">
+    <value>全部</value>
+  </data>
+  <data name="CategoryWorkName" xml:space="preserve">
+    <value>工作</value>
+  </data>
+  <data name="CategoryLifeName" xml:space="preserve">
+    <value>生活</value>
+  </data>
+  <data name="CategoryImportantName" xml:space="preserve">
+    <value>重要</value>
+  </data>
+  <data name="NotesCountFormat" xml:space="preserve">
+    <value>共 {0} 条</value>
+  </data>
+  <data name="NotesEmptyText" xml:space="preserve">
+    <value>暂无便签</value>
+  </data>
+  <data name="UntitledNote" xml:space="preserve">
+    <value>新便签</value>
+  </data>
+
+  <!-- ===== Category errors ===== -->
+  <data name="CreateCategoryFailed" xml:space="preserve">
+    <value>新建分类失败，请查看日志</value>
+  </data>
+  <data name="UpdateCategoryFailed" xml:space="preserve">
+    <value>更新分类失败，请查看日志</value>
+  </data>
+  <data name="DeleteCategoryFailed" xml:space="preserve">
+    <value>删除分类失败，请查看日志</value>
+  </data>
+  <data name="CategoryErrorNameBlank" xml:space="preserve">
+    <value>请输入分类名称</value>
+  </data>
+  <data name="CategoryErrorNameDuplicate" xml:space="preserve">
+    <value>分类「{0}」已存在</value>
+  </data>
+  <data name="CategoryErrorNotFound" xml:space="preserve">
+    <value>分类不存在</value>
+  </data>
+  <data name="CategoryErrorBuiltInRename" xml:space="preserve">
+    <value>内置分类「{0}」不能重命名</value>
+  </data>
+  <data name="CategoryErrorBuiltInDelete" xml:space="preserve">
+    <value>内置分类「{0}」不能删除</value>
+  </data>
+  <data name="CategoryErrorInvalidColor" xml:space="preserve">
+    <value>颜色必须是 #RRGGBB 格式</value>
+  </data>
+  <data name="CategoryEditColorInvalidHint" xml:space="preserve">
+    <value>颜色必须是 #RRGGBB 格式（如 #3B82F6）</value>
+  </data>
+  <data name="CategoryEditIconRequired" xml:space="preserve">
+    <value>请选择一个图标</value>
+  </data>
+
+  <!-- ===== Backup / restore results ===== -->
+  <data name="BackupFileTypeLabel" xml:space="preserve">
+    <value>QNote 备份</value>
+  </data>
+  <data name="BackupCannotStart" xml:space="preserve">
+    <value>无法开始备份</value>
+  </data>
+  <data name="BackupNoPath" xml:space="preserve">
+    <value>请选择备份保存位置。</value>
+  </data>
+  <data name="BackupPasswordMismatch" xml:space="preserve">
+    <value>两次输入的密码不一致。</value>
+  </data>
+  <data name="BackupSuccessTitle" xml:space="preserve">
+    <value>备份成功</value>
+  </data>
+  <data name="BackupSuccessPathFormat" xml:space="preserve">
+    <value>备份文件已保存到：{0}</value>
+  </data>
+  <data name="BackupFailedTitle" xml:space="preserve">
+    <value>备份失败</value>
+  </data>
+  <data name="RestoreCannotReadTitle" xml:space="preserve">
+    <value>无法读取备份</value>
+  </data>
+  <data name="RestoreAnalyzeFailedTitle" xml:space="preserve">
+    <value>分析失败</value>
+  </data>
+  <data name="RestoreAnalysisFormat" xml:space="preserve">
+    <value>备份包含 {0} 条便签{1}：与当前冲突 {2} 条，仅备份中存在 {3} 条，仅当前存在 {4} 条。</value>
+  </data>
+  <data name="RestoreAnalysisCreatedFormat" xml:space="preserve">
+    <value>（创建于 {0}）</value>
+  </data>
+  <data name="RestoreSuccessTitle" xml:space="preserve">
+    <value>恢复成功</value>
+  </data>
+  <data name="RestoreSuccessMessage" xml:space="preserve">
+    <value>备份数据已恢复。</value>
+  </data>
+  <data name="RestoreFailedTitle" xml:space="preserve">
+    <value>恢复失败</value>
+  </data>
+
+  <!-- ===== Backup error kinds ===== -->
+  <data name="BackupErrorArchiveNotFound" xml:space="preserve">
+    <value>备份文件不存在。</value>
+  </data>
+  <data name="BackupErrorNotAnArchive" xml:space="preserve">
+    <value>无法读取该文件：不是有效的备份。</value>
+  </data>
+  <data name="BackupErrorPasswordRequired" xml:space="preserve">
+    <value>该备份已加密，请输入密码。</value>
+  </data>
+  <data name="BackupErrorWrongPassword" xml:space="preserve">
+    <value>密码错误，或备份文件已损坏。</value>
+  </data>
+  <data name="BackupErrorMissingDatabase" xml:space="preserve">
+    <value>备份中缺少 qnote.db。</value>
+  </data>
+  <data name="BackupErrorCorruptArchive" xml:space="preserve">
+    <value>备份文件已损坏，无法解包。</value>
+  </data>
+  <data name="BackupErrorNewerVersion" xml:space="preserve">
+    <value>备份由更新版本的 QNote 创建（数据库结构 v{0}，当前支持 v{1}），请升级应用后再恢复。</value>
+  </data>
+  <data name="BackupErrorTooOld" xml:space="preserve">
+    <value>备份的数据库结构过旧（v{0}），无法逐条合并；请改用覆盖恢复。</value>
+  </data>
+  <data name="BackupErrorUnsupportedVersion" xml:space="preserve">
+    <value>备份版本不受支持。</value>
+  </data>
+  <data name="BackupErrorUnexpected" xml:space="preserve">
+    <value>操作失败，请查看日志。</value>
+  </data>
+
+  <!-- ===== Settings (hotkey / startup / update) ===== -->
+  <data name="HotkeyCaptureHint" xml:space="preserve">
+    <value>按下快捷键…</value>
+  </data>
+  <data name="HotkeyNotSet" xml:space="preserve">
+    <value>未设置</value>
+  </data>
+  <data name="HotkeyRegisterFailed" xml:space="preserve">
+    <value>热键注册失败：可能已被其他程序占用，请更换按键</value>
+  </data>
+  <data name="HotkeyNeedsModifier" xml:space="preserve">
+    <value>请同时按住 Win / Ctrl / Alt / Shift，或使用 F1–F12 功能键</value>
+  </data>
+  <data name="StartupEnabledByPolicy" xml:space="preserve">
+    <value>已由系统策略启用</value>
+  </data>
+  <data name="StartupDisabledByUser" xml:space="preserve">
+    <value>已被系统禁用，请在任务管理器→启动应用 中重新启用</value>
+  </data>
+  <data name="StartupDisabledByPolicy" xml:space="preserve">
+    <value>已被系统策略禁用</value>
+  </data>
+  <data name="StartupUnavailable" xml:space="preserve">
+    <value>当前环境不支持开机自启动</value>
+  </data>
+  <data name="CheckUpdateButton" xml:space="preserve">
+    <value>检查更新…</value>
+  </data>
+  <data name="CheckingUpdateButton" xml:space="preserve">
+    <value>检查中…</value>
+  </data>
+
+  <!-- ===== App (portable fallback notice) ===== -->
+  <data name="PortableFallbackTitle" xml:space="preserve">
+    <value>数据目录提示</value>
+  </data>
+  <data name="PortableFallbackContent" xml:space="preserve">
+    <value>程序所在目录不可写，无法使用便携数据目录。
+便签数据将保存在：
+{0}</value>
+  </data>
+
+  <!-- ===== Editor image import ===== -->
+  <data name="ImageUnsupportedFormat" xml:space="preserve">
+    <value>不支持的图片格式：{0}</value>
+  </data>
+  <data name="ImageInsertFailed" xml:space="preserve">
+    <value>插入图片失败，请查看日志</value>
+  </data>
+  <data name="ImageServiceUnavailable" xml:space="preserve">
+    <value>图片服务不可用，无法插入图片</value>
+  </data>
+  <data name="ImageDecodeFailed" xml:space="preserve">
+    <value>无法解码该图片（可能是不支持的格式）</value>
+  </data>
+  <data name="ImageSaveFailed" xml:space="preserve">
+    <value>保存图片失败，请查看日志</value>
+  </data>
+</root>

@@ -7,11 +7,13 @@ namespace QNote.Controls;
 /// (context menus, toolbar tooltips, dialogs, find bar). This lives in QNote (the
 /// host) — the vendored copy only ships <c>en</c> and <c>ko</c>, and QNote's UI is
 /// zh-Hans source per project convention. Call <see cref="Register"/> once at
-/// startup, before any editor chrome is built.
+/// startup, before any editor chrome is built; the ACTIVE language is chosen by
+/// <see cref="Services.AppLanguage"/> per the language setting (en = the editor's
+/// built-in table).
 /// </summary>
 public static class EditorLocalization
 {
-    /// <summary>Registers zh-Hans and makes it the active editor language.</summary>
+    /// <summary>Registers the zh-Hans table. Does NOT change the active language.</summary>
     public static void Register()
     {
         RichEditorLocalization.Register("zh-Hans", new Dictionary<string, string>
@@ -163,6 +165,5 @@ public static class EditorLocalization
             ["PageCountFormat"] = "{0} 页",
             ["ImageLimitWarning"] = "⚠ {0} 张图片 — 超过建议的 {1} 张（可能变慢）",
         });
-        RichEditorLocalization.Language = "zh-Hans";
     }
 }

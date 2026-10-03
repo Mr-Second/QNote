@@ -2,6 +2,7 @@ using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using QNote.EdgeHide;
+using QNote.Services;
 using QNote.ViewModels;
 using Windows.System;
 using Windows.UI.Core;
@@ -85,7 +86,7 @@ public sealed partial class SettingsPanel : UserControl
         // allow it only with a modifier — function keys (F1–F24) are safe alone.
         if (modifiers == 0 && vk is < HotkeyFormat.VkF1 or > HotkeyFormat.VkF24)
         {
-            ViewModel.HotkeyError = "请同时按住 Win / Ctrl / Alt / Shift，或使用 F1–F12 功能键";
+            ViewModel.HotkeyError = AppStrings.GetString("HotkeyNeedsModifier");
             return; // stay in capture mode
         }
 

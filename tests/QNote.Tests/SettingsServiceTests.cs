@@ -18,6 +18,7 @@ public sealed class SettingsServiceTests
         var s = await settings.LoadAsync();
 
         Assert.Equal("system", s.ThemeMode);
+        Assert.Equal("system", s.LanguageMode);
         Assert.False(s.AlwaysOnTop);
         Assert.False(s.RememberWindowGeometry);
         Assert.False(s.StartMinimized);
@@ -43,6 +44,7 @@ public sealed class SettingsServiceTests
         var expected = new AppSettings
         {
             ThemeMode = "dark",
+            LanguageMode = "en",
             AlwaysOnTop = true,
             RememberWindowGeometry = true,
             StartMinimized = true,
