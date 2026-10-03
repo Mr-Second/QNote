@@ -1,4 +1,7 @@
+using Microsoft.UI.Dispatching;
 using QNote.Text;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Windows.System.UserProfile;
 
 namespace QNote.Services;
@@ -16,17 +19,23 @@ namespace QNote.Services;
 /// clear-on-empty does not carry over for packaged apps). System mode is
 /// instead resolved to a concrete tag, mirroring the resw fallback semantics;
 /// the override is re-asserted from the settings DB on every launch and
-/// switch, so the "unset" state is never needed. The OS flavor
-/// (<c>Windows.Globalization</c>) is set in parallel for PACKAGED runs —
-/// the XAML framework's own control strings (ToggleSwitch On/Off, …)
-/// resolve through it, and the two stacks do not cross-feed.</item>
+/// switch, so the "unset" state is never needed.</item>
+/// <item>WinUI framework control chrome (ToggleSwitch On/Off, TextBox context
+/// menu, …) — resolves through a stack the <c>Microsoft.*</c> override does
+/// not feed. Packaged runs set the OS flavor (<c>Windows.Globalization
+/// .ApplicationLanguages.PrimaryLanguageOverride</c>) in parallel; unpackaged
+/// runs redirect the chrome via a thread-level Win32 MUI language list (see
+/// <see cref="Apply"/>). The two stacks never cross-feed, so both branches are
+/// needed for chrome to follow the app language everywhere.</item>
 /// <item><see cref="WinUIRichEditor.RichEditorLocalization.Language"/> — the
 /// vendored editor's string table (the zh-Hans table is registered at startup
 /// by <see cref="Controls.EditorLocalization"/>; "en" ships built-in). Set
 /// BEFORE re-navigating, so rebuilt chrome reads the new table.</item>
 /// </list>
 /// Call BEFORE any XAML loads at startup, and again on a runtime switch before
-/// the root frame re-navigates (x:Uid resolves only at element load).
+/// the root frame re-navigates (x:Uid resolves only at element load). MUST run
+/// on the UI thread — the unpackaged chrome redirect below sets THREAD-local
+/// state.
 /// </summary>
 public static class AppLanguage
 {
@@ -38,6 +47,13 @@ public static class AppLanguage
 
     public static void Apply(string mode)
     {
+        // The unpackaged branch below sets THREAD-local MUI state — applying it
+        // from a background thread would silently leave the UI thread's chrome
+        // in the system language. Both current call sites are UI-thread, so
+        // this only guards future callers.
+        Debug.Assert(DispatcherQueue.GetForCurrentThread() is not null,
+            "AppLanguage.Apply must run on the UI thread — the unpackaged MUI redirect is thread-local.");
+
         IsChinese = mode switch
         {
             "zh" => true,
@@ -53,12 +69,12 @@ public static class AppLanguage
             IsChinese ? "zh-Hans" : "en-US";
 
         // The XAML framework's OWN control strings (ToggleSwitch On/Off, etc.)
-        // resolve through the OS flavor, which the Microsoft.* override does
-        // not drive (WinAppSDK keeps the two language stacks separate). The OS
-        // setter throws in unpackaged runs (WinAppSDK #1687) — packaged only;
-        // unpackaged chrome degrades to system language, app strings don't.
+        // resolve through a different stack than the override above.
         if (PackageIdentity.IsPackaged())
         {
+            // Packaged: the OS-flavor override drives framework chrome. Its
+            // setter throws without package identity (WinAppSDK #1687), hence
+            // the guard; failure is non-fatal (chrome only).
             try
             {
                 Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride =
@@ -67,6 +83,41 @@ public static class AppLanguage
             catch
             {
                 // Non-fatal: framework chrome only.
+            }
+        }
+        else
+        {
+            // Unpackaged: the OS-flavor setter cannot be used (WinAppSDK
+            // #1687), so redirect framework chrome through the OTHER stack it
+            // reads — classic Win32 MUI (LoadMUILibrary on Microsoft.ui.xaml
+            // .dll's .mui satellites). Its language fallback is
+            // thread > process > user, and the framework only ever seeds the
+            // PROCESS-level list, so a THREAD-level list set here on the UI
+            // thread always wins and is never clobbered (verified empirically
+            // across the route-2 spike: the process list stayed empty in every
+            // snapshot, the thread list kept our tag first). New chrome
+            // re-resolves per lookup, so runtime switches refresh live — same
+            // semantics as the x:Uid re-navigate flow. NOTE the DIFFERENT tag
+            // mapping than the PLO assignments above: MUI needs the concrete
+            // .mui folder tag "zh-CN" (the payload ships en-GB/en-us/zh-CN
+            // only), while the PLO tags stay "zh-Hans"/"en-US" (the resw
+            // language names).
+            try
+            {
+                // "tag\0" + the string marshaler's own terminator form the
+                // double-null-terminated multi-string the API expects.
+                var applied = SetThreadPreferredUILanguages(MuiLanguageName,
+                    (IsChinese ? "zh-CN" : "en-US") + "\0", out _);
+                // The API returns FALSE on failure instead of throwing; the
+                // release contract stays silent + non-fatal (Debug.Assert
+                // compiles out of Release), but dev builds must not swallow a
+                // failed set unnoticed.
+                Debug.Assert(applied,
+                    $"SetThreadPreferredUILanguages failed: {Marshal.GetLastWin32Error()} — framework chrome stays in the system language.");
+            }
+            catch
+            {
+                // Non-fatal: framework chrome only (mirrors the packaged setter).
             }
         }
 
@@ -90,4 +141,16 @@ public static class AppLanguage
             return false;
         }
     }
+
+    /// <summary>
+    /// MUI_LANGUAGE_NAME (winnls.h = 0x8 — NOT 1; a wrong flag value makes the
+    /// setter fail silently with no languages set): the language-NAME form of
+    /// the preferred-UI-language lists, matching the .mui folder names.
+    /// </summary>
+    private const uint MuiLanguageName = 0x8;
+
+    // Classic DllImport (not LibraryImport) — no unsafe blocks needed
+    // (csharp-conventions), mirroring PackageIdentity.cs.
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
+    private static extern bool SetThreadPreferredUILanguages(uint dwFlags, string pwszLanguagesList, out uint pulNumLanguages);
 }
