@@ -1,4 +1,5 @@
 using QNote.Models;
+using QNote.Services;
 
 namespace QNote.Tests;
 
@@ -53,9 +54,12 @@ public sealed class CategoryServiceTests
         using var db = new TestDatabase();
         var svc = db.NewCategoryService();
 
-        await Assert.ThrowsAsync<ArgumentException>(() => svc.CreateAsync("  ", "#3B82F6", "E8A5"));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.CreateAsync("工作", "#3B82F6", "E8A5"));
-        await Assert.ThrowsAsync<ArgumentException>(() => svc.CreateAsync("项目", "blue", "E8A5"));
+        var blank = await Assert.ThrowsAsync<CategoryException>(() => svc.CreateAsync("  ", "#3B82F6", "E8A5"));
+        Assert.Equal(CategoryErrorKind.BlankName, blank.Kind);
+        var duplicate = await Assert.ThrowsAsync<CategoryException>(() => svc.CreateAsync("工作", "#3B82F6", "E8A5"));
+        Assert.Equal(CategoryErrorKind.DuplicateName, duplicate.Kind);
+        var color = await Assert.ThrowsAsync<CategoryException>(() => svc.CreateAsync("项目", "blue", "E8A5"));
+        Assert.Equal(CategoryErrorKind.InvalidColor, color.Kind);
     }
 
     [Fact]
@@ -90,8 +94,9 @@ public sealed class CategoryServiceTests
         var svc = db.NewCategoryService();
         var work = (await svc.GetAllAsync()).First(c => c.Name == "工作");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        var ex = await Assert.ThrowsAsync<CategoryException>(
             () => svc.UpdateAsync(work with { Name = "搬砖" }));
+        Assert.Equal(CategoryErrorKind.BuiltInRename, ex.Kind);
 
         await svc.UpdateAsync(work with { Color = "#123456" });
         Assert.Equal("#123456", (await svc.GetAllAsync()).First(c => c.Name == "工作").Color);
@@ -128,7 +133,8 @@ public sealed class CategoryServiceTests
         var svc = db.NewCategoryService();
         var work = (await svc.GetAllAsync()).First(c => c.Name == "工作");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.DeleteAsync(work.Id));
+        var ex = await Assert.ThrowsAsync<CategoryException>(() => svc.DeleteAsync(work.Id));
+        Assert.Equal(CategoryErrorKind.BuiltInDelete, ex.Kind);
         Assert.Equal(3, (await svc.GetAllAsync()).Count);
     }
 

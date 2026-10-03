@@ -1,0 +1,760 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    QNote app strings — ENGLISH file (the app's default language; product source
+    language is zh-Hans). Non-Chinese systems resolve here via the default-language
+    fallback. Keys must stay identical with Strings/zh-Hans/Resources.resw (enforced
+    by ReswKeyParityTests). Dotted keys carry the x:Uid property suffix; keys with
+    [using:...] target attached properties.
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- ===== Tray (MainWindow) ===== -->
+  <data name="TrayShowItem.Text" xml:space="preserve">
+    <value>Show window</value>
+  </data>
+  <data name="TrayQuitItem.Text" xml:space="preserve">
+    <value>Quit</value>
+  </data>
+  <data name="TrayShow" xml:space="preserve">
+    <value>Show window</value>
+  </data>
+  <data name="TrayQuit" xml:space="preserve">
+    <value>Quit</value>
+  </data>
+
+  <!-- ===== Notes page (three-pane) ===== -->
+  <data name="NotesSubtitle.Text" xml:space="preserve">
+    <value>Sticky notes</value>
+  </data>
+  <data name="CategoryRename.Text" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="CategoryDelete.Text" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="NewCategory.Text" xml:space="preserve">
+    <value>New category</value>
+  </data>
+  <data name="NewCategoryButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>New category</value>
+  </data>
+  <data name="NewCategoryButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>New category</value>
+  </data>
+  <data name="Settings.Text" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="SettingsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="SettingsButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="NotesSummary.Text" xml:space="preserve">
+    <value>Note summaries</value>
+  </data>
+  <data name="NewNoteButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>New note</value>
+  </data>
+  <data name="NewNoteButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>New note</value>
+  </data>
+  <data name="SearchNotes.PlaceholderText" xml:space="preserve">
+    <value>Search notes</value>
+  </data>
+  <data name="SearchNotes.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Search notes</value>
+  </data>
+  <data name="SearchSortButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Search sort</value>
+  </data>
+  <data name="SearchSortButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Sort search results</value>
+  </data>
+  <data name="SortByRelevance.Text" xml:space="preserve">
+    <value>By relevance</value>
+  </data>
+  <data name="SortByNewest.Text" xml:space="preserve">
+    <value>Newest first</value>
+  </data>
+  <data name="SortByOldest.Text" xml:space="preserve">
+    <value>Oldest first</value>
+  </data>
+  <data name="NotesEmpty.Text" xml:space="preserve">
+    <value>No notes</value>
+  </data>
+  <data name="ItemDelete.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Delete note</value>
+  </data>
+  <data name="ItemDelete.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Delete note</value>
+  </data>
+  <data name="EditorEmpty.Text" xml:space="preserve">
+    <value>Select or create a note</value>
+  </data>
+  <data name="TitleBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Note title</value>
+  </data>
+  <data name="TitleBox.PlaceholderText" xml:space="preserve">
+    <value>Untitled note</value>
+  </data>
+  <data name="NoteContent.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Note content</value>
+  </data>
+  <data name="ContentPlaceholder.Text" xml:space="preserve">
+    <value>Type your note here...</value>
+  </data>
+  <data name="DirtyBadge.Text" xml:space="preserve">
+    <value>● Unsaved</value>
+  </data>
+  <data name="CharCount.Text" xml:space="preserve">
+    <value>0 chars</value>
+  </data>
+
+  <!-- ===== Settings panel ===== -->
+  <data name="SettingsDisplaySection.Text" xml:space="preserve">
+    <value>Display</value>
+  </data>
+  <data name="SettingsDensityLabel.Text" xml:space="preserve">
+    <value>List density</value>
+  </data>
+  <data name="SettingsDensityBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>List density</value>
+  </data>
+  <data name="DensityCompact.Content" xml:space="preserve">
+    <value>Compact</value>
+  </data>
+  <data name="DensityStandard.Content" xml:space="preserve">
+    <value>Standard</value>
+  </data>
+  <data name="DensityComfortable.Content" xml:space="preserve">
+    <value>Comfortable</value>
+  </data>
+  <data name="SettingsTimeFormatLabel.Text" xml:space="preserve">
+    <value>Time format</value>
+  </data>
+  <data name="SettingsTimeFormatBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Time format</value>
+  </data>
+  <data name="TimeFormatRelative.Content" xml:space="preserve">
+    <value>Relative (3 min ago)</value>
+  </data>
+  <data name="TimeFormatTiered.Content" xml:space="preserve">
+    <value>Tiered (time for today)</value>
+  </data>
+  <data name="TimeFormatFull.Content" xml:space="preserve">
+    <value>Full (yyyy-MM-dd HH:mm)</value>
+  </data>
+  <data name="SettingsSortLabel.Text" xml:space="preserve">
+    <value>Sort order</value>
+  </data>
+  <data name="SettingsSortBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Sort order</value>
+  </data>
+  <data name="SortUpdated.Content" xml:space="preserve">
+    <value>Last updated</value>
+  </data>
+  <data name="SortCreated.Content" xml:space="preserve">
+    <value>Date created</value>
+  </data>
+  <data name="SortTitle.Content" xml:space="preserve">
+    <value>Title</value>
+  </data>
+  <data name="SettingsConfirmDeleteLabel.Text" xml:space="preserve">
+    <value>Confirm before delete</value>
+  </data>
+  <data name="SettingsConfirmDeleteSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Confirm before delete</value>
+  </data>
+  <data name="SettingsGeneralSection.Text" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="SettingsThemeLabel.Text" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="SettingsThemeBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="ThemeSystem.Content" xml:space="preserve">
+    <value>Follow system</value>
+  </data>
+  <data name="ThemeLight.Content" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="ThemeDark.Content" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+  <data name="SettingsLanguageLabel.Text" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="SettingsLanguageBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="LangSystem.Content" xml:space="preserve">
+    <value>Follow system</value>
+  </data>
+  <data name="LangChinese.Content" xml:space="preserve">
+    <value>中文</value>
+  </data>
+  <data name="LangEnglish.Content" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="SettingsAutoSaveLabel.Text" xml:space="preserve">
+    <value>Auto-save</value>
+  </data>
+  <data name="SettingsAutoSaveBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Auto-save</value>
+  </data>
+  <data name="AutoSaveOff.Content" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="AutoSave500Ms.Content" xml:space="preserve">
+    <value>500 ms</value>
+  </data>
+  <data name="AutoSave1S.Content" xml:space="preserve">
+    <value>1 s</value>
+  </data>
+  <data name="AutoSave2S.Content" xml:space="preserve">
+    <value>2 s</value>
+  </data>
+  <data name="AutoSave5S.Content" xml:space="preserve">
+    <value>5 s</value>
+  </data>
+  <data name="AutoSave10S.Content" xml:space="preserve">
+    <value>10 s</value>
+  </data>
+  <data name="AutoSave30S.Content" xml:space="preserve">
+    <value>30 s</value>
+  </data>
+  <data name="SettingsTopmostLabel.Text" xml:space="preserve">
+    <value>Keep window on top</value>
+  </data>
+  <data name="SettingsTopmostSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Keep window on top</value>
+  </data>
+  <data name="SettingsEdgeHideLabel.Text" xml:space="preserve">
+    <value>Auto-hide at screen edge</value>
+  </data>
+  <data name="SettingsEdgeHideSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Auto-hide at screen edge</value>
+  </data>
+  <data name="SettingsEdgeHideTaskbarLabel.Text" xml:space="preserve">
+    <value>Hide taskbar icon while edge-hidden</value>
+  </data>
+  <data name="SettingsEdgeHideTaskbarSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Hide taskbar icon while edge-hidden</value>
+  </data>
+  <data name="SettingsHotkeyLabel.Text" xml:space="preserve">
+    <value>Hide/show hotkey</value>
+  </data>
+  <data name="SettingsHotkeyButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Hide/show hotkey</value>
+  </data>
+  <data name="SettingsHotkeyButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Click, then press the new shortcut; Esc cancels, Backspace clears</value>
+  </data>
+  <data name="SettingsGeometryLabel.Text" xml:space="preserve">
+    <value>Remember window position and size</value>
+  </data>
+  <data name="SettingsGeometrySwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Remember window position and size</value>
+  </data>
+  <data name="SettingsStartMinimizedLabel.Text" xml:space="preserve">
+    <value>Start minimized to tray</value>
+  </data>
+  <data name="SettingsStartMinimizedSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Start minimized to tray</value>
+  </data>
+  <data name="SettingsLaunchAtStartupLabel.Text" xml:space="preserve">
+    <value>Launch at startup</value>
+  </data>
+  <data name="SettingsLaunchAtStartupSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Launch at startup</value>
+  </data>
+  <data name="SettingsUpdateCheckLabel.Text" xml:space="preserve">
+    <value>Software update</value>
+  </data>
+  <data name="SettingsUpdateCheckButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Check for updates</value>
+  </data>
+  <data name="SettingsDataSection.Text" xml:space="preserve">
+    <value>Data</value>
+  </data>
+  <data name="SettingsBackupRestoreLabel.Text" xml:space="preserve">
+    <value>Backup &amp; restore (.qns file)</value>
+  </data>
+  <data name="SettingsBackupButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Back up data</value>
+  </data>
+  <data name="SettingsBackupButton.Content" xml:space="preserve">
+    <value>Back up…</value>
+  </data>
+  <data name="SettingsRestoreButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Restore data</value>
+  </data>
+  <data name="SettingsRestoreButton.Content" xml:space="preserve">
+    <value>Restore…</value>
+  </data>
+
+  <!-- ===== Backup dialog ===== -->
+  <data name="BackupDialog.Title" xml:space="preserve">
+    <value>Back up data</value>
+  </data>
+  <data name="BackupDialog.PrimaryButtonText" xml:space="preserve">
+    <value>Start backup</value>
+  </data>
+  <data name="BackupDialog.CloseButtonText" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="BackupDescription.Text" xml:space="preserve">
+    <value>Includes all notes, categories, settings and original images, saved as a single .qns file (ZIP, optional AES-256 encryption).</value>
+  </data>
+  <data name="BackupLocationLabel.Text" xml:space="preserve">
+    <value>Save location</value>
+  </data>
+  <data name="BackupPathBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Backup save location</value>
+  </data>
+  <data name="BackupBrowseButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Browse backup save location</value>
+  </data>
+  <data name="BackupBrowseButton.Content" xml:space="preserve">
+    <value>Browse…</value>
+  </data>
+  <data name="BackupPasswordBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Backup password</value>
+  </data>
+  <data name="BackupPasswordBox.Header" xml:space="preserve">
+    <value>Password (optional — leave empty for no encryption)</value>
+  </data>
+  <data name="BackupConfirmBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Confirm backup password</value>
+  </data>
+  <data name="BackupConfirmBox.Header" xml:space="preserve">
+    <value>Confirm password</value>
+  </data>
+
+  <!-- ===== Restore dialog ===== -->
+  <data name="RestoreDialog.Title" xml:space="preserve">
+    <value>Restore data</value>
+  </data>
+  <data name="RestoreDialog.PrimaryButtonText" xml:space="preserve">
+    <value>Start restore</value>
+  </data>
+  <data name="RestoreDialog.CloseButtonText" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="RestoreFileLabel.Text" xml:space="preserve">
+    <value>Backup file</value>
+  </data>
+  <data name="RestoreFilePath.Text" xml:space="preserve">
+    <value>No file selected</value>
+  </data>
+  <data name="RestorePickButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Choose backup file</value>
+  </data>
+  <data name="RestorePickButton.Content" xml:space="preserve">
+    <value>Browse…</value>
+  </data>
+  <data name="AutoBackupsLabel.Text" xml:space="preserve">
+    <value>Restore from an auto backup (created automatically before overwrite restore)</value>
+  </data>
+  <data name="AutoBackupsList.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Auto-backup list</value>
+  </data>
+  <data name="RestorePasswordBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Backup password</value>
+  </data>
+  <data name="RestorePasswordBox.Header" xml:space="preserve">
+    <value>Backup password (this backup is encrypted)</value>
+  </data>
+  <data name="RestoreAnalyzeButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Analyze backup</value>
+  </data>
+  <data name="RestoreAnalyzeButton.Content" xml:space="preserve">
+    <value>Analyze backup</value>
+  </data>
+  <data name="RestoreModeRadios.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Restore mode</value>
+  </data>
+  <data name="RestoreModeOverwrite.Content" xml:space="preserve">
+    <value>Overwrite: fully replace current data (an automatic backup of current data is made first)</value>
+  </data>
+  <data name="RestoreModeMerge.Content" xml:space="preserve">
+    <value>Merge: keep the newer version of conflicting notes, and import new notes</value>
+  </data>
+  <data name="RestoreModeImportNew.Content" xml:space="preserve">
+    <value>Import new only: import just notes that don't exist here</value>
+  </data>
+  <data name="OverwriteWarning.Text" xml:space="preserve">
+    <value>Overwriting deletes all your current notes, categories and settings, replacing them with the backup content.</value>
+  </data>
+
+  <!-- ===== Category edit dialog ===== -->
+  <data name="CategoryEditDialog.PrimaryButtonText" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="CategoryEditDialog.CloseButtonText" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="CategoryNameBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Category name</value>
+  </data>
+  <data name="CategoryNameBox.Header" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="CategoryNameBox.PlaceholderText" xml:space="preserve">
+    <value>Category name</value>
+  </data>
+  <data name="CategoryColorLabel.Text" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="SwatchBlue.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Blue</value>
+  </data>
+  <data name="SwatchGreen.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Green</value>
+  </data>
+  <data name="SwatchRed.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Red</value>
+  </data>
+  <data name="SwatchAmber.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Amber</value>
+  </data>
+  <data name="CustomColorBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Custom color</value>
+  </data>
+  <data name="CategoryIconLabel.Text" xml:space="preserve">
+    <value>Icon</value>
+  </data>
+  <data name="CategoryGlyphGrid.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Category icon</value>
+  </data>
+
+  <!-- ===== Toast ===== -->
+  <data name="ToastCloseButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Close notification</value>
+  </data>
+  <data name="ToastCloseButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Close</value>
+  </data>
+
+  <!-- ===== Shared dialog buttons ===== -->
+  <data name="DeleteButton" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="CancelButton" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="CloseButton" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="GotItButton" xml:space="preserve">
+    <value>Got it</value>
+  </data>
+  <data name="GoDownloadButton" xml:space="preserve">
+    <value>Go to download</value>
+  </data>
+  <data name="LaterButton" xml:space="preserve">
+    <value>Later</value>
+  </data>
+
+  <!-- ===== Notes page (code-behind / VM) ===== -->
+  <data name="CharsFormat" xml:space="preserve">
+    <value>{0} chars</value>
+  </data>
+  <data name="EditedAtFormat" xml:space="preserve">
+    <value>Edited {0}</value>
+  </data>
+  <data name="DeleteNoteTitle" xml:space="preserve">
+    <value>Delete note</value>
+  </data>
+  <data name="DeleteNoteContent" xml:space="preserve">
+    <value>Delete this note? This cannot be undone.</value>
+  </data>
+  <data name="NewCategoryTitle" xml:space="preserve">
+    <value>New category</value>
+  </data>
+  <data name="EditCategoryTitle" xml:space="preserve">
+    <value>Edit category</value>
+  </data>
+  <data name="DeleteCategoryTitle" xml:space="preserve">
+    <value>Delete category</value>
+  </data>
+  <data name="DeleteCategoryWithNotesContent" xml:space="preserve">
+    <value>This will delete the category "{0}" and its {1} notes. This cannot be undone.</value>
+  </data>
+  <data name="DeleteCategoryContent" xml:space="preserve">
+    <value>Delete the category "{0}"? This cannot be undone.</value>
+  </data>
+  <data name="SettingsTitle" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="UpdateAvailableTitle" xml:space="preserve">
+    <value>New version available</value>
+  </data>
+  <data name="UpdateAvailableContent" xml:space="preserve">
+    <value>Version {0} is out — download it from GitHub.</value>
+  </data>
+  <data name="CheckUpdateTitle" xml:space="preserve">
+    <value>Check for updates</value>
+  </data>
+  <data name="UpToDateContent" xml:space="preserve">
+    <value>You're up to date.</value>
+  </data>
+  <data name="CheckUpdateFailedContent" xml:space="preserve">
+    <value>Couldn't check for updates. Check your network connection and try again.</value>
+  </data>
+  <data name="ImageErrorTitle" xml:space="preserve">
+    <value>Image</value>
+  </data>
+  <data name="CategoryAll" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="CategoryWorkName" xml:space="preserve">
+    <value>Work</value>
+  </data>
+  <data name="CategoryLifeName" xml:space="preserve">
+    <value>Life</value>
+  </data>
+  <data name="CategoryImportantName" xml:space="preserve">
+    <value>Important</value>
+  </data>
+  <data name="NotesCountFormat" xml:space="preserve">
+    <value>Notes: {0}</value>
+  </data>
+  <data name="NotesEmptyText" xml:space="preserve">
+    <value>No notes</value>
+  </data>
+  <data name="UntitledNote" xml:space="preserve">
+    <value>New note</value>
+  </data>
+
+  <!-- ===== Category errors ===== -->
+  <data name="CreateCategoryFailed" xml:space="preserve">
+    <value>Couldn't create the category — see the log for details.</value>
+  </data>
+  <data name="UpdateCategoryFailed" xml:space="preserve">
+    <value>Couldn't update the category — see the log for details.</value>
+  </data>
+  <data name="DeleteCategoryFailed" xml:space="preserve">
+    <value>Couldn't delete the category — see the log for details.</value>
+  </data>
+  <data name="CategoryErrorNameBlank" xml:space="preserve">
+    <value>Enter a category name.</value>
+  </data>
+  <data name="CategoryErrorNameDuplicate" xml:space="preserve">
+    <value>A category named "{0}" already exists.</value>
+  </data>
+  <data name="CategoryErrorNotFound" xml:space="preserve">
+    <value>That category no longer exists.</value>
+  </data>
+  <data name="CategoryErrorBuiltInRename" xml:space="preserve">
+    <value>The built-in category "{0}" can't be renamed.</value>
+  </data>
+  <data name="CategoryErrorBuiltInDelete" xml:space="preserve">
+    <value>The built-in category "{0}" can't be deleted.</value>
+  </data>
+  <data name="CategoryErrorInvalidColor" xml:space="preserve">
+    <value>Color must be in #RRGGBB format.</value>
+  </data>
+  <data name="CategoryEditColorInvalidHint" xml:space="preserve">
+    <value>Color must be in #RRGGBB format (e.g. #3B82F6)</value>
+  </data>
+  <data name="CategoryEditIconRequired" xml:space="preserve">
+    <value>Pick an icon.</value>
+  </data>
+
+  <!-- ===== Backup / restore results ===== -->
+  <data name="BackupFileTypeLabel" xml:space="preserve">
+    <value>QNote backup</value>
+  </data>
+  <data name="BackupCannotStart" xml:space="preserve">
+    <value>Can't start the backup</value>
+  </data>
+  <data name="BackupNoPath" xml:space="preserve">
+    <value>Choose a save location first.</value>
+  </data>
+  <data name="BackupPasswordMismatch" xml:space="preserve">
+    <value>The two passwords don't match.</value>
+  </data>
+  <data name="BackupSuccessTitle" xml:space="preserve">
+    <value>Backup complete</value>
+  </data>
+  <data name="BackupSuccessPathFormat" xml:space="preserve">
+    <value>Backup saved to: {0}</value>
+  </data>
+  <data name="BackupFailedTitle" xml:space="preserve">
+    <value>Backup failed</value>
+  </data>
+  <data name="RestoreCannotReadTitle" xml:space="preserve">
+    <value>Can't read the backup</value>
+  </data>
+  <data name="RestoreAnalyzeFailedTitle" xml:space="preserve">
+    <value>Analysis failed</value>
+  </data>
+  <data name="RestoreAnalysisFormat" xml:space="preserve">
+    <value>The backup contains {0} notes{1}: {2} conflict with your notes, {3} exist only in the backup, {4} exist only here.</value>
+  </data>
+  <data name="RestoreAnalysisCreatedFormat" xml:space="preserve">
+    <value> (created {0})</value>
+  </data>
+  <data name="RestoreSuccessTitle" xml:space="preserve">
+    <value>Restore complete</value>
+  </data>
+  <data name="RestoreSuccessMessage" xml:space="preserve">
+    <value>The backup has been restored.</value>
+  </data>
+  <data name="RestoreFailedTitle" xml:space="preserve">
+    <value>Restore failed</value>
+  </data>
+
+  <!-- ===== Backup error kinds ===== -->
+  <data name="BackupErrorArchiveNotFound" xml:space="preserve">
+    <value>The backup file doesn't exist.</value>
+  </data>
+  <data name="BackupErrorNotAnArchive" xml:space="preserve">
+    <value>This file can't be read: it isn't a valid QNote backup.</value>
+  </data>
+  <data name="BackupErrorPasswordRequired" xml:space="preserve">
+    <value>This backup is encrypted — enter its password.</value>
+  </data>
+  <data name="BackupErrorWrongPassword" xml:space="preserve">
+    <value>Wrong password, or the backup file is damaged.</value>
+  </data>
+  <data name="BackupErrorMissingDatabase" xml:space="preserve">
+    <value>The backup is missing qnote.db.</value>
+  </data>
+  <data name="BackupErrorCorruptArchive" xml:space="preserve">
+    <value>The backup file is damaged and can't be unpacked.</value>
+  </data>
+  <data name="BackupErrorNewerVersion" xml:space="preserve">
+    <value>This backup was made by a newer version of QNote (database schema v{0}; this build supports v{1}). Upgrade the app, then restore again.</value>
+  </data>
+  <data name="BackupErrorTooOld" xml:space="preserve">
+    <value>The backup's database schema (v{0}) is too old to merge. Use overwrite restore instead.</value>
+  </data>
+  <data name="BackupErrorUnsupportedVersion" xml:space="preserve">
+    <value>This backup version isn't supported.</value>
+  </data>
+  <data name="BackupErrorUnexpected" xml:space="preserve">
+    <value>The operation failed — see the log for details.</value>
+  </data>
+
+  <!-- ===== Settings (hotkey / startup / update) ===== -->
+  <data name="HotkeyCaptureHint" xml:space="preserve">
+    <value>Press the shortcut…</value>
+  </data>
+  <data name="HotkeyNotSet" xml:space="preserve">
+    <value>Not set</value>
+  </data>
+  <data name="HotkeyRegisterFailed" xml:space="preserve">
+    <value>Couldn't register the hotkey — it may be taken by another app. Try a different key.</value>
+  </data>
+  <data name="HotkeyNeedsModifier" xml:space="preserve">
+    <value>Hold Win / Ctrl / Alt / Shift, or use a function key (F1–F12)</value>
+  </data>
+  <data name="StartupEnabledByPolicy" xml:space="preserve">
+    <value>Enabled by system policy</value>
+  </data>
+  <data name="StartupDisabledByUser" xml:space="preserve">
+    <value>Disabled in Windows — re-enable it in Task Manager → Startup apps</value>
+  </data>
+  <data name="StartupDisabledByPolicy" xml:space="preserve">
+    <value>Disabled by system policy</value>
+  </data>
+  <data name="StartupUnavailable" xml:space="preserve">
+    <value>Launch at startup isn't supported in this environment</value>
+  </data>
+  <data name="CheckUpdateButton" xml:space="preserve">
+    <value>Check for updates…</value>
+  </data>
+  <data name="CheckingUpdateButton" xml:space="preserve">
+    <value>Checking…</value>
+  </data>
+
+  <!-- ===== App (portable fallback notice) ===== -->
+  <data name="PortableFallbackTitle" xml:space="preserve">
+    <value>Data location notice</value>
+  </data>
+  <data name="PortableFallbackContent" xml:space="preserve">
+    <value>The app's folder isn't writable, so the portable data folder can't be used.
+Your notes will be stored in:
+{0}</value>
+  </data>
+
+  <!-- ===== Editor image import ===== -->
+  <data name="ImageUnsupportedFormat" xml:space="preserve">
+    <value>Unsupported image format: {0}</value>
+  </data>
+  <data name="ImageInsertFailed" xml:space="preserve">
+    <value>Couldn't insert the image — see the log for details.</value>
+  </data>
+  <data name="ImageServiceUnavailable" xml:space="preserve">
+    <value>The image service isn't available — can't insert the image.</value>
+  </data>
+  <data name="ImageDecodeFailed" xml:space="preserve">
+    <value>That image can't be decoded (the format may be unsupported).</value>
+  </data>
+  <data name="ImageSaveFailed" xml:space="preserve">
+    <value>Couldn't save the image — see the log for details.</value>
+  </data>
+</root>

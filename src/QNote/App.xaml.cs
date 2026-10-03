@@ -91,6 +91,14 @@ public partial class App : Application
         // diverges (e.g. a crash mid-write, a restored backup) → background rebuild.
         _ = ReconcileSearchIndexAsync(Services);
 
+        // Language: apply BEFORE any XAML loads (x:Uid resolves at element load;
+        // PrimaryLanguageOverride decides which resw file serves the whole UI).
+        // Always a CONCRETE tag — the override cannot be cleared ("" throws
+        // E_INVALIDARG, WinAppSDK #5335); "system" resolves via the user profile
+        // inside AppLanguage.Apply, and every launch re-asserts the setting.
+        var settings = await Services.GetRequiredService<ISettingsService>().LoadAsync();
+        AppLanguage.Apply(settings.LanguageMode);
+
         Window = new MainWindow();
         DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
 
@@ -100,7 +108,6 @@ public partial class App : Application
 
         // StartMinimized: skip Activate (window stays hidden) and register the
         // tray icon explicitly — it only registers on Load/ForceCreate otherwise.
-        var settings = await Services.GetRequiredService<ISettingsService>().LoadAsync();
         if (settings.StartMinimized)
         {
             var mainWindow = (MainWindow)Window;
@@ -307,9 +314,9 @@ public partial class App : Application
                 XamlRoot = xamlRoot,
                 // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
                 RequestedTheme = root.ActualTheme,
-                Title = "数据目录提示",
-                Content = $"程序所在目录不可写，无法使用便携数据目录。\n便签数据将保存在：\n{paths.Root}",
-                CloseButtonText = "知道了",
+                Title = AppStrings.GetString("PortableFallbackTitle"),
+                Content = AppStrings.GetFormat("PortableFallbackContent", paths.Root),
+                CloseButtonText = AppStrings.GetString("GotItButton"),
                 DefaultButton = ContentDialogButton.Close,
             };
             await dialog.ShowAsync();

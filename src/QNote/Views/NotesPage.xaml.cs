@@ -86,6 +86,16 @@ public sealed partial class NotesPage : Page
             string.Format(WinUIRichEditor.RichEditorLocalization.GetString("ReplacedFormat"), count));
 
         Loaded += OnLoaded;
+        // A language switch re-navigates the root frame and discards this page
+        // (no page caching). Tear down page-owned sources that outlive it: the
+        // singleton settings subscription (via the VM) and the auto-save timer.
+        Unloaded += OnPageUnloaded;
+    }
+
+    private void OnPageUnloaded(object sender, RoutedEventArgs e)
+    {
+        _autoSaveTimer?.Stop();
+        ViewModel.Detach();
     }
 
     /// <summary>
@@ -218,8 +228,10 @@ public sealed partial class NotesPage : Page
     {
         var text = _editor.GetPlainText();
         int count = text.Count(c => !char.IsWhiteSpace(c) && c != '￼');
-        CharCountText.Text = $"{count} 字";
-        EditedTimeText.Text = ViewModel.SelectedNote is { } note ? $"编辑于 {note.TimeDisplay}" : string.Empty;
+        CharCountText.Text = AppStrings.GetFormat("CharsFormat", count);
+        EditedTimeText.Text = ViewModel.SelectedNote is { } note
+            ? AppStrings.GetFormat("EditedAtFormat", note.TimeDisplay)
+            : string.Empty;
     }
 
     private void UpdatePlaceholder() =>
@@ -275,10 +287,10 @@ public sealed partial class NotesPage : Page
             XamlRoot = XamlRoot,
             // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
             RequestedTheme = ActualTheme,
-            Title = "删除便签",
-            Content = "确认删除这条便签?此操作无法撤销。",
-            PrimaryButtonText = "删除",
-            CloseButtonText = "取消",
+            Title = AppStrings.GetString("DeleteNoteTitle"),
+            Content = AppStrings.GetString("DeleteNoteContent"),
+            PrimaryButtonText = AppStrings.GetString("DeleteButton"),
+            CloseButtonText = AppStrings.GetString("CancelButton"),
             DefaultButton = ContentDialogButton.Close,
         };
 
@@ -307,7 +319,7 @@ public sealed partial class NotesPage : Page
 
     private async void NewCategoryButton_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new CategoryEditDialog("新建分类", string.Empty, "#3B82F6", QNote.Controls.IconCatalog.Options[0].Key)
+        var dialog = new CategoryEditDialog(AppStrings.GetString("NewCategoryTitle"), string.Empty, "#3B82F6", QNote.Controls.IconCatalog.Options[0].Key)
         {
             XamlRoot = XamlRoot,
             RequestedTheme = ActualTheme,
@@ -317,7 +329,7 @@ public sealed partial class NotesPage : Page
 
         var error = await ViewModel.CreateCategoryAsync(dialog.CategoryName, dialog.ColorHex, dialog.IconKey);
         if (error is not null)
-            await ShowErrorDialogAsync("新建分类", error);
+            await ShowErrorDialogAsync(AppStrings.GetString("NewCategoryTitle"), error);
     }
 
     private async void RenameCategoryMenu_Click(object sender, RoutedEventArgs e)
@@ -325,7 +337,7 @@ public sealed partial class NotesPage : Page
         if ((sender as FrameworkElement)?.Tag is not CategoryItemViewModel item)
             return;
 
-        var dialog = new CategoryEditDialog("编辑分类", item.Name, item.ColorHex, item.IconKey)
+        var dialog = new CategoryEditDialog(AppStrings.GetString("EditCategoryTitle"), item.Name, item.ColorHex, item.IconKey)
         {
             XamlRoot = XamlRoot,
             RequestedTheme = ActualTheme,
@@ -335,7 +347,7 @@ public sealed partial class NotesPage : Page
 
         var error = await ViewModel.UpdateCategoryAsync(item, dialog.CategoryName, dialog.ColorHex, dialog.IconKey);
         if (error is not null)
-            await ShowErrorDialogAsync("编辑分类", error);
+            await ShowErrorDialogAsync(AppStrings.GetString("EditCategoryTitle"), error);
     }
 
     private async void DeleteCategoryMenu_Click(object sender, RoutedEventArgs e)
@@ -344,17 +356,17 @@ public sealed partial class NotesPage : Page
             return;
 
         var content = item.NoteCount > 0
-            ? $"将删除分类「{item.Name}」及其中的 {item.NoteCount} 条便签，此操作无法撤销。"
-            : $"确认删除分类「{item.Name}」？此操作无法撤销。";
+            ? AppStrings.GetFormat("DeleteCategoryWithNotesContent", item.Name, item.NoteCount)
+            : AppStrings.GetFormat("DeleteCategoryContent", item.Name);
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,
             // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
             RequestedTheme = ActualTheme,
-            Title = "删除分类",
+            Title = AppStrings.GetString("DeleteCategoryTitle"),
             Content = content,
-            PrimaryButtonText = "删除",
-            CloseButtonText = "取消",
+            PrimaryButtonText = AppStrings.GetString("DeleteButton"),
+            CloseButtonText = AppStrings.GetString("CancelButton"),
             DefaultButton = ContentDialogButton.Close,
         };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary)
@@ -362,7 +374,7 @@ public sealed partial class NotesPage : Page
 
         var error = await ViewModel.DeleteCategoryAsync(item);
         if (error is not null)
-            await ShowErrorDialogAsync("删除分类", error);
+            await ShowErrorDialogAsync(AppStrings.GetString("DeleteCategoryTitle"), error);
     }
 
     private async void SettingsButton_Click(object sender, RoutedEventArgs e)
@@ -390,9 +402,9 @@ public sealed partial class NotesPage : Page
                 XamlRoot = XamlRoot,
                 // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
                 RequestedTheme = ActualTheme,
-                Title = "设置",
+                Title = AppStrings.GetString("SettingsTitle"),
                 Content = panel,
-                CloseButtonText = "关闭",
+                CloseButtonText = AppStrings.GetString("CloseButton"),
             };
             panel.BackupRequested += () => { pending = PendingDataDialog.Backup; dialog.Hide(); };
             panel.RestoreRequested += () => { pending = PendingDataDialog.Restore; dialog.Hide(); };
@@ -520,10 +532,10 @@ public sealed partial class NotesPage : Page
                     XamlRoot = XamlRoot,
                     // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
                     RequestedTheme = ActualTheme,
-                    Title = "发现新版本",
-                    Content = $"最新版本 {result.LatestVersion} 已发布，可前往 GitHub 下载。",
-                    PrimaryButtonText = "前往下载",
-                    CloseButtonText = "稍后再说",
+                    Title = AppStrings.GetString("UpdateAvailableTitle"),
+                    Content = AppStrings.GetFormat("UpdateAvailableContent", result.LatestVersion),
+                    PrimaryButtonText = AppStrings.GetString("GoDownloadButton"),
+                    CloseButtonText = AppStrings.GetString("LaterButton"),
                     DefaultButton = ContentDialogButton.Primary,
                 };
                 if (await dialog.ShowAsync() == ContentDialogResult.Primary
@@ -540,9 +552,9 @@ public sealed partial class NotesPage : Page
                     XamlRoot = XamlRoot,
                     // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
                     RequestedTheme = ActualTheme,
-                    Title = "检查更新",
-                    Content = "当前已是最新版本。",
-                    CloseButtonText = "知道了",
+                    Title = AppStrings.GetString("CheckUpdateTitle"),
+                    Content = AppStrings.GetString("UpToDateContent"),
+                    CloseButtonText = AppStrings.GetString("GotItButton"),
                     DefaultButton = ContentDialogButton.Close,
                 };
                 await dialog.ShowAsync();
@@ -554,9 +566,9 @@ public sealed partial class NotesPage : Page
                     XamlRoot = XamlRoot,
                     // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
                     RequestedTheme = ActualTheme,
-                    Title = "检查更新",
-                    Content = "检查更新失败，请检查网络连接后重试。",
-                    CloseButtonText = "知道了",
+                    Title = AppStrings.GetString("CheckUpdateTitle"),
+                    Content = AppStrings.GetString("CheckUpdateFailedContent"),
+                    CloseButtonText = AppStrings.GetString("GotItButton"),
                     DefaultButton = ContentDialogButton.Close,
                 };
                 await dialog.ShowAsync();
@@ -581,7 +593,8 @@ public sealed partial class NotesPage : Page
     {
         // Raised from import/launch paths that may be off the UI thread — marshal the
         // dialog back to it.
-        App.DispatcherQueue.TryEnqueue(() => _ = ShowErrorDialogAsync("图片", message));
+        App.DispatcherQueue.TryEnqueue(
+            () => _ = ShowErrorDialogAsync(AppStrings.GetString("ImageErrorTitle"), message));
     }
 
     private async Task ShowErrorDialogAsync(string title, string message)
@@ -599,7 +612,7 @@ public sealed partial class NotesPage : Page
                 RequestedTheme = ActualTheme,
                 Title = title,
                 Content = message,
-                CloseButtonText = "知道了",
+                CloseButtonText = AppStrings.GetString("GotItButton"),
             };
             await dialog.ShowAsync();
         }

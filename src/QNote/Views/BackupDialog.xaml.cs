@@ -39,7 +39,7 @@ public sealed partial class BackupDialog : ContentDialog
             SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
             SuggestedFileName = _backup.SuggestedBackupFileName(),
         };
-        picker.FileTypeChoices.Add("QNote 备份", new[] { IBackupService.ArchiveExtension });
+        picker.FileTypeChoices.Add(AppStrings.GetString("BackupFileTypeLabel"), new[] { IBackupService.ArchiveExtension });
         WinRT.Interop.InitializeWithWindow.Initialize(picker, App.WindowHandle);
 
         if (await picker.PickSaveFileAsync() is { } file)
@@ -56,12 +56,12 @@ public sealed partial class BackupDialog : ContentDialog
         var path = PathBox.Text.Trim();
         if (path.Length == 0)
         {
-            ResultTip.ShowError("无法开始备份", "请选择备份保存位置。");
+            ResultTip.ShowError(AppStrings.GetString("BackupCannotStart"), AppStrings.GetString("BackupNoPath"));
             return;
         }
         if (PasswordBox.Password != ConfirmBox.Password)
         {
-            ResultTip.ShowError("无法开始备份", "两次输入的密码不一致。");
+            ResultTip.ShowError(AppStrings.GetString("BackupCannotStart"), AppStrings.GetString("BackupPasswordMismatch"));
             return;
         }
 
@@ -73,11 +73,14 @@ public sealed partial class BackupDialog : ContentDialog
             await _backup.BackupAsync(path,
                 password: PasswordBox.Password.Length > 0 ? PasswordBox.Password : null);
 
-            FinalResult = new OperationResult(true, "备份成功", $"备份文件已保存到：{path}");
+            FinalResult = new OperationResult(true,
+                AppStrings.GetString("BackupSuccessTitle"),
+                AppStrings.GetFormat("BackupSuccessPathFormat", path));
         }
         catch (Exception ex)
         {
-            FinalResult = new OperationResult(false, "备份失败", BackupErrorText.Describe(ex));
+            FinalResult = new OperationResult(false,
+                AppStrings.GetString("BackupFailedTitle"), BackupErrorText.Describe(ex));
         }
         finally
         {

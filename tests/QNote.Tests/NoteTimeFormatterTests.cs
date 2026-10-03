@@ -34,6 +34,28 @@ public sealed class NoteTimeFormatterTests
     public void Format_Relative_OlderThanAWeek_FallsBackToMonthDay() =>
         Assert.Equal("07-10", NoteTimeFormatter.Format(Now.AddDays(-16), NoteTimeFormat.Relative, Now));
 
+    [Fact] // Default parameter keeps the zh word forms (historical behavior).
+    public void Format_Relative_DefaultsToZhWordForms()
+    {
+        Assert.Equal("刚刚", NoteTimeFormatter.Format(Now.AddSeconds(-10), NoteTimeFormat.Relative, Now));
+        Assert.Equal("3分钟前", NoteTimeFormatter.Format(Now.AddMinutes(-3), NoteTimeFormat.Relative, Now));
+        Assert.Equal("5小时前", NoteTimeFormatter.Format(Now.AddHours(-5), NoteTimeFormat.Relative, Now));
+        Assert.Equal("2天前", NoteTimeFormatter.Format(Now.AddDays(-2), NoteTimeFormat.Relative, Now));
+    }
+
+    [Fact] // Presentation passes TimeStrings.En when the UI language is English.
+    public void Format_Relative_EnglishStrings()
+    {
+        Assert.Equal("just now", NoteTimeFormatter.Format(Now.AddSeconds(-10), NoteTimeFormat.Relative, Now, TimeStrings.En));
+        Assert.Equal("3 min ago", NoteTimeFormatter.Format(Now.AddMinutes(-3), NoteTimeFormat.Relative, Now, TimeStrings.En));
+        Assert.Equal("5 hr ago", NoteTimeFormatter.Format(Now.AddHours(-5), NoteTimeFormat.Relative, Now, TimeStrings.En));
+        Assert.Equal("2 d ago", NoteTimeFormatter.Format(Now.AddDays(-2), NoteTimeFormat.Relative, Now, TimeStrings.En));
+        // Date-style branches are language-independent.
+        Assert.Equal("07-10", NoteTimeFormatter.Format(Now.AddDays(-16), NoteTimeFormat.Relative, Now, TimeStrings.En));
+        Assert.Equal("2026-07-26 09:05",
+            NoteTimeFormatter.Format(new DateTimeOffset(2026, 7, 26, 9, 5, 0, LocalOffset(2026, 7, 26)), NoteTimeFormat.Full, Now, TimeStrings.En));
+    }
+
     [Fact]
     public void Format_Tiered_Today_ShowsTimeOnly() =>
         Assert.Equal("09:05", NoteTimeFormatter.Format(new DateTimeOffset(2026, 7, 26, 9, 5, 0, LocalOffset(2026, 7, 26)), NoteTimeFormat.Tiered, Now));

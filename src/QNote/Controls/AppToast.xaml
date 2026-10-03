@@ -66,10 +66,10 @@
             </StackPanel>
 
             <Button
+                x:Uid="ToastCloseButton"
                 Grid.Column="2"
                 Padding="6,4"
                 VerticalAlignment="Top"
-                AutomationProperties.Name="关闭提示"
                 Background="Transparent"
                 BorderThickness="0"
                 Click="Close_Click"

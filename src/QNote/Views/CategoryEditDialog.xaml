@@ -6,6 +6,7 @@
     xmlns:controls="using:QNote.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    x:Uid="CategoryEditDialog"
     CloseButtonText="取消"
     DefaultButton="Primary"
     PrimaryButtonText="保存"
@@ -17,59 +18,59 @@
     <StackPanel Width="340" Spacing="10">
         <TextBox
             x:Name="NameBox"
-            AutomationProperties.Name="分类名称"
+            x:Uid="CategoryNameBox"
             Header="名称"
             MaxLength="32"
             PlaceholderText="分类名称" />
 
         <StackPanel Spacing="4">
-            <TextBlock Text="颜色" />
+            <TextBlock x:Uid="CategoryColorLabel" Text="颜色" />
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button
                     x:Name="SwatchBlue"
+                    x:Uid="SwatchBlue"
                     Width="28"
                     Height="28"
                     Padding="0"
-                    AutomationProperties.Name="蓝色"
                     Background="#3B82F6"
                     Click="Swatch_Click"
                     CornerRadius="14"
                     Tag="#3B82F6" />
                 <Button
                     x:Name="SwatchGreen"
+                    x:Uid="SwatchGreen"
                     Width="28"
                     Height="28"
                     Padding="0"
-                    AutomationProperties.Name="绿色"
                     Background="#22C55E"
                     Click="Swatch_Click"
                     CornerRadius="14"
                     Tag="#22C55E" />
                 <Button
                     x:Name="SwatchRed"
+                    x:Uid="SwatchRed"
                     Width="28"
                     Height="28"
                     Padding="0"
-                    AutomationProperties.Name="红色"
                     Background="#EF4444"
                     Click="Swatch_Click"
                     CornerRadius="14"
                     Tag="#EF4444" />
                 <Button
                     x:Name="SwatchAmber"
+                    x:Uid="SwatchAmber"
                     Width="28"
                     Height="28"
                     Padding="0"
-                    AutomationProperties.Name="琥珀色"
                     Background="#F59E0B"
                     Click="Swatch_Click"
                     CornerRadius="14"
                     Tag="#F59E0B" />
                 <TextBox
                     x:Name="HexBox"
+                    x:Uid="CustomColorBox"
                     Width="96"
                     VerticalAlignment="Center"
-                    AutomationProperties.Name="自定义颜色"
                     MaxLength="7"
                     PlaceholderText="#RRGGBB"
                     TextChanged="HexBox_TextChanged" />
@@ -77,11 +78,11 @@
         </StackPanel>
 
         <StackPanel Spacing="4">
-            <TextBlock Text="图标" />
+            <TextBlock x:Uid="CategoryIconLabel" Text="图标" />
             <GridView
                 x:Name="GlyphGrid"
+                x:Uid="CategoryGlyphGrid"
                 MaxHeight="96"
-                AutomationProperties.Name="分类图标"
                 ItemClick="GlyphGrid_ItemClick"
                 ItemsSource="{x:Bind controls:IconCatalog.Options, Mode=OneTime}"
                 SelectionMode="Single">

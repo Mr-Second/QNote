@@ -58,6 +58,15 @@ public partial class NotesPageViewModel : ObservableObject
         _settings.Changed += OnSettingsChanged;
     }
 
+    /// <summary>
+    /// Releases the singleton settings subscription. The page calls this on
+    /// <c>Unloaded</c>: language switches re-navigate the root frame and build a
+    /// fresh page + VM, so the ctor-time subscription to the app-wide
+    /// <see cref="ISettingsService.Changed"/> would otherwise accumulate a dead
+    /// VM (and its page, via the VM's events) on every switch.
+    /// </summary>
+    public void Detach() => _settings.Changed -= OnSettingsChanged;
+
     /// <summary>Raised when a freshly created note wants keyboard focus in the title box.</summary>
     public event Action? FocusTitleRequested;
 
@@ -161,8 +170,9 @@ public partial class NotesPageViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(CurrentCategoryTitle))]
     public partial CategoryItemViewModel? SelectedCategory { get; set; }
 
-    /// <summary>Title of the middle column ("全部" or the category name).</summary>
-    public string CurrentCategoryTitle => SelectedCategory is { IsAll: false } c ? c.Name : "全部";
+    /// <summary>Title of the middle column ("全部" or the localized category display name).</summary>
+    public string CurrentCategoryTitle =>
+        SelectedCategory is { IsAll: false } c ? CategoryDisplayNames.Resolve(c.Name) : AppStrings.GetString("CategoryAll");
 
     /// <summary>Current scope as a category name, or <c>null</c> for "全部" (no WHERE).</summary>
     public string? CurrentCategoryName => SelectedCategory is { IsAll: false } c ? c.Name : null;
@@ -171,7 +181,9 @@ public partial class NotesPageViewModel : ObservableObject
 
     public bool IsEmpty => Notes.Count == 0;
 
-    public string CountText => Notes.Count > 0 ? $"共 {Notes.Count} 条" : "暂无便签";
+    public string CountText => Notes.Count > 0
+        ? AppStrings.GetFormat("NotesCountFormat", Notes.Count)
+        : AppStrings.GetString("NotesEmptyText");
 
     /// <summary>Marks the note dirty — called by the view on editor text changes.</summary>
     public void NotifyContentEdited() => IsDirty = true;
@@ -275,7 +287,9 @@ public partial class NotesPageViewModel : ObservableObject
         _settingsSnapshot.NoteSortOrder switch
         {
             NoteSortOrder.Created => summaries.OrderByDescending(s => s.CreatedAt),
-            NoteSortOrder.Title => summaries.OrderBy(s => string.IsNullOrWhiteSpace(s.Title) ? "新便签" : s.Title, StringComparer.CurrentCulture),
+            NoteSortOrder.Title => summaries.OrderBy(
+                s => string.IsNullOrWhiteSpace(s.Title) ? AppStrings.GetString("UntitledNote") : s.Title,
+                StringComparer.CurrentCulture),
             _ => summaries.OrderByDescending(s => s.UpdatedAt),
         };
 
@@ -484,14 +498,14 @@ public partial class NotesPageViewModel : ObservableObject
             await RefreshCategoriesAsync(created.Id);
             return null;
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        catch (CategoryException ex)
         {
-            return ex.Message;
+            return CategoryErrorText.Describe(ex);
         }
         catch (Exception ex)
         {
             _log.LogError(ex, "新建分类失败");
-            return "新建分类失败，请查看日志";
+            return AppStrings.GetString("CreateCategoryFailed");
         }
     }
 
@@ -514,14 +528,14 @@ public partial class NotesPageViewModel : ObservableObject
                 _loaded = await _notes.GetByIdAsync(_loaded.Id);
             return null;
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        catch (CategoryException ex)
         {
-            return ex.Message;
+            return CategoryErrorText.Describe(ex);
         }
         catch (Exception ex)
         {
             _log.LogError(ex, "更新分类失败");
-            return "更新分类失败，请查看日志";
+            return AppStrings.GetString("UpdateCategoryFailed");
         }
     }
 
@@ -549,14 +563,14 @@ public partial class NotesPageViewModel : ObservableObject
             await ReloadListAsync();
             return null;
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        catch (CategoryException ex)
         {
-            return ex.Message;
+            return CategoryErrorText.Describe(ex);
         }
         catch (Exception ex)
         {
             _log.LogError(ex, "删除分类失败");
-            return "删除分类失败，请查看日志";
+            return AppStrings.GetString("DeleteCategoryFailed");
         }
     }
 

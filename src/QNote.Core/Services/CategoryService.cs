@@ -46,13 +46,14 @@ public sealed partial class CategoryService : ICategoryService
     public async Task UpdateAsync(Category category, CancellationToken ct = default)
     {
         var existing = await FindAsync(category.Id, ct)
-            ?? throw new InvalidOperationException($"分类不存在 (Id={category.Id})");
+            ?? throw new CategoryException(CategoryErrorKind.NotFound, $"Category does not exist (Id={category.Id})");
 
         var renamed = !string.Equals(existing.Name, category.Name, StringComparison.Ordinal);
         if (renamed)
         {
             if (IsBuiltIn(existing.Name))
-                throw new InvalidOperationException($"内置分类「{existing.Name}」不能重命名");
+                throw new CategoryException(CategoryErrorKind.BuiltInRename,
+                    $"Built-in category '{existing.Name}' cannot be renamed", name: existing.Name);
             category = category with { Name = ValidateName(category.Name) };
             await EnsureUniqueAsync(category.Name, category.Id, ct);
         }
@@ -68,7 +69,8 @@ public sealed partial class CategoryService : ICategoryService
         if (existing is null)
             return;
         if (IsBuiltIn(existing.Name))
-            throw new InvalidOperationException($"内置分类「{existing.Name}」不能删除");
+            throw new CategoryException(CategoryErrorKind.BuiltInDelete,
+                $"Built-in category '{existing.Name}' cannot be deleted", name: existing.Name);
 
         var orphans = await _repo.DeleteCategoryAsync(id, ct);
         await _images.DeleteOriginalsAsync(orphans, ct);
@@ -88,21 +90,21 @@ public sealed partial class CategoryService : ICategoryService
     {
         var all = await _repo.GetCategoriesAsync(ct);
         if (all.Any(c => c.Id != excludeId && string.Equals(c.Name, name, StringComparison.Ordinal)))
-            throw new InvalidOperationException($"分类「{name}」已存在");
+            throw new CategoryException(CategoryErrorKind.DuplicateName, $"Category '{name}' already exists", name: name);
     }
 
     private static string ValidateName(string name)
     {
         name = name.Trim();
         return name.Length == 0
-            ? throw new ArgumentException("分类名称不能为空", nameof(name))
+            ? throw new CategoryException(CategoryErrorKind.BlankName, "Category name cannot be empty")
             : name;
     }
 
     private static void ValidateColor(string color)
     {
         if (color.Length > 0 && !HexColorRegex().IsMatch(color))
-            throw new ArgumentException("颜色必须是 #RRGGBB 格式", nameof(color));
+            throw new CategoryException(CategoryErrorKind.InvalidColor, "Color must be in #RRGGBB format");
     }
 
     [GeneratedRegex("^#[0-9A-Fa-f]{6}$")]

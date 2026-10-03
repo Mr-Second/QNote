@@ -6,6 +6,7 @@
     xmlns:controls="using:QNote.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    x:Uid="BackupDialog"
     Title="备份数据"
     CloseButtonText="取消"
     DefaultButton="Primary"
@@ -17,10 +18,10 @@
          taking layout space. Fixed compact width (same reason as CategoryEditDialog). -->
     <Grid Width="400">
         <StackPanel x:Name="ContentRoot" Spacing="10">
-        <TextBlock Text="包含全部便签、分类、设置和原始图片。备份为单个 .qns 文件（ZIP，可选 AES-256 加密）。" TextWrapping="Wrap" />
+        <TextBlock x:Uid="BackupDescription" Text="包含全部便签、分类、设置和原始图片。备份为单个 .qns 文件（ZIP，可选 AES-256 加密）。" TextWrapping="Wrap" />
 
         <StackPanel Spacing="4">
-            <TextBlock Text="保存位置" />
+            <TextBlock x:Uid="BackupLocationLabel" Text="保存位置" />
             <Grid ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -28,14 +29,14 @@
                 </Grid.ColumnDefinitions>
                 <TextBox
                     x:Name="PathBox"
+                    x:Uid="BackupPathBox"
                     VerticalAlignment="Center"
-                    AutomationProperties.AutomationId="BackupPathBox"
-                    AutomationProperties.Name="备份保存位置" />
+                    AutomationProperties.AutomationId="BackupPathBox" />
                 <Button
                     x:Name="BrowseButton"
+                    x:Uid="BackupBrowseButton"
                     Grid.Column="1"
                     AutomationProperties.AutomationId="BackupBrowseButton"
-                    AutomationProperties.Name="浏览备份保存位置"
                     Click="Browse_Click"
                     Content="浏览…" />
             </Grid>
@@ -43,13 +44,13 @@
 
         <PasswordBox
             x:Name="PasswordBox"
+            x:Uid="BackupPasswordBox"
             AutomationProperties.AutomationId="BackupPasswordBox"
-            AutomationProperties.Name="备份密码"
             Header="密码（可选，留空则不加密）" />
         <PasswordBox
             x:Name="ConfirmBox"
+            x:Uid="BackupConfirmBox"
             AutomationProperties.AutomationId="BackupPasswordConfirmBox"
-            AutomationProperties.Name="确认备份密码"
             Header="确认密码" />
 
         <ProgressBar

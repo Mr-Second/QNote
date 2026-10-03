@@ -132,7 +132,7 @@ public sealed class BackupService : IBackupService
             catch (ApplicationException ex)
             {
                 throw new BackupException(BackupErrorKind.NotAnArchive,
-                    $"无法读取备份文件（不是有效的归档）：{archivePath}", ex);
+                    $"Not a readable archive: {archivePath}", ex);
             }
         }, ct);
 
@@ -497,11 +497,12 @@ public sealed class BackupService : IBackupService
         catch (ApplicationException ex)
         {
             throw new BackupException(BackupErrorKind.NotAnArchive,
-                $"无法读取备份文件（不是有效的归档）：{archivePath}", ex);
+                $"Not a readable archive: {archivePath}", ex);
         }
 
         if (encrypted && string.IsNullOrEmpty(password))
-            throw new BackupException(BackupErrorKind.PasswordRequired, "该备份已加密，需要密码。");
+            throw new BackupException(BackupErrorKind.PasswordRequired,
+                "The archive is encrypted; a password is required.");
 
         var staging = Path.Combine(Path.GetTempPath(), $"qnote-restore-{Guid.NewGuid():N}");
         Directory.CreateDirectory(staging);
@@ -537,8 +538,8 @@ public sealed class BackupService : IBackupService
             // A decryption failure on an encrypted archive is a wrong password (or a
             // damaged file — indistinguishable here); anything else is corruption.
             throw encrypted
-                ? new BackupException(BackupErrorKind.WrongPassword, "密码错误，或备份文件已损坏。", ex)
-                : new BackupException(BackupErrorKind.CorruptArchive, "备份文件已损坏，无法解包。", ex);
+                ? new BackupException(BackupErrorKind.WrongPassword, "Wrong password, or the archive is damaged.", ex)
+                : new BackupException(BackupErrorKind.CorruptArchive, "The archive is damaged and cannot be extracted.", ex);
         }
         catch
         {
@@ -571,7 +572,7 @@ public sealed class BackupService : IBackupService
     {
         var stagedDb = StagedDbPath(staging);
         if (!File.Exists(stagedDb))
-            throw new BackupException(BackupErrorKind.CorruptArchive, "备份中缺少 qnote.db。");
+            throw new BackupException(BackupErrorKind.MissingDatabase, "The archive does not contain qnote.db.");
 
         BackupManifest? manifest = null;
         var manifestPath = Path.Combine(staging, ManifestEntryName);
@@ -584,7 +585,8 @@ public sealed class BackupService : IBackupService
             }
             catch (JsonException ex)
             {
-                throw new BackupException(BackupErrorKind.CorruptArchive, "备份清单 manifest.json 无法解析。", ex);
+                throw new BackupException(BackupErrorKind.CorruptArchive,
+                    "The backup manifest (manifest.json) could not be parsed.", ex);
             }
         }
 
@@ -595,7 +597,8 @@ public sealed class BackupService : IBackupService
         }
         catch (SqliteException ex)
         {
-            throw new BackupException(BackupErrorKind.CorruptArchive, "备份中的 qnote.db 不是有效的数据库。", ex);
+            throw new BackupException(BackupErrorKind.CorruptArchive,
+                "qnote.db inside the backup is not a valid database.", ex);
         }
 
         // Cross-check: a manifest claiming a NEWER schema than the DB it ships is
@@ -604,12 +607,16 @@ public sealed class BackupService : IBackupService
         if (effective > SchemaInitializer.CurrentVersion)
         {
             throw new BackupException(BackupErrorKind.UnsupportedVersion,
-                $"备份由更新版本的 QNote 创建（数据库结构 v{effective}，当前支持 v{SchemaInitializer.CurrentVersion}），请升级应用后再恢复。");
+                $"The backup was created by a newer version of QNote (database schema v{effective}; this build supports v{SchemaInitializer.CurrentVersion}). Upgrade the app, then restore again.",
+                schemaFound: (int)effective,
+                schemaSupported: (int)SchemaInitializer.CurrentVersion);
         }
         if (requireMergeable && effective < MinMergeableSchema)
         {
             throw new BackupException(BackupErrorKind.UnsupportedVersion,
-                $"备份的数据库结构过旧（v{effective}），无法逐条合并；请改用覆盖恢复。");
+                $"The backup's database schema (v{effective}) is too old to merge note-by-note; use overwrite restore instead.",
+                schemaFound: (int)effective,
+                schemaSupported: (int)SchemaInitializer.CurrentVersion);
         }
 
         return manifest;
@@ -620,7 +627,7 @@ public sealed class BackupService : IBackupService
     private static string StagedDbPath(string staging) => Path.Combine(staging, DbEntryName);
 
     private static BackupException NotFound(string archivePath) =>
-        new(BackupErrorKind.ArchiveNotFound, $"备份文件不存在：{archivePath}");
+        new(BackupErrorKind.ArchiveNotFound, $"Archive file not found: {archivePath}");
 
     private static DateTimeOffset? ParseManifestDate(BackupManifest? manifest) =>
         manifest is not null

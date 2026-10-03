@@ -162,6 +162,12 @@ public sealed partial class MainWindow : Window
 
     private void Apply(AppSettings s, bool restoreGeometry)
     {
+        // Language switches rebuild the whole visual tree (x:Uid resolves only at
+        // element load) — detect the change BEFORE overwriting _snapshot. The
+        // initial apply (restoreGeometry) skips it: AppLanguage.Apply already
+        // ran before this window was built.
+        var languageChanged = !restoreGeometry && s.LanguageMode != _snapshot.LanguageMode;
+
         _snapshot = s;
         _hotkeyModifiers = s.EdgeHideHotkeyModifiers;
         _hotkeyKey = s.EdgeHideHotkeyKey;
@@ -185,6 +191,29 @@ public sealed partial class MainWindow : Window
         // Stored values are physical pixels (AppWindow space) — no DPI rescaling.
         if (restoreGeometry && s.RememberWindowGeometry && s.WindowX != -1 && s.WindowWidth > 0 && s.WindowHeight > 0)
             AppWindow.MoveAndResize(new RectInt32(s.WindowX, s.WindowY, s.WindowWidth, s.WindowHeight));
+
+        if (languageChanged)
+            _ = SwitchLanguageAsync(s.LanguageMode);
+    }
+
+    /// <summary>
+    /// Runtime language switch: flush the open note, re-point every language
+    /// surface (resw override + editor string table), then re-navigate so the
+    /// x:Uid'd elements re-resolve in the new language. The tray menu texts are
+    /// re-read on every open (see <see cref="TrayMenu_Opened"/>) and open
+    /// ContentDialogs keep their previous language until reopened (PRD-accepted).
+    /// </summary>
+    private async Task SwitchLanguageAsync(string mode)
+    {
+        // The re-navigation discards the current page — persist any dirty edit first.
+        if (RootFrame.Content is NotesPage { ViewModel.IsDirty: true } page)
+            await page.ViewModel.FlushAsync();
+
+        AppLanguage.Apply(mode);
+
+        // Same-type Navigate creates a fresh page instance (no page caching), so
+        // every x:Uid'd element re-resolves against the new language.
+        RootFrame.Navigate(typeof(NotesPage));
     }
 
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
@@ -283,6 +312,12 @@ public sealed partial class MainWindow : Window
 
     private void TrayMenu_Opened(object sender, object e)
     {
+        // Texts are re-read on every open so a runtime language switch takes
+        // effect on the tray menu without rebuilding anything (x:Uid only
+        // resolves at element load).
+        TrayShowItem.Text = AppStrings.GetString("TrayShow");
+        TrayQuitItem.Text = AppStrings.GetString("TrayQuit");
+
         // Flyout popups do not inherit the window root's RequestedTheme (same
         // gotcha as ContentDialog) — pin the presenter so the tray menu follows
         // the app theme. Themed on open because the presenter is created lazily.

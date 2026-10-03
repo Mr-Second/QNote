@@ -275,7 +275,7 @@ public sealed class WreEditorController
             var extension = file.FileType;
             if (!WicImageNormalizer.IsSupported(extension))
             {
-                ImportFailed?.Invoke($"不支持的图片格式：{extension}");
+                ImportFailed?.Invoke(AppStrings.GetFormat("ImageUnsupportedFormat", extension));
                 return false;
             }
 
@@ -286,7 +286,7 @@ public sealed class WreEditorController
         catch (Exception ex)
         {
             _log?.LogWarning(ex, "Inserting image from {Path} failed", filePath);
-            ImportFailed?.Invoke("插入图片失败，请查看日志");
+            ImportFailed?.Invoke(AppStrings.GetString("ImageInsertFailed"));
             return false;
         }
     }
@@ -303,7 +303,7 @@ public sealed class WreEditorController
         var (imported, error) = await TryImportAndLinkAsync(bytes, extension, CurrentNoteIdProvider?.Invoke());
         if (imported is null)
         {
-            ImportFailed?.Invoke(error ?? "插入图片失败，请查看日志");
+            ImportFailed?.Invoke(error ?? AppStrings.GetString("ImageInsertFailed"));
             return false;
         }
 
@@ -325,7 +325,7 @@ public sealed class WreEditorController
         byte[] bytes, string extension, long? noteId)
     {
         if (_images is null)
-            return (null, "图片服务不可用，无法插入图片");
+            return (null, AppStrings.GetString("ImageServiceUnavailable"));
 
         NormalizedImage normalized;
         try
@@ -335,7 +335,7 @@ public sealed class WreEditorController
         catch (Exception ex)
         {
             _log?.LogWarning(ex, "Image decode failed ({Ext})", extension);
-            return (null, "无法解码该图片（可能是不支持的格式）");
+            return (null, AppStrings.GetString("ImageDecodeFailed"));
         }
 
         ImportedImage imported;
@@ -348,7 +348,7 @@ public sealed class WreEditorController
         catch (Exception ex)
         {
             _log?.LogError(ex, "Storing original image failed");
-            return (null, "保存图片失败，请查看日志");
+            return (null, AppStrings.GetString("ImageSaveFailed"));
         }
 
         // Link the original to the note now — import-time is the only moment
@@ -584,7 +584,7 @@ public sealed class WreEditorController
         catch (Exception ex)
         {
             _log?.LogWarning(ex, "Saving image via the context menu failed");
-            ImportFailed?.Invoke("保存图片失败，请查看日志");
+            ImportFailed?.Invoke(AppStrings.GetString("ImageSaveFailed"));
         }
     }
 

@@ -73,6 +73,10 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial int ThemeIndex { get; set; }
 
+    /// <summary>语言: 0 跟随系统 / 1 中文 / 2 English. A change rebuilds the UI tree.</summary>
+    [ObservableProperty]
+    public partial int LanguageIndex { get; set; }
+
     [ObservableProperty]
     public partial bool AlwaysOnTop { get; set; }
 
@@ -126,6 +130,7 @@ public partial class SettingsViewModel : ObservableObject
         ConfirmBeforeDelete = _snapshot.ConfirmBeforeDelete;
         AutoSaveIndex = Math.Max(0, Array.IndexOf(AutoSaveOptions, _snapshot.AutoSaveMilliseconds));
         ThemeIndex = _snapshot.ThemeMode switch { "light" => 1, "dark" => 2, _ => 0 };
+        LanguageIndex = _snapshot.LanguageMode switch { "zh" => 1, "en" => 2, _ => 0 };
         AlwaysOnTop = _snapshot.AlwaysOnTop;
         RememberWindowGeometry = _snapshot.RememberWindowGeometry;
         StartMinimized = _snapshot.StartMinimized;
@@ -134,7 +139,7 @@ public partial class SettingsViewModel : ObservableObject
         UpdateHotkeyDisplay();
         // Startup registration may already have failed (combo owned by another app).
         HotkeyError = _snapshot.EdgeHideHotkeyKey != 0 && !_hotkey.IsRegistered
-            ? "热键注册失败：可能已被其他程序占用，请更换按键"
+            ? AppStrings.GetString("HotkeyRegisterFailed")
             : "";
         _loading = false;
 
@@ -154,6 +159,9 @@ public partial class SettingsViewModel : ObservableObject
 
     partial void OnThemeIndexChanged(int value) =>
         Save(_snapshot with { ThemeMode = value switch { 1 => "light", 2 => "dark", _ => "system" } });
+
+    partial void OnLanguageIndexChanged(int value) =>
+        Save(_snapshot with { LanguageMode = value switch { 1 => "zh", 2 => "en", _ => "system" } });
 
     partial void OnAlwaysOnTopChanged(bool value) => Save(_snapshot with { AlwaysOnTop = value });
 
@@ -204,22 +212,22 @@ public partial class SettingsViewModel : ObservableObject
                 case StartupTaskStatus.EnabledByPolicy:
                     LaunchAtStartup = true;
                     LaunchAtStartupToggleEnabled = false;
-                    LaunchAtStartupHint = "已由系统策略启用";
+                    LaunchAtStartupHint = AppStrings.GetString("StartupEnabledByPolicy");
                     break;
                 case StartupTaskStatus.DisabledByUser:
                     LaunchAtStartup = false;
                     LaunchAtStartupToggleEnabled = true;
-                    LaunchAtStartupHint = "已被系统禁用，请在任务管理器→启动应用 中重新启用";
+                    LaunchAtStartupHint = AppStrings.GetString("StartupDisabledByUser");
                     break;
                 case StartupTaskStatus.DisabledByPolicy:
                     LaunchAtStartup = false;
                     LaunchAtStartupToggleEnabled = false;
-                    LaunchAtStartupHint = "已被系统策略禁用";
+                    LaunchAtStartupHint = AppStrings.GetString("StartupDisabledByPolicy");
                     break;
                 case StartupTaskStatus.Unavailable:
                     LaunchAtStartup = false;
                     LaunchAtStartupToggleEnabled = false;
-                    LaunchAtStartupHint = "当前环境不支持开机自启动";
+                    LaunchAtStartupHint = AppStrings.GetString("StartupUnavailable");
                     break;
                 default: // Disabled
                     LaunchAtStartup = false;
@@ -241,7 +249,7 @@ public partial class SettingsViewModel : ObservableObject
     // ---------- 热键录入（view calls these; capture mechanics live in the view） ----------
 
     /// <summary>进入录入态：按钮显示提示语.</summary>
-    public void BeginHotkeyCapture() => HotkeyDisplay = "按下快捷键…";
+    public void BeginHotkeyCapture() => HotkeyDisplay = AppStrings.GetString("HotkeyCaptureHint");
 
     /// <summary>Esc 取消：恢复显示当前热键.</summary>
     public void CancelHotkeyCapture() => UpdateHotkeyDisplay();
@@ -255,7 +263,7 @@ public partial class SettingsViewModel : ObservableObject
         UpdateHotkeyDisplay();
         HotkeyError = _hotkey.TryRegister(modifiers, virtualKey)
             ? ""
-            : "热键注册失败：可能已被其他程序占用，请更换按键";
+            : AppStrings.GetString("HotkeyRegisterFailed");
     }
 
     /// <summary>清空 = 禁用手动热键（Backspace/Delete 录入）.</summary>
@@ -263,7 +271,7 @@ public partial class SettingsViewModel : ObservableObject
 
     private void UpdateHotkeyDisplay() =>
         HotkeyDisplay = _snapshot.EdgeHideHotkeyKey == 0
-            ? "未设置"
+            ? AppStrings.GetString("HotkeyNotSet")
             : HotkeyFormat.ToDisplay(_snapshot.EdgeHideHotkeyModifiers, _snapshot.EdgeHideHotkeyKey);
 
     // ---------- 检查更新（仅解包 / portable 模式显示入口） ----------
@@ -274,7 +282,7 @@ public partial class SettingsViewModel : ObservableObject
 
     /// <summary>检查更新按钮文字；命令运行中显示「检查中…」.</summary>
     [ObservableProperty]
-    public partial string UpdateCheckButtonText { get; set; } = "检查更新…";
+    public partial string UpdateCheckButtonText { get; set; } = AppStrings.GetString("CheckUpdateButton");
 
     /// <summary>
     /// 检查完成（服务结果，非异常）。弹窗编排归视图：设置对话框先关闭，
@@ -285,7 +293,7 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task CheckUpdateAsync()
     {
-        UpdateCheckButtonText = "检查中…";
+        UpdateCheckButtonText = AppStrings.GetString("CheckingUpdateButton");
         try
         {
             var result = await _update.CheckLatestAsync();
@@ -300,7 +308,7 @@ public partial class SettingsViewModel : ObservableObject
         }
         finally
         {
-            UpdateCheckButtonText = "检查更新…";
+            UpdateCheckButtonText = AppStrings.GetString("CheckUpdateButton");
         }
     }
 

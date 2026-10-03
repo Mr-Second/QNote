@@ -59,6 +59,13 @@ public sealed record AppSettings
     /// <summary>"system" | "light" | "dark".</summary>
     public string ThemeMode { get; init; } = "system";
 
+    /// <summary>
+    /// "system" | "zh" | "en" — UI language. "system" resolves per the OS
+    /// (zh system → zh-Hans resources; everything else falls back to the neutral
+    /// English file).
+    /// </summary>
+    public string LanguageMode { get; init; } = "system";
+
     public bool AlwaysOnTop { get; init; }
 
     // NOTE: launch-at-startup is deliberately NOT here — the OS StartupTask state is

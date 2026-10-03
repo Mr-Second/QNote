@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using QNote.Controls;
 using QNote.Models;
+using QNote.Services;
 
 namespace QNote.ViewModels;
 
@@ -26,7 +27,7 @@ public partial class CategoryItemViewModel : ObservableObject
     {
         Id = -1;
         IsAll = true;
-        Name = "全部";
+        Name = AppStrings.GetString("CategoryAll");
         IconKey = "E8FD";
         ColorHex = "#0078D4"; // brand accent; close enough in both themes for the synthetic row
         NoteCount = totalNotes;
@@ -41,7 +42,16 @@ public partial class CategoryItemViewModel : ObservableObject
     public bool IsAll { get; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayName))]
     public partial string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Sidebar display name: built-in data names resolve through resw
+    /// (工作/生活/重要 ↔ Work/Life/Important, see <see cref="CategoryDisplayNames"/>);
+    /// the synthetic "全部" row (already localized at construction) and user
+    /// rows show their name as is.
+    /// </summary>
+    public string DisplayName => CategoryDisplayNames.Resolve(Name);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IconGlyph))]

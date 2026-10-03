@@ -74,7 +74,7 @@ public sealed partial class RestoreDialog : ContentDialog
         }
         catch (Exception ex)
         {
-            ResultTip.ShowError("无法读取备份", BackupErrorText.Describe(ex));
+            ResultTip.ShowError(AppStrings.GetString("RestoreCannotReadTitle"), BackupErrorText.Describe(ex));
         }
     }
 
@@ -123,17 +123,19 @@ public sealed partial class RestoreDialog : ContentDialog
         try
         {
             var analysis = await _backup.AnalyzeAsync(_archivePath, CurrentPassword());
-            CountsText.Text =
-                $"备份包含 {analysis.BackupNoteCount} 条便签" +
-                (analysis.BackupCreatedAt is { } created ? $"（创建于 {created.ToLocalTime():yyyy-MM-dd HH:mm}）" : "") +
-                $"：与当前冲突 {analysis.ConflictCount} 条，仅备份中存在 {analysis.NewCount} 条，仅当前存在 {analysis.CurrentOnlyCount} 条。";
+            var created = analysis.BackupCreatedAt is { } at
+                ? AppStrings.GetFormat("RestoreAnalysisCreatedFormat", at.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))
+                : "";
+            CountsText.Text = AppStrings.GetFormat("RestoreAnalysisFormat",
+                analysis.BackupNoteCount, created,
+                analysis.ConflictCount, analysis.NewCount, analysis.CurrentOnlyCount);
             AnalysisPanel.Visibility = Visibility.Visible;
             IsPrimaryButtonEnabled = true;
             DefaultButton = ContentDialogButton.Primary;
         }
         catch (Exception ex)
         {
-            ResultTip.ShowError("分析失败", BackupErrorText.Describe(ex));
+            ResultTip.ShowError(AppStrings.GetString("RestoreAnalyzeFailedTitle"), BackupErrorText.Describe(ex));
         }
         finally
         {
@@ -167,11 +169,14 @@ public sealed partial class RestoreDialog : ContentDialog
         {
             await _backup.RestoreAsync(_archivePath, mode, CurrentPassword(), progress);
             RestoreCompleted = true;
-            FinalResult = new OperationResult(true, "恢复成功", "备份数据已恢复。");
+            FinalResult = new OperationResult(true,
+                AppStrings.GetString("RestoreSuccessTitle"),
+                AppStrings.GetString("RestoreSuccessMessage"));
         }
         catch (Exception ex)
         {
-            FinalResult = new OperationResult(false, "恢复失败", BackupErrorText.Describe(ex));
+            FinalResult = new OperationResult(false,
+                AppStrings.GetString("RestoreFailedTitle"), BackupErrorText.Describe(ex));
         }
         finally
         {

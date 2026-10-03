@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using QNote.Controls;
 using QNote.Converters;
+using QNote.Services;
 
 namespace QNote.Views;
 
@@ -47,19 +48,19 @@ public sealed partial class CategoryEditDialog : ContentDialog
     {
         if (CategoryName.Length == 0)
         {
-            ShowError("请输入分类名称");
+            ShowError(AppStrings.GetString("CategoryErrorNameBlank"));
             args.Cancel = true;
             return;
         }
         if (!HexToBrushConverter.TryParse(ColorHex, out _))
         {
-            ShowError("颜色必须是 #RRGGBB 格式（如 #3B82F6）");
+            ShowError(AppStrings.GetString("CategoryEditColorInvalidHint"));
             args.Cancel = true;
             return;
         }
         if (GlyphGrid.SelectedItem is null)
         {
-            ShowError("请选择一个图标");
+            ShowError(AppStrings.GetString("CategoryEditIconRequired"));
             args.Cancel = true;
         }
     }

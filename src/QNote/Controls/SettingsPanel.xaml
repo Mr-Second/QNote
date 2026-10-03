@@ -17,6 +17,7 @@
             <!-- ============ 显示 ============ -->
             <StackPanel Spacing="2">
                 <TextBlock
+                    x:Uid="SettingsDisplaySection"
                     Margin="4,0,0,0"
                     Style="{StaticResource BodyStrongTextBlockStyle}"
                     Text="显示" />
@@ -27,22 +28,24 @@
                     CornerRadius="8">
                     <StackPanel>
                         <!-- Row template: label left, control in a FIXED-WIDTH right
-                             column so every control's left edge aligns. -->
+                             column so every control's left edge aligns. Combo items are
+                             ComboBoxItems (x:String cannot carry x:Uid); SelectedIndex
+                             semantics are unchanged. -->
                         <Grid Padding="10,3" ColumnSpacing="4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock VerticalAlignment="Center" Text="列表密度" />
+                            <TextBlock x:Uid="SettingsDensityLabel" VerticalAlignment="Center" Text="列表密度" />
                             <ComboBox
+                                x:Uid="SettingsDensityBox"
                                 Grid.Column="1"
                                 HorizontalAlignment="Stretch"
                                 AutomationProperties.AutomationId="SettingsDensityBox"
-                                AutomationProperties.Name="列表密度"
                                 SelectedIndex="{x:Bind ViewModel.DensityIndex, Mode=TwoWay}">
-                                <x:String>紧凑</x:String>
-                                <x:String>标准</x:String>
-                                <x:String>宽松</x:String>
+                                <ComboBoxItem x:Uid="DensityCompact" Content="紧凑" />
+                                <ComboBoxItem x:Uid="DensityStandard" Content="标准" />
+                                <ComboBoxItem x:Uid="DensityComfortable" Content="宽松" />
                             </ComboBox>
                         </Grid>
                         <Border
@@ -54,16 +57,16 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock VerticalAlignment="Center" Text="时间格式" />
+                            <TextBlock x:Uid="SettingsTimeFormatLabel" VerticalAlignment="Center" Text="时间格式" />
                             <ComboBox
+                                x:Uid="SettingsTimeFormatBox"
                                 Grid.Column="1"
                                 HorizontalAlignment="Stretch"
                                 AutomationProperties.AutomationId="SettingsTimeFormatBox"
-                                AutomationProperties.Name="时间格式"
                                 SelectedIndex="{x:Bind ViewModel.TimeFormatIndex, Mode=TwoWay}">
-                                <x:String>相对（3 分钟前）</x:String>
-                                <x:String>分级（今日时分）</x:String>
-                                <x:String>完整（年-月-日 时分）</x:String>
+                                <ComboBoxItem x:Uid="TimeFormatRelative" Content="相对（3 分钟前）" />
+                                <ComboBoxItem x:Uid="TimeFormatTiered" Content="分级（今日时分）" />
+                                <ComboBoxItem x:Uid="TimeFormatFull" Content="完整（年-月-日 时分）" />
                             </ComboBox>
                         </Grid>
                         <Border
@@ -75,16 +78,16 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock VerticalAlignment="Center" Text="便签排序" />
+                            <TextBlock x:Uid="SettingsSortLabel" VerticalAlignment="Center" Text="便签排序" />
                             <ComboBox
+                                x:Uid="SettingsSortBox"
                                 Grid.Column="1"
                                 HorizontalAlignment="Stretch"
                                 AutomationProperties.AutomationId="SettingsSortBox"
-                                AutomationProperties.Name="便签排序"
                                 SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}">
-                                <x:String>更新时间</x:String>
-                                <x:String>创建时间</x:String>
-                                <x:String>标题</x:String>
+                                <ComboBoxItem x:Uid="SortUpdated" Content="更新时间" />
+                                <ComboBoxItem x:Uid="SortCreated" Content="创建时间" />
+                                <ComboBoxItem x:Uid="SortTitle" Content="标题" />
                             </ComboBox>
                         </Grid>
                         <Border
@@ -96,12 +99,12 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock VerticalAlignment="Center" Text="删除前确认" />
+                            <TextBlock x:Uid="SettingsConfirmDeleteLabel" VerticalAlignment="Center" Text="删除前确认" />
                             <ToggleSwitch
+                                x:Uid="SettingsConfirmDeleteSwitch"
                                 Grid.Column="1"
                                 HorizontalAlignment="Left"
                                 AutomationProperties.AutomationId="SettingsConfirmDeleteSwitch"
-                                AutomationProperties.Name="删除前确认"
                                 IsOn="{x:Bind ViewModel.ConfirmBeforeDelete, Mode=TwoWay}" />
                         </Grid>
                     </StackPanel>
@@ -111,6 +114,7 @@
             <!-- ============ 常规 ============ -->
             <StackPanel Spacing="2">
                 <TextBlock
+                    x:Uid="SettingsGeneralSection"
                     Margin="4,0,0,0"
                     Style="{StaticResource BodyStrongTextBlockStyle}"
                     Text="常规" />
@@ -125,16 +129,40 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock VerticalAlignment="Center" Text="主题" />
+                            <TextBlock x:Uid="SettingsThemeLabel" VerticalAlignment="Center" Text="主题" />
                             <ComboBox
+                                x:Uid="SettingsThemeBox"
                                 Grid.Column="1"
                                 HorizontalAlignment="Stretch"
                                 AutomationProperties.AutomationId="SettingsThemeBox"
-                                AutomationProperties.Name="主题"
                                 SelectedIndex="{x:Bind ViewModel.ThemeIndex, Mode=TwoWay}">
-                                <x:String>跟随系统</x:String>
-                                <x:String>浅色</x:String>
-                                <x:String>深色</x:String>
+                                <ComboBoxItem x:Uid="ThemeSystem" Content="跟随系统" />
+                                <ComboBoxItem x:Uid="ThemeLight" Content="浅色" />
+                                <ComboBoxItem x:Uid="ThemeDark" Content="深色" />
+                            </ComboBox>
+                        </Grid>
+                        <Border
+                            Margin="10,0"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0" />
+                        <!-- Language row: a change re-navigates the whole UI (see
+                             MainWindow.SwitchLanguageAsync); the settings dialog
+                             itself stays in its previous language until reopened. -->
+                        <Grid Padding="10,3" ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="152" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Uid="SettingsLanguageLabel" VerticalAlignment="Center" Text="语言" />
+                            <ComboBox
+                                x:Uid="SettingsLanguageBox"
+                                Grid.Column="1"
+                                HorizontalAlignment="Stretch"
+                                AutomationProperties.AutomationId="SettingsLanguageBox"
+                                SelectedIndex="{x:Bind ViewModel.LanguageIndex, Mode=TwoWay}">
+                                <ComboBoxItem x:Uid="LangSystem" Content="跟随系统" />
+                                <ComboBoxItem x:Uid="LangChinese" Content="中文" />
+                                <ComboBoxItem x:Uid="LangEnglish" Content="English" />
                             </ComboBox>
                         </Grid>
                         <Border
@@ -146,20 +174,20 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock VerticalAlignment="Center" Text="自动保存" />
+                            <TextBlock x:Uid="SettingsAutoSaveLabel" VerticalAlignment="Center" Text="自动保存" />
                             <ComboBox
+                                x:Uid="SettingsAutoSaveBox"
                                 Grid.Column="1"
                                 HorizontalAlignment="Stretch"
                                 AutomationProperties.AutomationId="SettingsAutoSaveBox"
-                                AutomationProperties.Name="自动保存"
                                 SelectedIndex="{x:Bind ViewModel.AutoSaveIndex, Mode=TwoWay}">
-                                <x:String>关闭</x:String>
-                                <x:String>500 毫秒</x:String>
-                                <x:String>1 秒</x:String>
-                                <x:String>2 秒</x:String>
-                                <x:String>5 秒</x:String>
-                                <x:String>10 秒</x:String>
-                                <x:String>30 秒</x:String>
+                                <ComboBoxItem x:Uid="AutoSaveOff" Content="关闭" />
+                                <ComboBoxItem x:Uid="AutoSave500Ms" Content="500 毫秒" />
+                                <ComboBoxItem x:Uid="AutoSave1S" Content="1 秒" />
+                                <ComboBoxItem x:Uid="AutoSave2S" Content="2 秒" />
+                                <ComboBoxItem x:Uid="AutoSave5S" Content="5 秒" />
+                                <ComboBoxItem x:Uid="AutoSave10S" Content="10 秒" />
+                                <ComboBoxItem x:Uid="AutoSave30S" Content="30 秒" />
                             </ComboBox>
                         </Grid>
                         <Border
@@ -171,12 +199,12 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock VerticalAlignment="Center" Text="窗口置顶" />
+                            <TextBlock x:Uid="SettingsTopmostLabel" VerticalAlignment="Center" Text="窗口置顶" />
                             <ToggleSwitch
+                                x:Uid="SettingsTopmostSwitch"
                                 Grid.Column="1"
                                 HorizontalAlignment="Left"
                                 AutomationProperties.AutomationId="SettingsTopmostSwitch"
-                                AutomationProperties.Name="窗口置顶"
                                 IsOn="{x:Bind ViewModel.AlwaysOnTop, Mode=TwoWay}" />
                         </Grid>
                         <Border
@@ -188,12 +216,12 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock VerticalAlignment="Center" Text="贴边自动隐藏" />
+                            <TextBlock x:Uid="SettingsEdgeHideLabel" VerticalAlignment="Center" Text="贴边自动隐藏" />
                             <ToggleSwitch
+                                x:Uid="SettingsEdgeHideSwitch"
                                 Grid.Column="1"
                                 HorizontalAlignment="Left"
                                 AutomationProperties.AutomationId="SettingsEdgeHideSwitch"
-                                AutomationProperties.Name="贴边自动隐藏"
                                 IsOn="{x:Bind ViewModel.EdgeHideEnabled, Mode=TwoWay}" />
                         </Grid>
                         <Border
@@ -205,12 +233,12 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock VerticalAlignment="Center" Text="贴边隐藏时隐藏任务栏图标" />
+                            <TextBlock x:Uid="SettingsEdgeHideTaskbarLabel" VerticalAlignment="Center" Text="贴边隐藏时隐藏任务栏图标" />
                             <ToggleSwitch
+                                x:Uid="SettingsEdgeHideTaskbarSwitch"
                                 Grid.Column="1"
                                 HorizontalAlignment="Left"
                                 AutomationProperties.AutomationId="SettingsEdgeHideTaskbarSwitch"
-                                AutomationProperties.Name="贴边隐藏时隐藏任务栏图标"
                                 IsEnabled="{x:Bind ViewModel.EdgeHideEnabled, Mode=OneWay}"
                                 IsOn="{x:Bind ViewModel.HideTaskbarIconOnEdgeHide, Mode=TwoWay}" />
                         </Grid>
@@ -223,17 +251,17 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock VerticalAlignment="Center" Text="隐藏/显示快捷键" />
+                            <TextBlock x:Uid="SettingsHotkeyLabel" VerticalAlignment="Center" Text="隐藏/显示快捷键" />
                             <StackPanel
                                 Grid.Column="1"
                                 VerticalAlignment="Center"
                                 Spacing="2">
                                 <Button
                                     x:Name="HotkeyButton"
+                                    x:Uid="SettingsHotkeyButton"
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Center"
                                     AutomationProperties.AutomationId="SettingsHotkeyButton"
-                                    AutomationProperties.Name="隐藏/显示快捷键"
                                     Click="Hotkey_Click"
                                     PreviewKeyDown="Hotkey_PreviewKeyDown"
                                     ToolTipService.ToolTip="点击后按下新快捷键；Esc 取消，Backspace 清空">
@@ -258,12 +286,12 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock VerticalAlignment="Center" Text="记住窗口位置和大小" />
+                            <TextBlock x:Uid="SettingsGeometryLabel" VerticalAlignment="Center" Text="记住窗口位置和大小" />
                             <ToggleSwitch
+                                x:Uid="SettingsGeometrySwitch"
                                 Grid.Column="1"
                                 HorizontalAlignment="Left"
                                 AutomationProperties.AutomationId="SettingsGeometrySwitch"
-                                AutomationProperties.Name="记住窗口位置和大小"
                                 IsOn="{x:Bind ViewModel.RememberWindowGeometry, Mode=TwoWay}" />
                         </Grid>
                         <Border
@@ -275,12 +303,12 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock VerticalAlignment="Center" Text="启动时最小化到托盘" />
+                            <TextBlock x:Uid="SettingsStartMinimizedLabel" VerticalAlignment="Center" Text="启动时最小化到托盘" />
                             <ToggleSwitch
+                                x:Uid="SettingsStartMinimizedSwitch"
                                 Grid.Column="1"
                                 HorizontalAlignment="Left"
                                 AutomationProperties.AutomationId="SettingsStartMinimizedSwitch"
-                                AutomationProperties.Name="启动时最小化到托盘"
                                 IsOn="{x:Bind ViewModel.StartMinimized, Mode=TwoWay}" />
                         </Grid>
                         <Border
@@ -292,7 +320,7 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock VerticalAlignment="Center" Text="开机自启动" />
+                            <TextBlock x:Uid="SettingsLaunchAtStartupLabel" VerticalAlignment="Center" Text="开机自启动" />
                             <!-- Right column stacks the toggle over the hint: the OS
                                  StartupTask state is the source of truth, so the toggle
                                  can be refused (DisabledByUser) and must explain why. -->
@@ -301,9 +329,9 @@
                                 VerticalAlignment="Center"
                                 Spacing="2">
                                 <ToggleSwitch
+                                    x:Uid="SettingsLaunchAtStartupSwitch"
                                     HorizontalAlignment="Left"
                                     AutomationProperties.AutomationId="SettingsLaunchAtStartupSwitch"
-                                    AutomationProperties.Name="开机自启动"
                                     IsEnabled="{x:Bind ViewModel.LaunchAtStartupToggleEnabled, Mode=OneWay}"
                                     IsOn="{x:Bind ViewModel.LaunchAtStartup, Mode=TwoWay}" />
                                 <TextBlock
@@ -327,12 +355,12 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="152" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock VerticalAlignment="Center" Text="软件更新" />
+                                <TextBlock x:Uid="SettingsUpdateCheckLabel" VerticalAlignment="Center" Text="软件更新" />
                                 <Button
+                                    x:Uid="SettingsUpdateCheckButton"
                                     Grid.Column="1"
                                     HorizontalAlignment="Stretch"
                                     AutomationProperties.AutomationId="SettingsUpdateCheckButton"
-                                    AutomationProperties.Name="检查更新"
                                     Command="{x:Bind ViewModel.CheckUpdateCommand, Mode=OneWay}"
                                     Content="{x:Bind ViewModel.UpdateCheckButtonText, Mode=OneWay}" />
                             </Grid>
@@ -344,6 +372,7 @@
             <!-- ============ 数据 ============ -->
             <StackPanel Spacing="2">
                 <TextBlock
+                    x:Uid="SettingsDataSection"
                     Margin="4,0,0,0"
                     Style="{StaticResource BodyStrongTextBlockStyle}"
                     Text="数据" />
@@ -362,19 +391,19 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="152" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock VerticalAlignment="Center" Text="备份与恢复（.qns 文件）" />
+                        <TextBlock x:Uid="SettingsBackupRestoreLabel" VerticalAlignment="Center" Text="备份与恢复（.qns 文件）" />
                         <StackPanel
                             Grid.Column="1"
                             Orientation="Horizontal"
                             Spacing="4">
                             <Button
+                                x:Uid="SettingsBackupButton"
                                 AutomationProperties.AutomationId="SettingsBackupButton"
-                                AutomationProperties.Name="备份数据"
                                 Click="Backup_Click"
                                 Content="备份…" />
                             <Button
+                                x:Uid="SettingsRestoreButton"
                                 AutomationProperties.AutomationId="SettingsRestoreButton"
-                                AutomationProperties.Name="恢复数据"
                                 Click="Restore_Click"
                                 Content="恢复…" />
                         </StackPanel>
