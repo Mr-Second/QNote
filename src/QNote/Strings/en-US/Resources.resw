@@ -757,4 +757,43 @@ Your notes will be stored in:
   <data name="ImageSaveFailed" xml:space="preserve">
     <value>Couldn't save the image — see the log for details.</value>
   </data>
+  <data name="SettingsAboutSection.Text" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="AboutTagline.Text" xml:space="preserve">
+    <value>Lightweight Windows sticky notes · fully local data</value>
+  </data>
+  <data name="AboutGitHubLink.Content" xml:space="preserve">
+    <value>GitHub repository (source · Releases · Issues)</value>
+  </data>
+  <data name="AboutGitHubLink.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>GitHub repository (source · Releases · Issues)</value>
+  </data>
+  <data name="AboutStoreLink.Content" xml:space="preserve">
+    <value>Rate QNote on Microsoft Store</value>
+  </data>
+  <data name="AboutStoreLink.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Rate QNote on Microsoft Store</value>
+  </data>
+  <data name="AboutPrivacyLink.Content" xml:space="preserve">
+    <value>Privacy policy (no accounts · no telemetry)</value>
+  </data>
+  <data name="AboutPrivacyLink.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Privacy policy (no accounts · no telemetry)</value>
+  </data>
+  <data name="AboutLicenseLink.Content" xml:space="preserve">
+    <value>Open-source license &amp; third-party notices</value>
+  </data>
+  <data name="AboutLicenseLink.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Open-source license &amp; third-party notices</value>
+  </data>
+  <data name="AboutMailLink.Content" xml:space="preserve">
+    <value>Feedback by email: 906747215@qq.com</value>
+  </data>
+  <data name="AboutMailLink.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Feedback by email: 906747215@qq.com</value>
+  </data>
+  <data name="AboutCommunity.Text" xml:space="preserve">
+    <value>With thanks to the LINUX DO community</value>
+  </data>
 </root>

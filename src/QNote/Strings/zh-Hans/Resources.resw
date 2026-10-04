@@ -755,6 +755,45 @@
     <value>无法解码该图片（可能是不支持的格式）</value>
   </data>
   <data name="ImageSaveFailed" xml:space="preserve">
-    <value>保存图片失败，请查看日志</value>
+    <value>保存图片失败，查看日志</value>
+  </data>
+  <data name="SettingsAboutSection.Text" xml:space="preserve">
+    <value>关于</value>
+  </data>
+  <data name="AboutTagline.Text" xml:space="preserve">
+    <value>轻量 Windows 便签 · 数据纯本地</value>
+  </data>
+  <data name="AboutGitHubLink.Content" xml:space="preserve">
+    <value>GitHub 仓库（源码 · Releases · Issues）</value>
+  </data>
+  <data name="AboutGitHubLink.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>GitHub 仓库（源码 · Releases · Issues）</value>
+  </data>
+  <data name="AboutStoreLink.Content" xml:space="preserve">
+    <value>在 Microsoft Store 评分</value>
+  </data>
+  <data name="AboutStoreLink.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>在 Microsoft Store 评分</value>
+  </data>
+  <data name="AboutPrivacyLink.Content" xml:space="preserve">
+    <value>隐私政策（无账号 · 无遥测）</value>
+  </data>
+  <data name="AboutPrivacyLink.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>隐私政策（无账号 · 无遥测）</value>
+  </data>
+  <data name="AboutLicenseLink.Content" xml:space="preserve">
+    <value>开源许可与第三方致谢</value>
+  </data>
+  <data name="AboutLicenseLink.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>开源许可与第三方致谢</value>
+  </data>
+  <data name="AboutMailLink.Content" xml:space="preserve">
+    <value>邮件反馈：906747215@qq.com</value>
+  </data>
+  <data name="AboutMailLink.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>邮件反馈：906747215@qq.com</value>
+  </data>
+  <data name="AboutCommunity.Text" xml:space="preserve">
+    <value>感谢 LINUX DO 社区</value>
   </data>
 </root>

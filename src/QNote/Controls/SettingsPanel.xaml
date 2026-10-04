@@ -410,6 +410,86 @@
                     </Grid>
                 </Border>
             </StackPanel>
+
+            <!-- ============ 关于 ============ -->
+            <StackPanel Spacing="2">
+                <TextBlock
+                    x:Uid="SettingsAboutSection"
+                    Margin="4,0,0,0"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="关于" />
+                <Border
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                    <!-- About card: identity row + link stack. Links are plain
+                         HyperlinkButtons (NavigateUri auto-launches the system
+                         handler); the version caption is set from code-behind
+                         (VERSIONINFO — the same single version source the manual
+                         update check reads; packaged/portable stay in sync via
+                         release.yml). Language-neutral strings live in code,
+                         everything user-facing text-wise goes through x:Uid. -->
+                    <StackPanel Padding="12,10" Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Image
+                                Width="32"
+                                Height="32"
+                                Source="ms-appx:///Assets/TitleBarIcon.png" />
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="QNote" />
+                                <TextBlock
+                                    x:Name="AboutVersionText"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}" />
+                            </StackPanel>
+                        </StackPanel>
+                        <TextBlock
+                            x:Uid="AboutTagline"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="轻量 Windows 便签 · 数据纯本地" />
+                        <Border
+                            Margin="0,4"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0" />
+                        <HyperlinkButton
+                            x:Uid="AboutGitHubLink"
+                            Content="GitHub 仓库（源码 · Releases · Issues）"
+                            NavigateUri="https://github.com/Mr-Second/QNote"
+                            Padding="0" />
+                        <HyperlinkButton
+                            x:Uid="AboutStoreLink"
+                            Content="在 Microsoft Store 评分"
+                            NavigateUri="https://apps.microsoft.com/detail/9NV57VJPTPCZ"
+                            Padding="0" />
+                        <HyperlinkButton
+                            x:Uid="AboutPrivacyLink"
+                            Content="隐私政策（无账号 · 无遥测）"
+                            NavigateUri="https://github.com/Mr-Second/QNote/blob/main/docs/privacy-policy.md"
+                            Padding="0" />
+                        <HyperlinkButton
+                            x:Uid="AboutLicenseLink"
+                            Content="开源许可与第三方致谢"
+                            NavigateUri="https://github.com/Mr-Second/QNote/blob/main/docs/third-party-notices.md"
+                            Padding="0" />
+                        <HyperlinkButton
+                            x:Uid="AboutMailLink"
+                            Content="邮件反馈：906747215@qq.com"
+                            NavigateUri="mailto:906747215@qq.com"
+                            Padding="0" />
+                        <Border
+                            Margin="0,4"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0" />
+                        <TextBlock
+                            x:Uid="AboutCommunity"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="感谢 LINUX DO 社区" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </UserControl>
