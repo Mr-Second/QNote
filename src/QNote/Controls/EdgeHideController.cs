@@ -60,6 +60,16 @@ public sealed class EdgeHideController
     }
 
     /// <summary>
+    /// Raised when the hidden state changes: <c>true</c> once a hide animation
+    /// completes (window fully off-screen), <c>false</c> the moment a reveal
+    /// starts (before its animation). MainWindow feeds this into the working-set
+    /// trim (2026-10-04 ruling: edge-hide trims like the tray hide; the original
+    /// perf-R2 "never wire edge-hide" rule is superseded — the standby-list soft
+    /// faults on reveal were deemed acceptable, same trade the tray path makes).
+    /// </summary>
+    public event Action<bool>? HiddenChanged;
+
+    /// <summary>
     /// True while hidden or animating — MainWindow's remember-geometry path must not
     /// persist these positions (ADR D3: only normal-state geometry is stored).
     /// </summary>
@@ -256,6 +266,7 @@ public sealed class EdgeHideController
                 presenter.IsAlwaysOnTop = true;
             if (_hideTaskbarIcon)
                 _appWindow.IsShownInSwitchers = false;
+            HiddenChanged?.Invoke(true);
         }
         catch (Exception ex)
         {
@@ -273,6 +284,9 @@ public sealed class EdgeHideController
         _animating = true;
         try
         {
+            // Cancel a pending deep working-set trim BEFORE the slide — a GC or
+            // EmptyWorkingSet landing mid-animation would visibly stutter it.
+            HiddenChanged?.Invoke(false);
             // Qt parity: chrome restores BEFORE the slide back.
             RestoreChrome();
             await AnimateYAsync(target.Y);
@@ -308,6 +322,8 @@ public sealed class EdgeHideController
 
             if (_machine.State == EdgeHideState.Hidden)
             {
+                // Same trim cancel as RevealAsync — the window is coming back.
+                HiddenChanged?.Invoke(false);
                 RestoreChrome();
                 _animating = true;
                 try

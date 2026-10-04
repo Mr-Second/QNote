@@ -4,17 +4,20 @@ namespace QNote.Memory;
 
 /// <summary>
 /// Tiered working-set trim for a tray-resident app (perf-size-optimization R2):
-/// the moment the window hides to the tray, run an immediate compacting full GC;
-/// if the hide persists past <see cref="DeepTrimDelay"/>, follow with
-/// EmptyWorkingSet. A re-show before the delay cancels the deep trim.
+/// the moment the window becomes invisible to the user, run an immediate
+/// compacting full GC; if that persists past <see cref="DeepTrimDelay"/>, follow
+/// with EmptyWorkingSet. A re-show before the delay cancels the deep trim.
 ///
-/// Deliberately engaged ONLY by the tray-hide and StartMinimized paths — never by
-/// edge-hide, where a hot-zone reveal must stay instant and hard page faults are
-/// unacceptable. Every interop call is best-effort: failures are logged and
-/// swallowed, never affecting app flow. Follows the EdgeHideController split:
-/// all judgment/timing lives here in Core (headless-testable via injected
-/// <see cref="IWorkingSetInterop"/> + <see cref="IOneShotTimer"/>); Presentation
-/// only feeds the hide/show signals.
+/// Engaged by every hide-to-background path (2026-10-04 ruling; originally only
+/// tray-hide + StartMinimized, with edge-hide deliberately excluded): tray-hide
+/// (OnAppWindowClosing), StartMinimized launch, minimize/restore, and edge-hide
+/// (via EdgeHideController.HiddenChanged). The EmptyWorkingSet pages land on the
+/// standby list, so every reveal pays only soft faults — the same trade the tray
+/// path has always made, measured imperceptible in practice. Every interop call
+/// is best-effort: failures are logged and swallowed, never affecting app flow.
+/// Follows the EdgeHideController split: all judgment/timing lives here in Core
+/// (headless-testable via injected <see cref="IWorkingSetInterop"/> +
+/// <see cref="IOneShotTimer"/>); Presentation only feeds the hide/show signals.
 /// </summary>
 public sealed class WorkingSetTrimController : IDisposable
 {

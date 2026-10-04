@@ -38,6 +38,7 @@ public sealed partial class MainWindow : Window
     private int _hotkeyKey;
     private DateTime _lastHotkeyRetry;
     private AppSettings _snapshot = new();
+    private bool _wasMinimized;
 
     /// <summary>Tray double-click command (bound from XAML).</summary>
     public ICommand ShowWindowCommand { get; }
@@ -54,6 +55,10 @@ public sealed partial class MainWindow : Window
         // Edge-hide: view-side controller owns polling/animation; judgment is in Core.
         _edgeHide = new EdgeHideController(this,
             App.Services.GetRequiredService<ILogger<EdgeHideController>>());
+
+        // Edge-hide now feeds the same tiered working-set trim as the tray hide
+        // (2026-10-04 ruling; supersedes the original perf-R2 exclusion).
+        _edgeHide.HiddenChanged += OnEdgeHideHiddenChanged;
 
         // Tray-hide working-set trim (perf R2): timing/judgment in Core, only the
         // hide/show signals are fed from here. Engaged by the tray-hide and
@@ -192,6 +197,19 @@ public sealed partial class MainWindow : Window
         SetForegroundWindow(hwnd);
     }
 
+    /// <summary>
+    /// Edge-hide hidden-state feed (2026-10-04): a completed hide engages the same
+    /// tiered working-set trim as the tray hide; a starting reveal cancels the
+    /// pending deep trim before the slide animation runs.
+    /// </summary>
+    private void OnEdgeHideHiddenChanged(bool hidden)
+    {
+        if (hidden)
+            _workingSetTrim.OnHidden();
+        else
+            _workingSetTrim.OnShown();
+    }
+
     private void OnSettingsChanged(AppSettings s) => Apply(s, restoreGeometry: false);
 
     private void Apply(AppSettings s, bool restoreGeometry)
@@ -274,6 +292,20 @@ public sealed partial class MainWindow : Window
 
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
     {
+        // Minimize tracking for the working-set trim (perf R2 extension): a
+        // minimize/restore is itself a position/size change, so it always lands
+        // here — but BEFORE any geometry early-returns (a user with
+        // remember-geometry off must still get the trim on minimize).
+        var minimized = AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized };
+        if (minimized != _wasMinimized)
+        {
+            _wasMinimized = minimized;
+            if (minimized)
+                _workingSetTrim.OnHidden();
+            else
+                _workingSetTrim.OnShown();
+        }
+
         if (!_snapshot.RememberWindowGeometry)
             return;
         if (!args.DidPositionChange && !args.DidSizeChange)
