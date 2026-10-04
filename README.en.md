@@ -8,9 +8,10 @@
 A lightweight sticky-note app for Windows, built with **WinUI 3**.
 
 QNote is a from-scratch C# / WinUI 3 rewrite of an earlier Qt/QML
-implementation, with one north star: **low memory footprint**. It idles at
-roughly **45–50 MB** of RAM where the Qt build consumed ~250 MB — lean enough
-to keep running all day without thinking about it.
+implementation, with one north star: **low memory footprint**. Where the Qt
+build idled at ~250 MB of RAM, QNote runs at roughly **60 MB** with the window
+open and about **3 MB** when docked to the screen edge or minimized to the
+tray — lean enough to keep running all day without thinking about it.
 
 ## Screenshots
 
@@ -84,3 +85,8 @@ dotnet test tests/QNote.Tests/QNote.Tests.csproj -c Debug
 ## License
 
 [MIT](LICENSE)
+
+## Community
+
+This open-source project links to and acknowledges the
+[LINUX DO](https://linux.do) community.

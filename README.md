@@ -8,7 +8,7 @@
 一款轻量的 Windows 便签应用，基于 **WinUI 3** 构建。
 
 QNote 是对早期 Qt/QML 版本的 C# / WinUI 3 从零重写，唯一的北极星指标是：**低内存占用**。
-Qt 版空载约消耗 250 MB 内存，QNote 只需 **45–50 MB**——足够精瘦，可以常驻后台一整天而无需惦记。
+Qt 版空载约消耗 250 MB 内存；QNote 冷启动开窗约 **60 MB**，贴边隐藏 / 托盘常驻仅约 **3 MB**——足够精瘦，可以常驻后台一整天而无需惦记。
 
 ## 截图
 
@@ -78,3 +78,7 @@ dotnet test tests/QNote.Tests/QNote.Tests.csproj -c Debug
 ## 许可证
 
 [MIT](LICENSE)
+
+## 社区
+
+本开源项目已链接并认可 [LINUX DO](https://linux.do) 社区。
