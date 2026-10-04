@@ -423,23 +423,44 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="8">
-                    <!-- Same one-dialog choreography as the 数据 buttons: the row
-                         asks the host to close the settings dialog first, then open
-                         the About dialog (see SettingsPanel.AboutRequested). -->
-                    <Grid Padding="10,3" ColumnSpacing="4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="152" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Uid="SettingsAboutLabel" VerticalAlignment="Center" Text="关于 QNote" />
-                        <Button
-                            x:Uid="SettingsAboutButton"
-                            Grid.Column="1"
-                            HorizontalAlignment="Stretch"
-                            AutomationProperties.AutomationId="SettingsAboutButton"
-                            Click="About_Click"
-                            Content="关于…" />
-                    </Grid>
+                    <!-- Full-row entry (Windows-Settings style): the row IS the
+                         button — icon + product name + chevron, no redundant
+                         关于 wording on top of the section header. Same
+                         one-dialog choreography as the 数据 buttons (the row
+                         asks the host to close settings, then open About). The
+                         accessible name (resw) carries the full "关于 QNote"
+                         wording for screen readers without visual repetition. -->
+                    <Button
+                        x:Uid="SettingsAboutButton"
+                        Margin="8,6"
+                        Padding="8,6"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        AutomationProperties.AutomationId="SettingsAboutButton"
+                        Click="About_Click">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Image
+                                Width="18"
+                                Height="18"
+                                VerticalAlignment="Center"
+                                Source="ms-appx:///Assets/TitleBarIcon.png" />
+                            <TextBlock
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Text="QNote" />
+                            <FontIcon
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                FontSize="12"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Glyph="&#xE76C;" />
+                        </Grid>
+                    </Button>
                 </Border>
             </StackPanel>
         </StackPanel>

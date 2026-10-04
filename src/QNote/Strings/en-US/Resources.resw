@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!--
     QNote app strings — ENGLISH file (the app's default language; product source
@@ -65,7 +65,6 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-
   <!-- ===== Tray (MainWindow) ===== -->
   <data name="TrayShowItem.Text" xml:space="preserve">
     <value>Show window</value>
@@ -79,7 +78,6 @@
   <data name="TrayQuit" xml:space="preserve">
     <value>Quit</value>
   </data>
-
   <!-- ===== Notes page (three-pane) ===== -->
   <data name="NotesSubtitle.Text" xml:space="preserve">
     <value>Sticky notes</value>
@@ -168,7 +166,6 @@
   <data name="CharCount.Text" xml:space="preserve">
     <value>0 chars</value>
   </data>
-
   <!-- ===== Settings panel ===== -->
   <data name="SettingsDisplaySection.Text" xml:space="preserve">
     <value>Display</value>
@@ -353,7 +350,6 @@
   <data name="SettingsRestoreButton.Content" xml:space="preserve">
     <value>Restore…</value>
   </data>
-
   <!-- ===== Backup dialog ===== -->
   <data name="BackupDialog.Title" xml:space="preserve">
     <value>Back up data</value>
@@ -391,7 +387,6 @@
   <data name="BackupConfirmBox.Header" xml:space="preserve">
     <value>Confirm password</value>
   </data>
-
   <!-- ===== Restore dialog ===== -->
   <data name="RestoreDialog.Title" xml:space="preserve">
     <value>Restore data</value>
@@ -447,7 +442,6 @@
   <data name="OverwriteWarning.Text" xml:space="preserve">
     <value>Overwriting deletes all your current notes, categories and settings, replacing them with the backup content.</value>
   </data>
-
   <!-- ===== Category edit dialog ===== -->
   <data name="CategoryEditDialog.PrimaryButtonText" xml:space="preserve">
     <value>Save</value>
@@ -488,7 +482,6 @@
   <data name="CategoryGlyphGrid.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
     <value>Category icon</value>
   </data>
-
   <!-- ===== Toast ===== -->
   <data name="ToastCloseButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
     <value>Close notification</value>
@@ -496,7 +489,6 @@
   <data name="ToastCloseButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
     <value>Close</value>
   </data>
-
   <!-- ===== Shared dialog buttons ===== -->
   <data name="DeleteButton" xml:space="preserve">
     <value>Delete</value>
@@ -516,7 +508,6 @@
   <data name="LaterButton" xml:space="preserve">
     <value>Later</value>
   </data>
-
   <!-- ===== Notes page (code-behind / VM) ===== -->
   <data name="CharsFormat" xml:space="preserve">
     <value>{0} chars</value>
@@ -587,7 +578,6 @@
   <data name="UntitledNote" xml:space="preserve">
     <value>New note</value>
   </data>
-
   <!-- ===== Category errors ===== -->
   <data name="CreateCategoryFailed" xml:space="preserve">
     <value>Couldn't create the category — see the log for details.</value>
@@ -622,7 +612,6 @@
   <data name="CategoryEditIconRequired" xml:space="preserve">
     <value>Pick an icon.</value>
   </data>
-
   <!-- ===== Backup / restore results ===== -->
   <data name="BackupFileTypeLabel" xml:space="preserve">
     <value>QNote backup</value>
@@ -666,7 +655,6 @@
   <data name="RestoreFailedTitle" xml:space="preserve">
     <value>Restore failed</value>
   </data>
-
   <!-- ===== Backup error kinds ===== -->
   <data name="BackupErrorArchiveNotFound" xml:space="preserve">
     <value>The backup file doesn't exist.</value>
@@ -698,7 +686,6 @@
   <data name="BackupErrorUnexpected" xml:space="preserve">
     <value>The operation failed — see the log for details.</value>
   </data>
-
   <!-- ===== Settings (hotkey / startup / update) ===== -->
   <data name="HotkeyCaptureHint" xml:space="preserve">
     <value>Press the shortcut…</value>
@@ -730,7 +717,6 @@
   <data name="CheckingUpdateButton" xml:space="preserve">
     <value>Checking…</value>
   </data>
-
   <!-- ===== App (portable fallback notice) ===== -->
   <data name="PortableFallbackTitle" xml:space="preserve">
     <value>Data location notice</value>
@@ -740,7 +726,6 @@
 Your notes will be stored in:
 {0}</value>
   </data>
-
   <!-- ===== Editor image import ===== -->
   <data name="ImageUnsupportedFormat" xml:space="preserve">
     <value>Unsupported image format: {0}</value>
@@ -787,23 +772,11 @@ Your notes will be stored in:
   <data name="AboutLicenseLink.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
     <value>Open-source license &amp; third-party notices</value>
   </data>
-  <data name="AboutMailLink.Content" xml:space="preserve">
-    <value>Feedback by email: 906747215@qq.com</value>
-  </data>
-  <data name="AboutMailLink.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
-    <value>Feedback by email: 906747215@qq.com</value>
-  </data>
   <data name="AboutCommunity.Text" xml:space="preserve">
     <value>With thanks to the LINUX DO community</value>
   </data>
-  <data name="SettingsAboutLabel.Text" xml:space="preserve">
-    <value>About QNote</value>
-  </data>
-  <data name="SettingsAboutButton.Content" xml:space="preserve">
-    <value>About…</value>
-  </data>
   <data name="SettingsAboutButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
-    <value>About…</value>
+    <value>About QNote</value>
   </data>
   <data name="AboutDialog.Title" xml:space="preserve">
     <value>About QNote</value>

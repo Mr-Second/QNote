@@ -58,11 +58,6 @@
                 Content="开源许可与第三方致谢"
                 NavigateUri="https://github.com/Mr-Second/QNote/blob/main/docs/third-party-notices.md"
                 Padding="0" />
-            <HyperlinkButton
-                x:Uid="AboutMailLink"
-                Content="邮件反馈：906747215@qq.com"
-                NavigateUri="mailto:906747215@qq.com"
-                Padding="0" />
             <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" />
             <TextBlock
                 x:Uid="AboutCommunity"
