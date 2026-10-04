@@ -320,6 +320,12 @@
   <data name="SettingsStartMinimizedSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
     <value>启动时最小化到托盘</value>
   </data>
+  <data name="SettingsStartupUpdateCheckLabel.Text" xml:space="preserve">
+    <value>启动时检查更新</value>
+  </data>
+  <data name="SettingsStartupUpdateCheckSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>启动时检查更新</value>
+  </data>
   <data name="SettingsLaunchAtStartupLabel.Text" xml:space="preserve">
     <value>开机自启动</value>
   </data>
@@ -716,6 +722,22 @@
   </data>
   <data name="CheckingUpdateButton" xml:space="preserve">
     <value>检查中…</value>
+  </data>
+  <!-- ===== Startup update dialog (1.5.1) ===== -->
+  <data name="UpdateDialog.Title" xml:space="preserve">
+    <value>发现新版本</value>
+  </data>
+  <data name="UpdateDialog.PrimaryButtonText" xml:space="preserve">
+    <value>前往更新</value>
+  </data>
+  <data name="UpdateDialog.CloseButtonText" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="UpdateDialogMute.Content" xml:space="preserve">
+    <value>不再提示</value>
+  </data>
+  <data name="UpdateDialogVersionFormat" xml:space="preserve">
+    <value>新版本 {0} 已发布</value>
   </data>
   <!-- ===== App (portable fallback notice) ===== -->
   <data name="PortableFallbackTitle" xml:space="preserve">

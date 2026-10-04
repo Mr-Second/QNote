@@ -54,7 +54,9 @@ public sealed class GitHubUpdateService : IGitHubUpdateService
 
             return VersionTag.Compare(tag, CurrentVersion()) switch
             {
-                VersionTagComparison.Newer => new UpdateCheckResult(UpdateCheckStatus.UpdateAvailable, url, tag, null),
+                VersionTagComparison.Newer => new UpdateCheckResult(
+                    UpdateCheckStatus.UpdateAvailable, url, tag, null,
+                    ReleaseNotes.ExtractChangelog(release.Body)),
                 VersionTagComparison.Invalid => UpdateCheckResult.Failed($"unparseable release tag '{tag}'"),
                 _ => new UpdateCheckResult(UpdateCheckStatus.UpToDate, url, tag, null),
             };
@@ -91,7 +93,7 @@ public sealed class GitHubUpdateService : IGitHubUpdateService
 
 // ---------- GitHub API payload (trim-safe source-gen JSON; see csharp-conventions) ----------
 
-internal sealed record GitHubReleaseDto(string? TagName, string? HtmlUrl);
+internal sealed record GitHubReleaseDto(string? TagName, string? HtmlUrl, string? Body);
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
 [JsonSerializable(typeof(GitHubReleaseDto))]

@@ -88,6 +88,13 @@ public partial class SettingsViewModel : ObservableObject
     public partial bool StartMinimized { get; set; }
 
     /// <summary>
+    /// 启动时检查更新（1.5.1）：首次激活约 5 秒后查询一次渠道更新源，有新版弹提示。
+    /// 弹窗的「不再提示」勾选会把本开关写为关闭。
+    /// </summary>
+    [ObservableProperty]
+    public partial bool CheckUpdatesOnStartup { get; set; } = true;
+
+    /// <summary>
     /// 开机自启动。Reflects the OS StartupTask state directly (single source of truth);
     /// NOT part of the <see cref="AppSettings"/> snapshot.
     /// </summary>
@@ -134,6 +141,7 @@ public partial class SettingsViewModel : ObservableObject
         AlwaysOnTop = _snapshot.AlwaysOnTop;
         RememberWindowGeometry = _snapshot.RememberWindowGeometry;
         StartMinimized = _snapshot.StartMinimized;
+        CheckUpdatesOnStartup = _snapshot.CheckUpdatesOnStartup;
         EdgeHideEnabled = _snapshot.EdgeHideEnabled;
         HideTaskbarIconOnEdgeHide = _snapshot.HideTaskbarIconOnEdgeHide;
         UpdateHotkeyDisplay();
@@ -168,6 +176,8 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnRememberWindowGeometryChanged(bool value) => Save(_snapshot with { RememberWindowGeometry = value });
 
     partial void OnStartMinimizedChanged(bool value) => Save(_snapshot with { StartMinimized = value });
+
+    partial void OnCheckUpdatesOnStartupChanged(bool value) => Save(_snapshot with { CheckUpdatesOnStartup = value });
 
     partial void OnLaunchAtStartupChanged(bool value)
     {

@@ -77,6 +77,14 @@ public sealed record AppSettings
     /// <summary>Launch straight to the tray without showing the main window.</summary>
     public bool StartMinimized { get; init; }
 
+    /// <summary>
+    /// Check GitHub Releases for a newer version shortly after startup and show
+    /// the update dialog when one exists (1.5.1). Default ON; the dialog's
+    /// 「不再提示」 checkbox turns this off (both channels — the Store build only
+    /// ever links to the Store page, never an external download).
+    /// </summary>
+    public bool CheckUpdatesOnStartup { get; init; } = true;
+
     /// <summary>Last window position (-1 = never persisted / centered by the OS).</summary>
     public int WindowX { get; init; } = -1;
 

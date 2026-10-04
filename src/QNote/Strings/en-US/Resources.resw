@@ -320,6 +320,12 @@
   <data name="SettingsStartMinimizedSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
     <value>Start minimized to tray</value>
   </data>
+  <data name="SettingsStartupUpdateCheckLabel.Text" xml:space="preserve">
+    <value>Check for updates at startup</value>
+  </data>
+  <data name="SettingsStartupUpdateCheckSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Check for updates at startup</value>
+  </data>
   <data name="SettingsLaunchAtStartupLabel.Text" xml:space="preserve">
     <value>Launch at startup</value>
   </data>
@@ -716,6 +722,22 @@
   </data>
   <data name="CheckingUpdateButton" xml:space="preserve">
     <value>Checking…</value>
+  </data>
+  <!-- ===== Startup update dialog (1.5.1) ===== -->
+  <data name="UpdateDialog.Title" xml:space="preserve">
+    <value>Update available</value>
+  </data>
+  <data name="UpdateDialog.PrimaryButtonText" xml:space="preserve">
+    <value>Get the update</value>
+  </data>
+  <data name="UpdateDialog.CloseButtonText" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="UpdateDialogMute.Content" xml:space="preserve">
+    <value>Don't show again</value>
+  </data>
+  <data name="UpdateDialogVersionFormat" xml:space="preserve">
+    <value>New version {0} is available</value>
   </data>
   <!-- ===== App (portable fallback notice) ===== -->
   <data name="PortableFallbackTitle" xml:space="preserve">

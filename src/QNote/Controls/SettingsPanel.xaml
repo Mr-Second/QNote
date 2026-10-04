@@ -320,6 +320,23 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
+                            <TextBlock x:Uid="SettingsStartupUpdateCheckLabel" VerticalAlignment="Center" Text="启动时检查更新" />
+                            <ToggleSwitch
+                                x:Uid="SettingsStartupUpdateCheckSwitch"
+                                Grid.Column="1"
+                                HorizontalAlignment="Left"
+                                AutomationProperties.AutomationId="SettingsStartupUpdateCheckSwitch"
+                                IsOn="{x:Bind ViewModel.CheckUpdatesOnStartup, Mode=TwoWay}" />
+                        </Grid>
+                        <Border
+                            Margin="10,0"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0" />
+                        <Grid Padding="10,3" ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="152" />
+                            </Grid.ColumnDefinitions>
                             <TextBlock x:Uid="SettingsLaunchAtStartupLabel" VerticalAlignment="Center" Text="开机自启动" />
                             <!-- Right column stacks the toggle over the hint: the OS
                                  StartupTask state is the source of truth, so the toggle

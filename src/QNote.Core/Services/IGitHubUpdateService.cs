@@ -14,16 +14,17 @@ public enum UpdateCheckStatus
 }
 
 /// <summary>
-/// Result of one manual update check (设置 → 常规 → 检查更新, unpackaged only).
-/// Failures are values, not exceptions (error-handling spec): the technical
-/// detail rides in <see cref="Reason"/> and the log; the UI shows a friendly
-/// zh summary.
+/// Result of one update check (设置 → 常规 → 检查更新, unpackaged only, plus the
+/// startup check on both channels since 1.5.1). Failures are values, not
+/// exceptions (error-handling spec): the technical detail rides in
+/// <see cref="Reason"/> and the log; the UI shows a friendly zh summary.
 /// </summary>
 public sealed record UpdateCheckResult(
     UpdateCheckStatus Status,
     string? ReleaseUrl,
     string? LatestVersion,
-    string? Reason)
+    string? Reason,
+    string? ReleaseNotes = null)
 {
     public static UpdateCheckResult Failed(string reason) =>
         new(UpdateCheckStatus.Failed, null, null, reason);
@@ -32,9 +33,11 @@ public sealed record UpdateCheckResult(
 /// <summary>
 /// Reads the latest GitHub release and compares it with the running app
 /// version (main-module FileVersion — robust for unpackaged builds where the
-/// MSIX manifest does not apply). Manual checks only: no auto-update, no
-/// silent startup check. Implementations must never throw across this
-/// boundary — every failure is an <see cref="UpdateCheckStatus.Failed"/> result.
+/// MSIX manifest does not apply). Serves BOTH the manual check (portable only)
+/// and the startup check (both channels — the Store build's confirm action
+/// only ever opens the Store page, never an external download). Implementations
+/// must never throw across this boundary — every failure is an
+/// <see cref="UpdateCheckStatus.Failed"/> result.
 /// </summary>
 public interface IGitHubUpdateService
 {

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -593,6 +594,64 @@ public sealed partial class NotesPage : Page
         finally
         {
             _dialogOpen = false;
+        }
+    }
+
+    /// <summary>
+    /// Startup update dialog (1.5.1): fed by MainWindow ~5 s after the first
+    /// activation when <see cref="IStartupUpdateCheck"/> found a newer
+    /// version. Same one-dialog guards as every other page dialog — a
+    /// collision (backup/settings/about open at the moment) silently drops
+    /// this session's notice; the next session checks again.
+    /// </summary>
+    public async Task ShowStartupUpdateAsync(StartupUpdateInfo info)
+    {
+        if (_dialogOpen || _dataDialogOpen || _settingsOpen)
+            return;
+        _dialogOpen = true;
+        try
+        {
+            var dialog = new UpdateDialog(info)
+            {
+                XamlRoot = XamlRoot,
+                // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
+                RequestedTheme = ActualTheme,
+            };
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                await Launcher.LaunchUriAsync(info.Target);
+
+            // 「不再提示」 works regardless of which button closed the dialog:
+            // the user's "stop nagging me" is the strongest signal in the room.
+            if (dialog.MuteRequested)
+                await DisableStartupUpdateCheckAsync();
+        }
+        finally
+        {
+            _dialogOpen = false;
+        }
+    }
+
+    /// <summary>
+    /// Turn the setting off (the checkbox path AND the settings-row path share
+    /// the same stored flag). Loaded-modified-saved via the service — the
+    /// SettingsViewModel's own snapshot is not touched from here (its panel is
+    /// closed by construction in every path that reaches this method).
+    /// </summary>
+    private async Task DisableStartupUpdateCheckAsync()
+    {
+        try
+        {
+            var settings = App.Services.GetRequiredService<ISettingsService>();
+            var snapshot = await settings.LoadAsync();
+            if (snapshot.CheckUpdatesOnStartup)
+                await settings.SaveAsync(snapshot with { CheckUpdatesOnStartup = false });
+        }
+        catch (Exception ex)
+        {
+            // The dialog already closed — a failed persist only means the next
+            // session offers the notice once more.
+            App.Services.GetRequiredService<ILogger<NotesPage>>()
+                .LogWarning(ex, "Failed to persist CheckUpdatesOnStartup = false.");
         }
     }
 

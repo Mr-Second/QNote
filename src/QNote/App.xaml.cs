@@ -186,6 +186,15 @@ public partial class App : Application
         // visible in unpackaged runs only — the Store channel owns updates
         // (and external update prompts are a Store-policy risk) there.
         services.AddSingleton<IGitHubUpdateService, GitHubUpdateService>();
+        // Startup update check (1.5.1): Store backend decides on packaged runs
+        // (zero drift), GitHub decides on portable runs; the changelog is
+        // borrowed from the matching GitHub release.
+        services.AddSingleton<IStoreUpdateChecker, StoreUpdateChecker>();
+        services.AddSingleton<IStartupUpdateCheck>(sp => new StartupUpdateCheck(
+            sp.GetRequiredService<IGitHubUpdateService>(),
+            sp.GetRequiredService<IStoreUpdateChecker>(),
+            isPackaged,
+            sp.GetRequiredService<ILogger<StartupUpdateCheck>>()));
 
         // ViewModels
         services.AddTransient<NotesPageViewModel>();

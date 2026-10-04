@@ -71,6 +71,11 @@ public sealed partial class MainWindow : Window
         // Startup milestone (perf R1): one-shot window-activated timestamp.
         Activated += OnFirstActivated;
 
+        // Startup update check (1.5.1): one notice per session, ~5 s after the
+        // FIRST activation — off the launch critical path, and StartMinimized
+        // sessions naturally pick it up on the first tray reveal.
+        Activated += OnFirstActivatedForUpdateCheck;
+
         // Global hotkey (ADR D6): subclass the HWND for WM_HOTKEY; registration
         // happens once settings load (below) and on every change from the panel.
         // Activation retries silently while registration keeps failing (see
@@ -382,6 +387,52 @@ public sealed partial class MainWindow : Window
         App.Services.GetRequiredService<ILogger<MainWindow>>()
             .LogInformation("Startup milestone: window activated at {ElapsedMs:0} ms since process start.",
                 StartupClock.ElapsedMs);
+    }
+
+    private void OnFirstActivatedForUpdateCheck(object sender, WindowActivatedEventArgs args)
+    {
+        if (args.WindowActivationState == WindowActivationState.Deactivated)
+            return;
+        Activated -= OnFirstActivatedForUpdateCheck;
+        _ = RunStartupUpdateCheckAsync();
+    }
+
+    /// <summary>
+    /// Startup update check (1.5.1): the notice may only appear when the user
+    /// can actually act on it — window visible, check enabled, and the channel
+    /// orchestrator (<see cref="Services.IStartupUpdateCheck"/>) says a newer
+    /// version is genuinely available (Store backend on packaged runs — zero
+    /// drift; GitHub on portable). Every miss is a silent session; the next
+    /// one checks again.
+    /// </summary>
+    private async Task RunStartupUpdateCheckAsync()
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5));
+
+            if (!_snapshot.CheckUpdatesOnStartup)
+                return;
+            // Hidden again within the delay (tray / edge-hide): a ContentDialog
+            // needs a visible window.
+            if (!AppWindow.IsVisible)
+                return;
+
+            var info = await App.Services.GetRequiredService<Services.IStartupUpdateCheck>().CheckAsync();
+            if (info is null)
+                return;
+
+            if (!AppWindow.IsVisible || RootFrame.Content is not NotesPage page)
+                return;
+
+            await page.ShowStartupUpdateAsync(info);
+        }
+        catch (Exception ex)
+        {
+            // Best-effort by contract — never disturb the session over a check.
+            App.Services.GetRequiredService<ILogger<MainWindow>>()
+                .LogWarning(ex, "Startup update check failed (best-effort, ignored).");
+        }
     }
 
     /// <summary>
