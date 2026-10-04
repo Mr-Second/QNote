@@ -408,6 +408,7 @@ public sealed partial class NotesPage : Page
             };
             panel.BackupRequested += () => { pending = PendingDataDialog.Backup; dialog.Hide(); };
             panel.RestoreRequested += () => { pending = PendingDataDialog.Restore; dialog.Hide(); };
+            panel.AboutRequested += () => { pending = PendingDataDialog.About; dialog.Hide(); };
 
             // The manual update check runs while the settings dialog is open (the
             // row button shows 检查中… via the VM). When the result lands it replaces
@@ -449,11 +450,13 @@ public sealed partial class NotesPage : Page
             await ShowBackupDialogAsync();
         else if (pending == PendingDataDialog.Restore)
             await ShowRestoreDialogAsync();
+        else if (pending == PendingDataDialog.About)
+            await ShowAboutDialogAsync();
         else if (pendingUpdateResult is { } updateResult)
             await ShowUpdateResultDialogAsync(updateResult);
     }
 
-    private enum PendingDataDialog { None, Backup, Restore }
+    private enum PendingDataDialog { None, Backup, Restore, About }
 
     /// <summary>Backup dialog (settings panel → 数据 → 备份). Flush first so the archive captures unsaved edits.</summary>
     private async Task ShowBackupDialogAsync()
@@ -477,6 +480,19 @@ public sealed partial class NotesPage : Page
         {
             _dataDialogOpen = false;
         }
+    }
+
+    /// <summary>About dialog (settings panel → 关于 → 关于…). Read-only — no
+    /// flush or guards beyond the one-dialog choreography in
+    /// <see cref="SettingsButton_Click"/> are needed.</summary>
+    private async Task ShowAboutDialogAsync()
+    {
+        var dialog = new AboutDialog
+        {
+            XamlRoot = XamlRoot,
+            RequestedTheme = ActualTheme,
+        };
+        await dialog.ShowAsync();
     }
 
     /// <summary>Restore dialog (settings panel → 数据 → 恢复). A completed restore invalidates every cached list.</summary>

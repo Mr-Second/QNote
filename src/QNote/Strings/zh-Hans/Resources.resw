@@ -796,4 +796,19 @@
   <data name="AboutCommunity.Text" xml:space="preserve">
     <value>感谢 LINUX DO 社区</value>
   </data>
+  <data name="SettingsAboutLabel.Text" xml:space="preserve">
+    <value>关于 QNote</value>
+  </data>
+  <data name="SettingsAboutButton.Content" xml:space="preserve">
+    <value>关于…</value>
+  </data>
+  <data name="SettingsAboutButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>关于…</value>
+  </data>
+  <data name="AboutDialog.Title" xml:space="preserve">
+    <value>关于 QNote</value>
+  </data>
+  <data name="AboutDialog.CloseButtonText" xml:space="preserve">
+    <value>关闭</value>
+  </data>
 </root>

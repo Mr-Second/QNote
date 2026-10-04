@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentDialog
+    x:Class="QNote.Views.AboutDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    x:Uid="AboutDialog"
+    Title="关于 QNote"
+    CloseButtonText="关闭"
+    mc:Ignorable="d">
+
+    <!-- Fixed compact width (same reason as BackupDialog/CategoryEditDialog).
+         Identity block centered, links left-aligned like a list, community
+         line centered at the bottom. Links are plain HyperlinkButtons —
+         NavigateUri auto-launches the system handler, no code-behind needed. -->
+    <Grid Width="400">
+        <StackPanel Spacing="10">
+            <StackPanel HorizontalAlignment="Center" Spacing="4">
+                <Image
+                    Width="48"
+                    Height="48"
+                    Source="ms-appx:///Assets/TitleBarIcon.png" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="QNote" />
+                <TextBlock
+                    x:Name="AboutVersionText"
+                    HorizontalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}" />
+                <TextBlock
+                    x:Uid="AboutTagline"
+                    HorizontalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="轻量 Windows 便签 · 数据纯本地" />
+            </StackPanel>
+            <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" />
+            <HyperlinkButton
+                x:Uid="AboutGitHubLink"
+                Content="GitHub 仓库（源码 · Releases · Issues）"
+                NavigateUri="https://github.com/Mr-Second/QNote"
+                Padding="0" />
+            <HyperlinkButton
+                x:Uid="AboutStoreLink"
+                Content="在 Microsoft Store 评分"
+                NavigateUri="https://apps.microsoft.com/detail/9NV57VJPTPCZ"
+                Padding="0" />
+            <HyperlinkButton
+                x:Uid="AboutPrivacyLink"
+                Content="隐私政策（无账号 · 无遥测）"
+                NavigateUri="https://github.com/Mr-Second/QNote/blob/main/docs/privacy-policy.md"
+                Padding="0" />
+            <HyperlinkButton
+                x:Uid="AboutLicenseLink"
+                Content="开源许可与第三方致谢"
+                NavigateUri="https://github.com/Mr-Second/QNote/blob/main/docs/third-party-notices.md"
+                Padding="0" />
+            <HyperlinkButton
+                x:Uid="AboutMailLink"
+                Content="邮件反馈：906747215@qq.com"
+                NavigateUri="mailto:906747215@qq.com"
+                Padding="0" />
+            <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" />
+            <TextBlock
+                x:Uid="AboutCommunity"
+                HorizontalAlignment="Center"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="感谢 LINUX DO 社区" />
+        </StackPanel>
+    </Grid>
+</ContentDialog>

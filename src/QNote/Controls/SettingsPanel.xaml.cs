@@ -4,7 +4,6 @@ using Microsoft.UI.Xaml.Input;
 using QNote.EdgeHide;
 using QNote.Services;
 using QNote.ViewModels;
-using System.Diagnostics;
 using Windows.System;
 using Windows.UI.Core;
 
@@ -14,9 +13,8 @@ namespace QNote.Controls;
 /// The settings surface hosted inside the settings <see cref="ContentDialog"/>.
 /// Grouped layout (显示 / 常规 / 数据 / 关于) — new groups append as siblings;
 /// state lives in <see cref="SettingsViewModel"/> (changes save + apply live).
-/// The only local mechanics here are the hotkey CAPTURE mode (ADR D6: click the
-/// button, press a combo; Esc cancels, Backspace/Delete clears) and the About
-/// card's version caption.
+/// The only local mechanics here is the hotkey CAPTURE mode (ADR D6: click the
+/// button, press a combo; Esc cancels, Backspace/Delete clears).
 /// </summary>
 public sealed partial class SettingsPanel : UserControl
 {
@@ -26,49 +24,26 @@ public sealed partial class SettingsPanel : UserControl
     {
         ViewModel = viewModel;
         InitializeComponent();
-        SetAboutVersion();
     }
 
     public SettingsViewModel ViewModel { get; }
 
     /// <summary>
-    /// About card caption: running version from the main module's VERSIONINFO —
-    /// the SAME single version source the manual update check reads (the csproj
-    /// FileVersion pins it; release.yml patches it with the manifest on release,
-    /// so packaged and portable displays never drift). The stack suffix is
-    /// language-neutral and intentionally hard-coded here.
-    /// </summary>
-    private void SetAboutVersion()
-    {
-        const string stack = "WinUI 3 · .NET 10 · NativeAOT";
-        try
-        {
-            var exePath = Environment.ProcessPath;
-            var version = exePath is null
-                ? null
-                : FileVersionInfo.GetVersionInfo(exePath).FileVersion;
-            AboutVersionText.Text = string.IsNullOrEmpty(version)
-                ? stack
-                : $"v{version} · {stack}";
-        }
-        catch
-        {
-            AboutVersionText.Text = stack; // cosmetic fallback — never crash settings over a caption
-        }
-    }
-
-    /// <summary>
-    /// Raised when the user picks 备份/恢复. The hosting dialog must close BEFORE the
-    /// follow-up dialog opens (only one ContentDialog may be open at a time) — the
-    /// host (NotesPage) owns that choreography.
+    /// Raised when the user picks 备份/恢复/关于. The hosting dialog must close
+    /// BEFORE the follow-up dialog opens (only one ContentDialog may be open at a
+    /// time) — the host (NotesPage) owns that choreography.
     /// </summary>
     public event Action? BackupRequested;
 
     public event Action? RestoreRequested;
 
+    public event Action? AboutRequested;
+
     private void Backup_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) => BackupRequested?.Invoke();
 
     private void Restore_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) => RestoreRequested?.Invoke();
+
+    private void About_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) => AboutRequested?.Invoke();
 
     // ---------- hotkey capture ----------
 

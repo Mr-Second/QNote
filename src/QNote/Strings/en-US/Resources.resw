@@ -796,4 +796,19 @@ Your notes will be stored in:
   <data name="AboutCommunity.Text" xml:space="preserve">
     <value>With thanks to the LINUX DO community</value>
   </data>
+  <data name="SettingsAboutLabel.Text" xml:space="preserve">
+    <value>About QNote</value>
+  </data>
+  <data name="SettingsAboutButton.Content" xml:space="preserve">
+    <value>About…</value>
+  </data>
+  <data name="SettingsAboutButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>About…</value>
+  </data>
+  <data name="AboutDialog.Title" xml:space="preserve">
+    <value>About QNote</value>
+  </data>
+  <data name="AboutDialog.CloseButtonText" xml:space="preserve">
+    <value>Close</value>
+  </data>
 </root>
