@@ -64,7 +64,8 @@ public static class MarkdownParser
                     {
                         <= 1 => HeadingLevel.H1,
                         2 => HeadingLevel.H2,
-                        _ => HeadingLevel.H3,
+                        3 => HeadingLevel.H3,
+                        _ => HeadingLevel.H4,
                     },
                 });
                 break;

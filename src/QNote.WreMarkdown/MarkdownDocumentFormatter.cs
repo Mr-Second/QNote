@@ -12,7 +12,7 @@ namespace QNote.WreMarkdown;
 /// of the WYSIWYG pipeline: load = Markdown → model → <see cref="FlowDocument"/>,
 /// save = <see cref="FlowDocument"/> → model → Markdown.
 /// <para>The mappable subset is exactly what the QNote model can express: paragraphs,
-/// headings (model carries H1–H3; deeper WRE levels clamp the way the Markdown
+/// headings (model carries H1–H4; deeper WRE levels clamp the way the Markdown
 /// parser clamps), flat bullet/ordered lists, bold/italic/strikethrough, inline
 /// links, <c>qnote-img:</c> image references, GFM pipe tables (plain 1×1 grids) and
 /// thematic breaks. Everything else WRE can hold (colors, fonts, underline,
@@ -224,10 +224,10 @@ public static class MarkdownDocumentFormatter
     {
         var isHeading = paragraph.HeadingLevel is >= 1 and <= 6;
 
-        // Headings beyond the model's H1–H3 clamp to H3, mirroring the parser's
-        // `##### five` → H3 rule; the clamp is what the storage side does, so the
-        // bridge must not invent level-4+ references the pipeline would re-clamp.
-        var level = (HeadingLevel)Math.Clamp(paragraph.HeadingLevel, 1, 3);
+        // Headings beyond the model's H1–H4 clamp to H4, mirroring the parser's
+        // `##### five` → H4 rule; the clamp is what the storage side does, so the
+        // bridge must not invent level-5+ references the pipeline would re-clamp.
+        var level = (HeadingLevel)Math.Clamp(paragraph.HeadingLevel, 1, 4);
         var isListItem = paragraph.IsListItem;
         var ordered = isListItem && paragraph.ListType == ListKind.Ordered;
 

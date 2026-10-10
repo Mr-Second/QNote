@@ -58,12 +58,13 @@ public class MarkdownParserTests
     }
 
     [Fact]
-    public void HeadingLevelsMapWithClampAboveH3()
+    public void HeadingLevelsMapWithClampAboveH4()
     {
         Assert.Equal(HeadingLevel.H1, Parse("# one").Blocks[0].Level);
         Assert.Equal(HeadingLevel.H2, Parse("## two").Blocks[0].Level);
         Assert.Equal(HeadingLevel.H3, Parse("### three").Blocks[0].Level);
-        Assert.Equal(HeadingLevel.H3, Parse("##### five").Blocks[0].Level);
+        Assert.Equal(HeadingLevel.H4, Parse("#### four").Blocks[0].Level);
+        Assert.Equal(HeadingLevel.H4, Parse("##### five").Blocks[0].Level);
         Assert.Equal(BlockKind.Heading, Parse("## two").Blocks[0].Kind);
     }
 
@@ -261,8 +262,23 @@ public class MarkdownEmitterTests
     {
         Assert.Equal("# a\n", Emit("# a"));
         Assert.Equal("### c\n", Emit("### c"));
+        Assert.Equal("#### d\n", Emit("#### d"));
         Assert.Equal("- x\n- y\n", Emit("- x\n- y"));
         Assert.Equal("1. a\n2. b\n", Emit("1. a\n2. b"));
+    }
+
+    [Fact]
+    public void DeepHeadingsDegradeToH4OnceAndStayIdempotent()
+    {
+        // The storage subset's deepest heading is H4 (2026-10-10, matching the editor's
+        // 标题4 dropdown cap): H5/H6 keep their text but degrade to #### on the first
+        // emit — content survives, the construct degrades — and the emitted form is
+        // then byte-stable.
+        Assert.Equal("#### five\n", Emit("##### five"));
+        Assert.Equal("#### six\n", Emit("###### six"));
+
+        var once = Emit("##### five");
+        Assert.Equal(once, Emit(once));
     }
 
     [Fact]

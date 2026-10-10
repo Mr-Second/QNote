@@ -48,6 +48,7 @@ public class WreMarkdownRoundTripTests
         "中英混排 mixed content 2026",
         "# 标题\n正文",
         "## 二级\n### 三级",
+        "#### 四级",
         "**粗** *斜* ~~删~~ 普通",
         "**~~both~~**",
         "***bi***",
@@ -432,14 +433,14 @@ public class WreMarkdownRoundTripTests
     }
 
     [Fact]
-    public void DeepWreHeadingClampsToH3()
+    public void DeepWreHeadingClampsToH4()
     {
-        // Mirrors the parser's `##### five` → H3 clamp — level 4+ references would be
+        // Mirrors the parser's `##### five` → H4 clamp — level 5+ references would be
         // re-clamped by the storage side anyway.
         var blocks = Save(Document(Para(heading: 5, runs: Text("deep"))));
         Assert.Equal(BlockKind.Heading, Assert.Single(blocks).Kind);
-        Assert.Equal(HeadingLevel.H3, blocks[0].Level);
-        Assert.Equal("### deep\n", MarkdownEmitter.Emit(new DocumentContent(blocks)));
+        Assert.Equal(HeadingLevel.H4, blocks[0].Level);
+        Assert.Equal("#### deep\n", MarkdownEmitter.Emit(new DocumentContent(blocks)));
     }
 
     [Fact]

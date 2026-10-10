@@ -6,6 +6,7 @@ public enum HeadingLevel
     H1 = 1,
     H2 = 2,
     H3 = 3,
+    H4 = 4,
 }
 
 /// <summary>Block (paragraph-level) kind of a <see cref="DocumentBlock"/>.</summary>
@@ -27,7 +28,7 @@ public enum BlockKind
 /// through. The Markdown side (parse/emit) lives in Core; the RichEdit side is a thin
 /// Presentation walker filling the same records from TOM. The format subset is the
 /// locked Markdown subset: bold / italic / strikethrough / inline links /
-/// headings (H1–H3) / bullet+numbered lists / images (schema B2, PRD 2026-09-28;
+/// headings (H1–H4) / bullet+numbered lists / images (schema B2, PRD 2026-09-28;
 /// links joined for the WRE editor bridge, 2026-09-30; GFM pipe tables joined for
 /// the editor table feature, 2026-10-01).
 /// </summary>
