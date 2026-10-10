@@ -23,4 +23,11 @@
     <ProjectReference Include="..\..\src\QNote.Core\QNote.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- QNoteIconGlyphs is link-compiled into this test assembly: it is WinUI-free
+         by design, and QNoteIconsFontTests asserts its constants stay in sync with
+         the shipped QNoteIcons.ttf and codepoints.json. -->
+    <Compile Include="..\..\src\QNote\Controls\QNoteIconGlyphs.cs" Link="Presentation\QNoteIconGlyphs.cs" />
+  </ItemGroup>
+
 </Project>

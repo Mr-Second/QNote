@@ -7,13 +7,17 @@ Count these on every upstream sync and re-apply them.
 
 **Diff inventory vs upstream HEAD** (verified 2026-10-01, hash-compared, excluding
 `bin|obj`): 2 new files (`Controls/OverflowRowPanel.cs`,
-`Controls/RichEditorIconRenderer.cs`) and 9 changed files
+`Controls/RichEditorIconRenderer.cs`) and 10 changed files
 (`Controls/PathMarkup.cs`, `Controls/RichEditor.BlockSelection.cs`,
 `Controls/RichEditor.ContextMenu.cs`, `Controls/RichEditor.Input.cs`,
 `Controls/RichEditorIcons.cs`, `Controls/RichEditor.TableDraw.cs`,
 `Controls/RichEditor.Tables.cs`, `Controls/RichEditorToolbar.cs`,
-`Controls/RichEditorToolbar.PageFile.cs`). Nothing else differs.
-(BlockSelection.cs joined the changed list 2026-10-03 with P4.)
+`Controls/RichEditorToolbar.PageFile.cs`, `PublicAPI.Unshipped.txt`). Nothing
+else differs. (BlockSelection.cs joined the changed list 2026-10-03 with P4;
+RichEditorIcons.cs, RichEditorToolbar.cs and RichEditor.ContextMenu.cs gained
+further P5 hunks 2026-10-10, which also extended the enum's
+PublicAPI.Unshipped.txt lines — that file is the public-API bookkeeping
+shadowing the enum patches, not an independent edit.)
 
 ## P1 — Toolbar dark-mode active faces (`Controls/RichEditorToolbar.cs`)
 
@@ -160,6 +164,40 @@ the already-written partial size is a real edit there too.
 **Upstream-sync impact.** LOW — three lines around `FinishImageResize`; any
 upstream rework of the resize drag should be checked for whether it now calls
 `AfterEdit` itself (drop the patch if so).
+
+## P5 — Paragraph-style combo + heading submenu: provider icons + H1–H4 cap (`Controls/RichEditorIcons.cs`, `Controls/RichEditorToolbar.cs`, `Controls/RichEditor.ContextMenu.cs`)
+
+**Why.** Task `10-10-editor-icon-font` (follow-up): the combo's item faces were
+vendored Lucide layers with no provider path, so they stayed Lucide after the
+host's chrome-wide hmos/QNoteIcons swap — the dropdown was the one editor
+surface the host could not restyle. At the same time the combo (and the context
+menu's heading submenu) offered 标题5/标题6, but QNote's Markdown storage subset
+only round-trips headings to H3 — a 标题4 pick silently degraded to `###` on
+save/reload. The subset was extended to H1–H4 (core + bridge, host-side files)
+and every visible picker capped to match: 正文 + 标题1–4.
+
+**What.**
+- `Controls/RichEditorIcons.cs`: `RichEditorIcon` gains `BodyText`,
+  `Heading1..Heading4` — **appended only**, preserving shipped ordinals —
+  addressing the combo's item faces (level 0 = BodyText, 1..4 = Heading1..4);
+  `PublicAPI.Unshipped.txt` gains the matching 5 declaration lines.
+- `Controls/RichEditorToolbar.cs`: new `HeadingComboIcon(level)` resolves the
+  item face as host provider glyph (`RichEditorIcons.TryCreate`) first, falling
+  back to the vendored Lucide layers (`HeadingLayers`/`BodyTextIcon`, still
+  referenced — no dead code) for hosts that map none of the new slots. A
+  provider FontIcon is resized to `IconBox` (the combo's icon column is 16px;
+  QNoteIcons ships 18px) — the same fit-to-box discipline as
+  `IconOrText`/`ResolvedIcon`. The combo build loop runs `i <= 4` instead of
+  `i <= 6`.
+- `Controls/RichEditor.ContextMenu.cs`: the rich formatting menu's heading
+  submenu drops its 标题5/标题6 items (same H1–H4 cap as the combo).
+  Ctrl+Alt+5/6 remain (upstream keyboard capability, not visible UI); a
+  level-5/6 caret still selects nothing in the combo (`SelectByTag` no-match
+  clears the selection) and degrades to H4 on save.
+
+**Upstream-sync impact.** LOW — the enum tail, one helper, two item-add lines
+and one submenu line; re-apply mechanically after any upstream toolbar/menu
+rework.
 
 _Last verified against the vendored HEAD adopted 2026-09-30 (re-verified
 2026-10-01)._

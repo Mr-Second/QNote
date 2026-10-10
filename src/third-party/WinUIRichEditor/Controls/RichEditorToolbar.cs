@@ -338,8 +338,9 @@ public partial class RichEditorToolbar : UserControl
 
     // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): heading glyphs for the paragraph-style combo's
     // "left icon + right text" item layout (PRD D9). These are Lucide `heading-1..4` (ISC) / `type` for
-    // 正文 — kept LOCAL to the toolbar (they are ComboBoxItem faces, not RichEditorIcon slots) and rendered
-    // through the vendored RichEditorIconRenderer so they inherit the theme-aware ink for free.
+    // 正文, rendered through the vendored RichEditorIconRenderer so they inherit the theme-aware ink for
+    // free. QNOTE VENDORED PATCH (P5, editor-hmos-icons): the item faces are now RichEditorIcon slots
+    // (BodyText / Heading1..4), so a host provider glyph wins and these layers are the fallback.
     private static readonly IconLayer[] Heading1Icon =
     {
         new("M4 12h8", false), new("M4 18V6", false), new("M12 18V6", false), new("m17 12 3-2v8", false),
@@ -388,6 +389,29 @@ public partial class RichEditorToolbar : UserControl
         >= 4 => Heading4Icon,
         _ => BodyTextIcon,
     };
+
+    // QNOTE VENDORED PATCH (P5, editor-hmos-icons): the combo items join the provider pipeline — host
+    // glyph first (RichEditorIcons.TryCreate, e.g. QNoteIcons' hmos font), the vendored Lucide layers
+    // as the fallback for hosts that map none of the new slots. A provider FontIcon ships at the
+    // provider's own size (QNoteIcons' 18), while the combo's icon column is only IconBox (16) wide,
+    // so it is resized in place — the same fit-to-box discipline as IconOrText / ResolvedIcon below.
+    private static UIElement HeadingComboIcon(int level)
+    {
+        var slot = level switch
+        {
+            0 => RichEditorIcon.BodyText,
+            1 => RichEditorIcon.Heading1,
+            2 => RichEditorIcon.Heading2,
+            3 => RichEditorIcon.Heading3,
+            _ => RichEditorIcon.Heading4,
+        };
+        if (RichEditorIcons.TryCreate(slot) is { } el)
+        {
+            if (el is FontIcon fi) fi.FontSize = IconBox;
+            return el;
+        }
+        return RichEditorIconRenderer.Create(IconBox, level == 0 ? BodyTextIcon : HeadingLayers(level));
+    }
 
     // Reflected controls are nullable: a Minimal / read-only toolbar builds only a subset, so Sync() must
     // null-guard every access. Null = "not built at the current ToolbarLevel".
@@ -749,9 +773,13 @@ public partial class RichEditorToolbar : UserControl
                 var heading = MakeCombo(108, Loc("ParagraphStyle")); _heading = heading;
                 // QNOTE VENDORED PATCH (P2, editor-toolbar-restyle): "left icon + right text" items (PRD D9).
                 // Tag still carries the level, so SelectionChanged / reapply / SelectByTag are untouched.
-                heading.Items.Add(new ComboBoxItem { Content = ComboIconText(RichEditorIconRenderer.Create(IconBox, BodyTextIcon), Loc("BodyText")), Tag = 0 });
-                for (int i = 1; i <= 6; i++)
-                    heading.Items.Add(new ComboBoxItem { Content = ComboIconText(RichEditorIconRenderer.Create(IconBox, HeadingLayers(i)), Loc("Heading" + i)), Tag = i });
+                // QNOTE VENDORED PATCH (P5, editor-hmos-icons): the item faces go through the provider
+                // pipeline (HeadingComboIcon — host hmos glyph, vendored Lucide layers as fallback), and
+                // the levels cap at 4: QNote's Markdown subset stores H1–H4 only, so 5/6 would silently
+                // degrade on save/reload and are not offered.
+                heading.Items.Add(new ComboBoxItem { Content = ComboIconText(HeadingComboIcon(0), Loc("BodyText")), Tag = 0 });
+                for (int i = 1; i <= 4; i++)
+                    heading.Items.Add(new ComboBoxItem { Content = ComboIconText(HeadingComboIcon(i), Loc("Heading" + i)), Tag = i });
                 heading.SelectionChanged += (_, _) => { if (!_suppress && heading.SelectedItem is ComboBoxItem ci) Target?.SetHeading((int)ci.Tag); };
                 // Re-picking the level already shown re-applies it — that restores a heading's bold and size
                 // after the user changed them (HeadingStyle.Retype). SelectionChanged cannot see that pick: the

@@ -90,6 +90,11 @@ static WinUIRichEditor.Controls.RichEditorShortcuts.Display(WinUIRichEditor.Cont
 WinUIRichEditor.Controls.RichEditorIcon.More = 51 -> WinUIRichEditor.Controls.RichEditorIcon
 WinUIRichEditor.Controls.RichEditorIcon.AlignJustify = 52 -> WinUIRichEditor.Controls.RichEditorIcon
 WinUIRichEditor.Controls.RichEditorIcon.MoreVertical = 53 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.BodyText = 54 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.Heading1 = 55 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.Heading2 = 56 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.Heading3 = 57 -> WinUIRichEditor.Controls.RichEditorIcon
+WinUIRichEditor.Controls.RichEditorIcon.Heading4 = 58 -> WinUIRichEditor.Controls.RichEditorIcon
 WinUIRichEditor.Controls.IconLayer
 WinUIRichEditor.Controls.IconLayer.Data.get -> string!
 WinUIRichEditor.Controls.IconLayer.Data.init -> void

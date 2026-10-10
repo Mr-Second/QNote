@@ -126,6 +126,20 @@ public enum RichEditorIcon
     AlignJustify,
     /// <summary>Vertical "more" (the secondary More button, distinguished from the overflow one).</summary>
     MoreVertical,
+    // QNOTE VENDORED PATCH (P5, editor-hmos-icons) — appended (not grouped) to preserve the shipped
+    // ordinal values of every entry above. The paragraph-style combo's item faces (vendored Lucide
+    // layers, not provider-addressable until now) become icon slots so a host can restyle them like
+    // any other chrome icon.
+    /// <summary>Paragraph-style combo: body text (正文) item.</summary>
+    BodyText,
+    /// <summary>Paragraph-style combo: heading level 1 item.</summary>
+    Heading1,
+    /// <summary>Paragraph-style combo: heading level 2 item.</summary>
+    Heading2,
+    /// <summary>Paragraph-style combo: heading level 3 item.</summary>
+    Heading3,
+    /// <summary>Paragraph-style combo: heading level 4 item.</summary>
+    Heading4,
 }
 
 /// <summary>Host-pluggable icon factory for the built-in chrome (toolbar buttons and context menus).

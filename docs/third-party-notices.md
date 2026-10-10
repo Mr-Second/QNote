@@ -2,28 +2,20 @@
 
 Assets and embedded data QNote ships that originate from third-party projects.
 
-## CM_EDITOR icon font — `src/QNote/Assets/Fonts/CM_EDITOR.ttf`
+## QNoteIcons icon font — `src/QNote/Assets/Fonts/QNoteIcons.ttf`
 
-An icon-font TTF (internal family name `iconfont`) extracted (2026-09-30)
-from the base64 payload inlined in a KindEditor plugin's
-`KindEditor-plugin/theme.css`. KindEditor is distributed under the LGPL-2.1;
-the icon set follows the license of the project it ships with. Used as the
-editor toolbar's icon font.
+A purpose-built icon font (internal family name `QNoteIcons`), synthesized (2026-10-10)
+by `scripts/icon-font/build.py` from the hmos editor icon set — SVG sources checked in at
+`scripts/icon-font/src/` (43 `RichEditorIcon` slots → 42 glyphs). The source set originates
+from the author's own ChordMail KindEditor-plugin (same author as QNote) and is
+project-owned; no third-party license applies. Rebuild with `python scripts/icon-font/build.py`
+(code points are recorded in `scripts/icon-font/codepoints.json`).
 
 ## Lucide icons — `src/third-party/WinUIRichEditor/Controls/RichEditorToolbar.cs`
 
 The paragraph-style combo's heading glyphs (`heading-1..4`, `type`) embed
 Lucide v1.49.0 path data as code constants. Lucide is ISC-licensed and carries
 Feather Icons (MIT) ancestry — both permissive for embedding.
-
-## Material Design Icons — `src/QNote/Controls/QNoteIcons.cs`
-
-The table context menu's row/column operation icons embed path data from
-Material Design Icons (`@mdi/svg` 7.4.47, Templated/Pictogrammers). MDI 7.x is
-distributed under the Pictogrammers Free License (free to use and distribute;
-derived from Google's Material icon set, originally Apache-2.0). Seven paths
-are embedded: `table-row-plus-before/after`, `table-row-remove`,
-`table-column-plus-before/after`, `table-column-remove`, `table-remove`.
 
 ## vscode-codicons font — `src/QNote/Assets/Fonts/codicon.ttf`
 

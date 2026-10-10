@@ -311,10 +311,13 @@ public partial class RichEditor
                 BulletToggle(Loc("Quote"), fmt.Quote, ToggleQuote)));
 
             // ── 제목 (heading / style) — promoted to top level, radio-checked ──
+            // QNOTE VENDORED PATCH (P5, editor-hmos-icons): the heading submenu caps at H4 like the
+            // toolbar combo — QNote's Markdown subset stores H1–H4 only, so 5/6 would silently degrade
+            // on save/reload and are not offered in any visible UI. (Ctrl+Alt+5/6 stay: upstream
+            // keyboard capability, save-side degradation to H4 documented in P5.)
             Item(Sub(Loc("Heading"), null,
                 HeadingItem(Loc("Heading1"), 1, fmt.Heading), HeadingItem(Loc("Heading2"), 2, fmt.Heading),
                 HeadingItem(Loc("Heading3"), 3, fmt.Heading), HeadingItem(Loc("Heading4"), 4, fmt.Heading),
-                HeadingItem(Loc("Heading5"), 5, fmt.Heading), HeadingItem(Loc("Heading6"), 6, fmt.Heading),
                 Sep(),
                 HeadingItem(Loc("BodyText"), 0, fmt.Heading)));
         }
