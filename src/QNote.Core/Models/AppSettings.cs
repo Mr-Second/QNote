@@ -128,4 +128,28 @@ public sealed record AppSettings
     /// Default: VK_OEM_3 (`).
     /// </summary>
     public int EdgeHideHotkeyKey { get; init; } = HotkeyFormat.VkOem3;
+
+    /// <summary>Todo page nav-pane width in DIPs (0 = never dragged, XAML default).
+    /// Persisted on splitter drag-completion; user 2026-10-15: mode switches
+    /// recreate the page and used to lose the dragged widths.</summary>
+    public int TodoNavPaneWidth { get; init; }
+
+    /// <summary>Todo page detail-pane width in DIPs (0 = never dragged, XAML default).</summary>
+    public int TodoDetailPaneWidth { get; init; }
+
+    /// <summary>Smart-view B-pane theme CSV ("kind=themeId;..."), see
+    /// <see cref="Services.TodoSmartViewOptions"/>. Empty/absent kind = default gradient.</summary>
+    public string TodoSmartThemes { get; init; } = string.Empty;
+
+    /// <summary>Smart-view 隐藏已完成的任务 CSV ("kind=1;...", see
+    /// <see cref="Services.TodoSmartViewOptions"/>). Absent kind = show completed.</summary>
+    public string TodoSmartHideCompleted { get; init; } = string.Empty;
+
+    /// <summary>Smart-view 排序依据 CSV ("kind=sortMode;...", see
+    /// <see cref="Services.TodoSmartViewOptions"/>). Absent kind = manual.</summary>
+    public string TodoSmartSortModes { get; init; } = string.Empty;
+
+    /// <summary>Hidden smart-lists kind CSV ("1,2", see
+    /// <see cref="Services.TodoSmartViewOptions"/>). Empty = all visible.</summary>
+    public string TodoHiddenSmartLists { get; init; } = string.Empty;
 }

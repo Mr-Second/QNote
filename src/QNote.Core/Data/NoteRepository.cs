@@ -205,7 +205,7 @@ public sealed class NoteRepository : INoteRepository
     {
         await using var conn = _factory.OpenRead();
         await using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT Id, Name, IconKey, Color, SortOrder FROM categories ORDER BY SortOrder;";
+        cmd.CommandText = "SELECT Id, Name, IconKey, Color, SortOrder, Uuid FROM categories ORDER BY SortOrder;";
 
         var list = new List<Category>();
         await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -218,6 +218,7 @@ public sealed class NoteRepository : INoteRepository
                 IconKey = reader.GetString(2),
                 Color = reader.GetString(3),
                 SortOrder = reader.GetInt32(4),
+                Uuid = reader.GetString(5),
             });
         }
 
@@ -226,15 +227,23 @@ public sealed class NoteRepository : INoteRepository
 
     public async Task<Category> CreateCategoryAsync(Category category, CancellationToken ct = default)
     {
+        // Uuid identity (schema v7): kept when the caller supplies one, generated
+        // here otherwise. This is the single choke point every creation path goes
+        // through (service, backup merge), so no categories row ever carries an
+        // empty identity.
+        if (category.Uuid.Length == 0)
+            category = category with { Uuid = Guid.NewGuid().ToString("N") };
+
         await using var conn = _factory.OpenWrite();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "INSERT INTO categories (Name, IconKey, Color, SortOrder) " +
-            "VALUES ($name, $icon, $color, (SELECT COALESCE(MAX(SortOrder), -1) + 1 FROM categories)) " +
+            "INSERT INTO categories (Name, IconKey, Color, Uuid, SortOrder) " +
+            "VALUES ($name, $icon, $color, $uuid, (SELECT COALESCE(MAX(SortOrder), -1) + 1 FROM categories)) " +
             "RETURNING Id, SortOrder;";
         cmd.Parameters.AddWithValue("$name", category.Name);
         cmd.Parameters.AddWithValue("$icon", category.IconKey);
         cmd.Parameters.AddWithValue("$color", category.Color);
+        cmd.Parameters.AddWithValue("$uuid", category.Uuid);
 
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         if (!await reader.ReadAsync(ct))

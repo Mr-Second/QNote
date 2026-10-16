@@ -52,12 +52,13 @@ public interface INoteRepository
     /// </summary>
     Task<IReadOnlyDictionary<string, (long Id, DateTimeOffset UpdatedAt)>> GetUuidTimestampsAsync(CancellationToken ct = default);
 
-    /// <summary>All categories ordered by <see cref="Category.SortOrder"/>.</summary>
+    /// <summary>All categories ordered by <see cref="Category.SortOrder"/> (incl. <see cref="Category.Uuid"/>).</summary>
     Task<IReadOnlyList<Category>> GetCategoriesAsync(CancellationToken ct = default);
 
     /// <summary>
     /// Inserts a category with <c>SortOrder = MAX(SortOrder)+1</c> and returns it
-    /// with the DB-assigned <see cref="Category.Id"/>.
+    /// with the DB-assigned <see cref="Category.Id"/>. Generates the
+    /// <see cref="Category.Uuid"/> identity when the caller did not supply one.
     /// </summary>
     Task<Category> CreateCategoryAsync(Category category, CancellationToken ct = default);
 

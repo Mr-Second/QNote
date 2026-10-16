@@ -14,4 +14,10 @@ public sealed record Category
     public string Color { get; init; } = string.Empty;
 
     public int SortOrder { get; init; }
+
+    /// <summary>
+    /// Stable sync identity (schema v7). Generated at insert by the repository;
+    /// pre-v7 rows were backfilled by the migration. Identity — never rewritten.
+    /// </summary>
+    public string Uuid { get; init; } = string.Empty;
 }

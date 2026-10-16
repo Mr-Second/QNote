@@ -27,6 +27,7 @@ public sealed class AppPaths
         Root = root;
         DatabasePath = Path.Combine(Root, "qnote.db");
         ImagesDir = Path.Combine(Root, "images");
+        AttachmentsDir = Path.Combine(Root, "attachments");
         LogsDir = Path.Combine(Root, "logs");
         CrashDumpsDir = Path.Combine(Root, "CrashDumps");
         BackupsDir = Path.Combine(Root, "backups");
@@ -40,6 +41,9 @@ public sealed class AppPaths
 
     public string ImagesDir { get; }
 
+    /// <summary>Todo attachment store (sha-addressed raw files, PRD Decision 11 — separate from images so the note orphan-GC never touches it).</summary>
+    public string AttachmentsDir { get; }
+
     public string LogsDir { get; }
 
     public string CrashDumpsDir { get; }
@@ -51,6 +55,7 @@ public sealed class AppPaths
     {
         Directory.CreateDirectory(Root);
         Directory.CreateDirectory(ImagesDir);
+        Directory.CreateDirectory(AttachmentsDir);
         Directory.CreateDirectory(LogsDir);
         Directory.CreateDirectory(CrashDumpsDir);
         Directory.CreateDirectory(BackupsDir);

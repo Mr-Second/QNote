@@ -35,6 +35,12 @@ public sealed class SettingsService : ISettingsService
         public const string HideTaskbarIconOnEdgeHide = "hideTaskbarIconOnEdgeHide";
         public const string EdgeHideHotkeyModifiers = "edgeHideHotkeyModifiers";
         public const string EdgeHideHotkeyKey = "edgeHideHotkeyKey";
+        public const string TodoNavPaneWidth = "todoNavPaneWidth";
+        public const string TodoDetailPaneWidth = "todoDetailPaneWidth";
+        public const string TodoSmartThemes = "todoSmartThemes";
+        public const string TodoSmartHideCompleted = "todoSmartHideCompleted";
+        public const string TodoSmartSortModes = "todoSmartSortModes";
+        public const string TodoHiddenSmartLists = "todoHiddenSmartLists";
     }
 
     private readonly DbConnectionFactory _factory;
@@ -111,6 +117,12 @@ public sealed class SettingsService : ISettingsService
             HideTaskbarIconOnEdgeHide = GetBool(Keys.HideTaskbarIconOnEdgeHide, defaults.HideTaskbarIconOnEdgeHide),
             EdgeHideHotkeyModifiers = GetInt(Keys.EdgeHideHotkeyModifiers, defaults.EdgeHideHotkeyModifiers),
             EdgeHideHotkeyKey = GetInt(Keys.EdgeHideHotkeyKey, defaults.EdgeHideHotkeyKey),
+            TodoNavPaneWidth = GetInt(Keys.TodoNavPaneWidth, defaults.TodoNavPaneWidth),
+            TodoDetailPaneWidth = GetInt(Keys.TodoDetailPaneWidth, defaults.TodoDetailPaneWidth),
+            TodoSmartThemes = Get(Keys.TodoSmartThemes) ?? defaults.TodoSmartThemes,
+            TodoSmartHideCompleted = Get(Keys.TodoSmartHideCompleted) ?? defaults.TodoSmartHideCompleted,
+            TodoSmartSortModes = Get(Keys.TodoSmartSortModes) ?? defaults.TodoSmartSortModes,
+            TodoHiddenSmartLists = Get(Keys.TodoHiddenSmartLists) ?? defaults.TodoHiddenSmartLists,
         };
         return _cache;
 
@@ -188,5 +200,11 @@ public sealed class SettingsService : ISettingsService
         yield return (Keys.HideTaskbarIconOnEdgeHide, Bool(s.HideTaskbarIconOnEdgeHide));
         yield return (Keys.EdgeHideHotkeyModifiers, Int(s.EdgeHideHotkeyModifiers));
         yield return (Keys.EdgeHideHotkeyKey, Int(s.EdgeHideHotkeyKey));
+        yield return (Keys.TodoNavPaneWidth, Int(s.TodoNavPaneWidth));
+        yield return (Keys.TodoDetailPaneWidth, Int(s.TodoDetailPaneWidth));
+        yield return (Keys.TodoSmartThemes, s.TodoSmartThemes);
+        yield return (Keys.TodoSmartHideCompleted, s.TodoSmartHideCompleted);
+        yield return (Keys.TodoSmartSortModes, s.TodoSmartSortModes);
+        yield return (Keys.TodoHiddenSmartLists, s.TodoHiddenSmartLists);
     }
 }
