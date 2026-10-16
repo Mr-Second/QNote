@@ -15,6 +15,32 @@
             <SolidColorBrush x:Key="BrandAccentBrush" Color="#0078D4" />
             <SolidColorBrush x:Key="NoteSurfaceBrush" Color="#FFFDF7" />
 
+            <!-- Todo (task 10-04): importance star amber + the middle-pane
+                 gradient (a4 mockup, light variant) + hero text. 2026-10-15 user
+                 ruling: the gradient paints the WHOLE middle pane (B area), so it
+                 lives on TodoPaneBackgroundBrush and the hero band itself is
+                 transparent (its white text rides the pane gradient). -->
+            <SolidColorBrush x:Key="TodoStarBrush" Color="#EAA300" />
+            <LinearGradientBrush
+                x:Key="TodoPaneBackgroundBrush"
+                StartPoint="0,0"
+                EndPoint="0.34,0.94">
+                <GradientStop Offset="0" Color="#2E8BA3" />
+                <GradientStop Offset="0.38" Color="#6FB5B8" />
+                <GradientStop Offset="0.55" Color="#A8CFC4" />
+                <GradientStop Offset="0.80" Color="#F2B480" />
+                <GradientStop Offset="1" Color="#EF8F6B" />
+            </LinearGradientBrush>
+            <SolidColorBrush x:Key="TodoHeroBackgroundBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="TodoHeroForegroundBrush" Color="#FFFFFF" />
+            <!-- Opaque task-row cards (real To Do floats white rows on the list
+                 background) — translucent rows let the gradient wash out the
+                 hairline separators (user 2026-10-15). -->
+            <SolidColorBrush x:Key="TodoRowBackgroundBrush" Color="#FFFFFFFF" />
+            <!-- 已完成 accordion chip: translucent at rest, opaque on hover
+                 (user 2026-10-15 — NOT the accent-blue ToggleButton default). -->
+            <SolidColorBrush x:Key="TodoCompletedHeaderBrush" Color="#80FFFFFF" />
+
             <!-- Rebrand the Fluent accent to QNote tech-blue. -->
             <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#0078D4" />
             <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#1A85D8" />
@@ -38,6 +64,24 @@
             <SolidColorBrush x:Key="BrandAccentBrush" Color="#4A9EFF" />
             <SolidColorBrush x:Key="NoteSurfaceBrush" Color="#2A2A2E" />
 
+            <!-- Todo (task 10-04): dark pane gradient + star amber variant
+                 (gradient paints the whole middle pane — see the Light note). -->
+            <SolidColorBrush x:Key="TodoStarBrush" Color="#FFD164" />
+            <LinearGradientBrush
+                x:Key="TodoPaneBackgroundBrush"
+                StartPoint="0,0"
+                EndPoint="0.34,0.94">
+                <GradientStop Offset="0" Color="#1D5B6E" />
+                <GradientStop Offset="0.40" Color="#3F7D80" />
+                <GradientStop Offset="0.58" Color="#5F8F83" />
+                <GradientStop Offset="0.82" Color="#A3775A" />
+                <GradientStop Offset="1" Color="#7C5148" />
+            </LinearGradientBrush>
+            <SolidColorBrush x:Key="TodoHeroBackgroundBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="TodoHeroForegroundBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="TodoRowBackgroundBrush" Color="#FF2B2B2B" />
+            <SolidColorBrush x:Key="TodoCompletedHeaderBrush" Color="#803A3A3A" />
+
             <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#4A9EFF" />
             <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#5DA8FF" />
             <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#73B4FF" />
@@ -57,6 +101,18 @@
         <ResourceDictionary x:Key="HighContrast">
             <SolidColorBrush x:Key="BrandAccentBrush" Color="{ThemeResource SystemColorHighlightColor}" />
             <SolidColorBrush x:Key="NoteSurfaceBrush" Color="{ThemeResource SystemColorWindowColor}" />
+
+            <!-- Todo: contrast themes own the colors — solid system highlight,
+                  system text, no gradient (alpha-washed visuals vanish or glare in HC).
+                  The pane stays the system window color; only the hero band is
+                  highlighted (WindowText on HighlightColor would be unreadable
+                  across the whole pane). -->
+            <SolidColorBrush x:Key="TodoStarBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="TodoPaneBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="TodoHeroBackgroundBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="TodoRowBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="TodoCompletedHeaderBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="TodoHeroForegroundBrush" Color="{ThemeResource SystemColorHighlightTextColor}" />
 
             <SolidColorBrush x:Key="BrandAccentSubtleFillBrush" Color="{ThemeResource SystemColorWindowColor}" />
             <SolidColorBrush x:Key="BrandAccentSubtleFillHoverBrush" Color="{ThemeResource SystemColorHighlightColor}" />

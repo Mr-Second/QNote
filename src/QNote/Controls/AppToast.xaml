@@ -13,13 +13,16 @@
         <ThemeShadow x:Key="ToastShadow" />
     </UserControl.Resources>
 
-    <!-- Material-style floating toast card: rounded white card + soft shadow,
+    <!-- Material-style floating toast card: rounded SOLID card + soft shadow,
          colored circular icon badge, bold title, secondary message, close button.
-         No callout tail — this is a notification, not a tooltip. -->
+         No callout tail — this is a notification, not a tooltip.
+         Background is the OPAQUE SolidBackgroundFillColorBase token (same as
+         ContentDialog) — the translucent CardBackgroundFillColorDefault let the
+         page content show through and read as noise (user, 2026-10-15). -->
     <Border
         x:Name="Card"
         Padding="14,10"
-        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+        Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
         BorderThickness="1"
         CornerRadius="8"
@@ -63,6 +66,14 @@
                     FontSize="12"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                     TextWrapping="Wrap" />
+                <!-- Optional inline action (undo etc.) — hidden unless an action is set. -->
+                <HyperlinkButton
+                    x:Name="ActionButton"
+                    Margin="0,2,0,0"
+                    Padding="0"
+                    FontSize="12"
+                    Click="Action_Click"
+                    Visibility="Collapsed" />
             </StackPanel>
 
             <Button

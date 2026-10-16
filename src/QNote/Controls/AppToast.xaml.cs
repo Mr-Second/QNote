@@ -13,32 +13,47 @@ namespace QNote.Controls;
 public sealed partial class AppToast : UserControl
 {
     private DispatcherTimer? _timer;
+    private Action? _action;
 
     public AppToast() => InitializeComponent();
 
     public void ShowSuccess(string title, string message) =>
-        Show(success: true, title, message, TimeSpan.FromSeconds(4));
+        Show(success: true, title, message, TimeSpan.FromSeconds(4), actionLabel: null, action: null);
 
     public void ShowError(string title, string message) =>
-        Show(success: false, title, message, TimeSpan.FromSeconds(6));
+        Show(success: false, title, message, TimeSpan.FromSeconds(6), actionLabel: null, action: null);
+
+    /// <summary>
+    /// Success toast with an inline action (e.g. 删除任务的「撤销」). Lives longer than
+    /// the plain variant so the user has time to decide.
+    /// </summary>
+    public void ShowSuccess(string title, string message, string actionLabel, Action action) =>
+        Show(success: true, title, message, TimeSpan.FromSeconds(6), actionLabel, action);
 
     /// <summary>Stop the pending auto-dismiss and hide immediately.</summary>
     public void Dismiss()
     {
         _timer?.Stop();
         _timer = null;
+        _action = null;
         Visibility = Visibility.Collapsed;
     }
 
-    private void Show(bool success, string title, string message, TimeSpan duration)
+    private void Show(bool success, string title, string message, TimeSpan duration, string? actionLabel, Action? action)
     {
         Dismiss();
 
         IconBadge.Background = (Brush)Application.Current.Resources[
             success ? "SystemFillColorSuccessBrush" : "SystemFillColorCriticalBrush"];
-        IconGlyph.Glyph = success ? "" : ""; // Accept / Error
+        // Escaped PUA glyphs (\uE8FB Accept / \uE783 Error): a literal private-use
+        // char is invisible in editors and easy to lose in a rewrite.
+        IconGlyph.Glyph = success ? "\uE8FB" : "\uE783";
         TitleText.Text = title;
         MessageText.Text = message;
+
+        _action = action;
+        ActionButton.Content = actionLabel;
+        ActionButton.Visibility = action is null ? Visibility.Collapsed : Visibility.Visible;
 
         Visibility = Visibility.Visible;
         AnimateIn();
@@ -49,6 +64,13 @@ public sealed partial class AppToast : UserControl
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => FadeOut();
+
+    private void Action_Click(object sender, RoutedEventArgs e)
+    {
+        var action = _action;
+        FadeOut();
+        action?.Invoke();
+    }
 
     private void AnimateIn()
     {

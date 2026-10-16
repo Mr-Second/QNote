@@ -52,6 +52,36 @@ public sealed class BackupServiceTests
         Assert.True(await host.Backup.IsEncryptedAsync(encrypted));
     }
 
+    [Fact]
+    public async Task Backup_NonAsciiDestinationPath_RoundTrips()
+    {
+        // Regression (2026-10-16, live-caught): LibArchive.Net 0.3.1's PATH-based
+        // ctors marshal non-ASCII paths through the native ANSI codepage on
+        // Windows — a 中文 destination silently landed under a MOJIBAKE name (the
+        // post-write File.Move then threw FileNotFoundException and the user saw
+        // a bare "备份失败"), and a 中文 archive path could not be OPENED for
+        // restore either ("Failed to open"). The service now opens the archive
+        // file itself (FileStream) and hands libarchive the stream.
+        using var host = new BackupHost();
+        await host.CreateNoteAsync("uuid-a", "中文路径笔记", "内容");
+        await host.CreateTodoListAsync("list-a", "清单A");
+        await host.CreateTodoTaskAsync("task-a", "list-a", "任务A");
+
+        var dest = Path.Combine(host.Root, "中文目录", "验收备份.qns");
+        await host.Backup.BackupAsync(dest);
+
+        // The archive must exist at the NOMINAL path (not a mojibake sibling).
+        Assert.True(File.Exists(dest));
+        Assert.False(await host.Backup.IsEncryptedAsync(dest));
+
+        // The restore side must open the non-ASCII path too.
+        using var target = new BackupHost();
+        await target.Backup.RestoreAsync(dest, RestoreMode.Merge);
+        var note = Assert.Single(await target.Repo.GetAllAsync());
+        Assert.Equal("中文路径笔记", note.Title);
+        Assert.NotNull(await target.TodoRepo.GetTaskByUuidAsync("task-a"));
+    }
+
     // ---------- Auto-backup listing (restore-dialog entry) ----------
 
     [Fact]
@@ -356,12 +386,20 @@ public sealed class BackupServiceTests
         Assert.Equal("uuid-a", resurrected.Uuid);
         Assert.Equal("备份时的内容", resurrected.Content);
     }
+}
 
-    // ---------- Test host ----------
+// ---------- Test host ----------
 
-    private sealed class BackupHost : IDisposable
-    {
-        public BackupHost()
+/// <summary>
+/// Self-contained backup test environment: temp AppPaths + real DB + real
+/// services. <paramref name="withReminders"/> additionally wires the
+/// <see cref="TodoReminderCoordinator"/> over a <see cref="FakeToastScheduler"/>
+/// so restore tests can assert the post-restore reminder reconcile. Shared by
+/// <see cref="BackupServiceTests"/> and <see cref="BackupTodoRestoreTests"/>.
+/// </summary>
+internal sealed class BackupHost : IDisposable
+{
+        public BackupHost(bool withReminders = false)
         {
             Root = Path.Combine(Path.GetTempPath(), $"qnote-backup-test-{Guid.NewGuid():N}");
             Paths = new AppPaths(Root);
@@ -370,11 +408,16 @@ public sealed class BackupServiceTests
             Schema = new SchemaInitializer(Factory);
             Schema.EnsureCreated();
             Repo = new NoteRepository(Factory);
+            TodoRepo = new TodoRepository(Factory);
             Search = new SearchService(Factory, Repo, NullLogger<SearchService>.Instance);
             Settings = new SettingsService(Factory, NullLogger<SettingsService>.Instance);
             Images = new ImageService(Paths, NullLogger<ImageService>.Instance);
-            Backup = new BackupService(Paths, Factory, Repo, Search, Settings, Images, Schema,
-                NullLogger<BackupService>.Instance);
+            Scheduler = withReminders ? new FakeToastScheduler() : null;
+            Backup = new BackupService(Paths, Factory, Repo, TodoRepo, Search, Settings, Images, Schema,
+                NullLogger<BackupService>.Instance,
+                Scheduler is { } scheduler
+                    ? new TodoReminderCoordinator(TodoRepo, scheduler, NullLogger<TodoReminderCoordinator>.Instance)
+                    : null);
         }
 
         public string Root { get; }
@@ -382,9 +425,11 @@ public sealed class BackupServiceTests
         public DbConnectionFactory Factory { get; }
         public SchemaInitializer Schema { get; }
         public NoteRepository Repo { get; }
+        public TodoRepository TodoRepo { get; }
         public SearchService Search { get; }
         public SettingsService Settings { get; }
         public ImageService Images { get; }
+        public FakeToastScheduler? Scheduler { get; }
         public BackupService Backup { get; }
 
         public string TempFile() => Path.Combine(Root, $"test-{Guid.NewGuid():N}{IBackupService.ArchiveExtension}");
@@ -404,6 +449,124 @@ public sealed class BackupServiceTests
             });
         }
 
+        public Task<TodoList> CreateTodoListAsync(
+            string uuid, string name, string color = "#3B82F6",
+            DateTimeOffset? updatedAt = null, DateTimeOffset? createdAt = null)
+        {
+            var now = DateTimeOffset.UtcNow;
+            return TodoRepo.CreateListAsync(new TodoList
+            {
+                Uuid = uuid,
+                Name = name,
+                Color = color,
+                CreatedAt = createdAt ?? now,
+                UpdatedAt = updatedAt ?? now,
+            });
+        }
+
+        public Task<TodoTask> CreateTodoTaskAsync(
+            string uuid, string listUuid, string title,
+            DateTimeOffset? dueAt = null, bool isAllDay = false, bool reminderOn = false,
+            bool isImportant = false, DateTimeOffset? completedAt = null,
+            DateTimeOffset? updatedAt = null, DateTimeOffset? createdAt = null)
+        {
+            var now = DateTimeOffset.UtcNow;
+            return TodoRepo.CreateTaskAsync(new TodoTask
+            {
+                Uuid = uuid,
+                ListUuid = listUuid,
+                Title = title,
+                DueAt = dueAt,
+                IsAllDay = isAllDay,
+                ReminderOn = reminderOn,
+                IsImportant = isImportant,
+                CompletedAt = completedAt,
+                CreatedAt = createdAt ?? now,
+                UpdatedAt = updatedAt ?? now,
+            });
+        }
+
+        public Task<TodoStep> CreateTodoStepAsync(
+            string uuid, long taskId, string title,
+            DateTimeOffset? completedAt = null, DateTimeOffset? updatedAt = null)
+        {
+            var now = DateTimeOffset.UtcNow;
+            return TodoRepo.CreateStepAsync(new TodoStep
+            {
+                Uuid = uuid,
+                TaskId = taskId,
+                Title = title,
+                CompletedAt = completedAt,
+                CreatedAt = now,
+                UpdatedAt = updatedAt ?? now,
+            });
+        }
+
+        /// <summary>
+        /// Creates an attachment row AND its store bytes (content-addressed, like
+        /// <see cref="TodoAttachmentStore"/> writes them) — the backup pipeline
+        /// carries the two halves separately (rows inside qnote.db, bytes as
+        /// <c>attachments/</c> entries), so a round-trip test needs both.
+        /// </summary>
+        public async Task<TodoAttachment> CreateTodoAttachmentAsync(
+            string uuid, long taskId, string fileName, byte[] bytes,
+            DateTimeOffset? updatedAt = null)
+        {
+            var sha = Convert.ToHexString(
+                System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant();
+            Directory.CreateDirectory(Paths.AttachmentsDir);
+            await File.WriteAllBytesAsync(Path.Combine(Paths.AttachmentsDir, sha), bytes);
+            var now = DateTimeOffset.UtcNow;
+            return await TodoRepo.CreateAttachmentAsync(new TodoAttachment
+            {
+                Uuid = uuid,
+                TaskId = taskId,
+                FileName = fileName,
+                Sha = sha,
+                ByteSize = bytes.Length,
+                CreatedAt = now,
+                UpdatedAt = updatedAt ?? now,
+            });
+        }
+
+        /// <summary>
+        /// Fixture surgery: forces a row's UpdatedAt (epoch-ms) so LWW tests can
+        /// position local rows relative to an archive without going through the
+        /// mutation APIs, which always stamp "now".
+        /// </summary>
+        public async Task BumpUpdatedAtAsync(string table, string uuid, DateTimeOffset at)
+        {
+            await using var conn = Factory.OpenWrite();
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"UPDATE {table} SET UpdatedAt = $ms WHERE Uuid = $uuid;";
+            cmd.Parameters.AddWithValue("$ms", at.ToUnixTimeMilliseconds());
+            cmd.Parameters.AddWithValue("$uuid", uuid);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        /// <summary>
+        /// Fixture surgery: rewinds the live DB into a pre-v7 shape (ALL todo
+        /// tables dropped, user_version = 6) so a backup of it produces a v6 archive.
+        /// </summary>
+        public async Task DowngradeToV6Async()
+        {
+            await using var conn = Factory.OpenWrite();
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText =
+                "DROP TABLE todo_attachments; DROP TABLE todo_steps; " +
+                "DROP TABLE todo_tasks; DROP TABLE todo_lists; PRAGMA user_version = 6;";
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        /// <summary>The live DB's <c>PRAGMA user_version</c> (post-restore migration check).</summary>
+        public long UserVersion()
+        {
+            using var conn = Factory.OpenRead();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "PRAGMA user_version;";
+            return Convert.ToInt64(cmd.ExecuteScalar() ?? 0L);
+        }
+
         public void Dispose()
         {
             try
@@ -417,4 +580,4 @@ public sealed class BackupServiceTests
             }
         }
     }
-}
+

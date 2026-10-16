@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentDialog
+    x:Class="QNote.Views.TodoListDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    x:Uid="TodoListDialog"
+    CloseButtonText="取消"
+    DefaultButton="Primary"
+    PrimaryButtonText="保存"
+    PrimaryButtonClick="OnPrimaryButtonClick"
+    mc:Ignorable="d">
+
+    <!-- Same fixed compact width as CategoryEditDialog: ContentDialog otherwise
+         stretches across its much wider default, leaving a dead right half. -->
+    <StackPanel Width="320" Spacing="10">
+        <TextBox
+            x:Name="NameBox"
+            x:Uid="TodoListNameBox"
+            MaxLength="32"
+            Header="名称"
+            PlaceholderText="清单名称"
+            TextChanged="NameBox_TextChanged" />
+
+        <StackPanel Spacing="4">
+            <TextBlock x:Uid="TodoListColorLabel" Text="颜色" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button
+                    x:Uid="SwatchBlue"
+                    Width="28"
+                    Height="28"
+                    Padding="0"
+                    Background="#3B82F6"
+                    Click="Swatch_Click"
+                    CornerRadius="14"
+                    Tag="#3B82F6" />
+                <Button
+                    x:Uid="SwatchGreen"
+                    Width="28"
+                    Height="28"
+                    Padding="0"
+                    Background="#22C55E"
+                    Click="Swatch_Click"
+                    CornerRadius="14"
+                    Tag="#22C55E" />
+                <Button
+                    x:Uid="SwatchRed"
+                    Width="28"
+                    Height="28"
+                    Padding="0"
+                    Background="#EF4444"
+                    Click="Swatch_Click"
+                    CornerRadius="14"
+                    Tag="#EF4444" />
+                <Button
+                    x:Uid="SwatchAmber"
+                    Width="28"
+                    Height="28"
+                    Padding="0"
+                    Background="#F59E0B"
+                    Click="Swatch_Click"
+                    CornerRadius="14"
+                    Tag="#F59E0B" />
+                <Button
+                    x:Uid="SwatchPurple"
+                    Width="28"
+                    Height="28"
+                    Padding="0"
+                    Background="#8B5CF6"
+                    Click="Swatch_Click"
+                    CornerRadius="14"
+                    Tag="#8B5CF6" />
+                <Button
+                    x:Uid="SwatchTeal"
+                    Width="28"
+                    Height="28"
+                    Padding="0"
+                    Background="#14B8A6"
+                    Click="Swatch_Click"
+                    CornerRadius="14"
+                    Tag="#14B8A6" />
+            </StackPanel>
+        </StackPanel>
+
+        <TextBlock
+            x:Name="ErrorText"
+            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+            TextWrapping="Wrap"
+            Visibility="Collapsed" />
+    </StackPanel>
+</ContentDialog>

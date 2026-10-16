@@ -806,4 +806,392 @@
   <data name="AboutDialog.CloseButtonText" xml:space="preserve">
     <value>关闭</value>
   </data>
+  <!-- ===== Todo page (task 10-04, stage ②) — XAML keys ===== -->
+  <data name="ModeNotesItem.Text" xml:space="preserve">
+    <value>便签</value>
+  </data>
+  <data name="ModeTodoItem.Text" xml:space="preserve">
+    <value>待办</value>
+  </data>
+  <data name="TodoSearch.PlaceholderText" xml:space="preserve">
+    <value>搜索任务</value>
+  </data>
+  <data name="TodoSearch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>搜索任务</value>
+  </data>
+  <data name="TodoNewList.Text" xml:space="preserve">
+    <value>新建清单</value>
+  </data>
+  <data name="TodoNewListButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>新建清单</value>
+  </data>
+  <data name="TodoNewListButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>新建清单</value>
+  </data>
+  <data name="TodoCompletedSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>已完成任务</value>
+  </data>
+  <data name="TodoCompletedLabel.Text" xml:space="preserve">
+    <value>已完成</value>
+  </data>
+  <data name="TodoAddTaskBox.PlaceholderText" xml:space="preserve">
+    <value>添加任务</value>
+  </data>
+  <data name="TodoAddTaskBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>添加任务</value>
+  </data>
+  <data name="TodoDetailDeleteButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>删除任务</value>
+  </data>
+  <data name="TodoDetailDeleteButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>删除任务</value>
+  </data>
+  <data name="TodoDetailCloseButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>关闭详情</value>
+  </data>
+  <data name="TodoDetailCloseButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>关闭详情</value>
+  </data>
+  <data name="TodoDetailTitle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>任务标题</value>
+  </data>
+  <data name="TodoDetailTitle.PlaceholderText" xml:space="preserve">
+    <value>任务标题</value>
+  </data>
+  <data name="TodoRemindMeLabel.Text" xml:space="preserve">
+    <value>提醒我</value>
+  </data>
+  <data name="TodoRemindLaterToday.Text" xml:space="preserve">
+    <value>今天晚些时候</value>
+  </data>
+  <data name="TodoRemindTomorrow.Text" xml:space="preserve">
+    <value>明天</value>
+  </data>
+  <data name="TodoRemindNextWeek.Text" xml:space="preserve">
+    <value>下周</value>
+  </data>
+  <data name="TodoRemindPickDateTime.Text" xml:space="preserve">
+    <value>选择日期和时间</value>
+  </data>
+  <data name="TodoComingSoon" xml:space="preserve">
+    <value>功能开发中，敬请期待</value>
+  </data>
+  <data name="TodoStepInput.PlaceholderText" xml:space="preserve">
+    <value>添加步骤</value>
+  </data>
+  <data name="TodoStepInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>添加步骤</value>
+  </data>
+  <data name="TodoStepCheckButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>完成步骤</value>
+  </data>
+  <data name="TodoStepDeleteButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>删除步骤</value>
+  </data>
+  <data name="TodoAttachmentDeleteButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>删除附件</value>
+  </data>
+  <data name="TodoAttachmentCountFormat" xml:space="preserve">
+    <value>{0} 个文件</value>
+  </data>
+  <data name="TodoStepsFormat" xml:space="preserve">
+    <value>{0}/{1}</value>
+  </data>
+  <data name="TodoRepeatDaily.Text" xml:space="preserve">
+    <value>每天</value>
+  </data>
+  <data name="TodoRepeatWeekdays.Text" xml:space="preserve">
+    <value>工作日</value>
+  </data>
+  <data name="TodoRepeatWeekly.Text" xml:space="preserve">
+    <value>每周</value>
+  </data>
+  <data name="TodoRepeatMonthly.Text" xml:space="preserve">
+    <value>每月</value>
+  </data>
+  <data name="TodoRepeatYearly.Text" xml:space="preserve">
+    <value>每年</value>
+  </data>
+  <data name="TodoRepeatCustom.Text" xml:space="preserve">
+    <value>自定义</value>
+  </data>
+  <data name="TodoRecurrenceDaily" xml:space="preserve">
+    <value>每天</value>
+  </data>
+  <data name="TodoRecurrenceWeekdays" xml:space="preserve">
+    <value>工作日</value>
+  </data>
+  <data name="TodoRecurrenceWeekly" xml:space="preserve">
+    <value>每周</value>
+  </data>
+  <data name="TodoRecurrenceMonthly" xml:space="preserve">
+    <value>每月</value>
+  </data>
+  <data name="TodoRecurrenceYearly" xml:space="preserve">
+    <value>每年</value>
+  </data>
+  <data name="TodoRecurrenceCustomFormat" xml:space="preserve">
+    <value>每 {0} {1}</value>
+  </data>
+  <data name="TodoRecurrenceUnitDay" xml:space="preserve">
+    <value>天</value>
+  </data>
+  <data name="TodoRecurrenceUnitWeek" xml:space="preserve">
+    <value>周</value>
+  </data>
+  <data name="TodoRecurrenceUnitMonth" xml:space="preserve">
+    <value>月</value>
+  </data>
+  <data name="TodoRecurrenceUnitYear" xml:space="preserve">
+    <value>年</value>
+  </data>
+  <data name="TodoCustomRecurrenceTitle" xml:space="preserve">
+    <value>重复周期</value>
+  </data>
+  <data name="TodoCustomRecurrenceSave" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="TodoCustomRecurrenceCancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="TodoAttachTooLargeTitle" xml:space="preserve">
+    <value>附件超限</value>
+  </data>
+  <data name="TodoAttachTooLargeMessage" xml:space="preserve">
+    <value>{0}：附加到任务的所有文件的总大小不可超过 25 MB</value>
+  </data>
+  <data name="TodoRemindTimePicker.Header" xml:space="preserve">
+    <value>提醒时间</value>
+  </data>
+  <data name="TodoRemindTimePicker.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>提醒时间</value>
+  </data>
+  <data name="TodoReminderOffButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>关闭提醒</value>
+  </data>
+  <data name="TodoReminderOffButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>关闭提醒</value>
+  </data>
+  <data name="TodoDueDateRow.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>设置截止日期</value>
+  </data>
+  <data name="TodoDueDateLabel.Text" xml:space="preserve">
+    <value>截止日期</value>
+  </data>
+  <data name="TodoDueToday.Text" xml:space="preserve">
+    <value>今天</value>
+  </data>
+  <data name="TodoDueTomorrow.Text" xml:space="preserve">
+    <value>明天</value>
+  </data>
+  <data name="TodoDueNextWeek.Text" xml:space="preserve">
+    <value>下周</value>
+  </data>
+  <data name="TodoDuePickDate.Text" xml:space="preserve">
+    <value>选择日期</value>
+  </data>
+  <data name="TodoDueClearButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>删除截止日期</value>
+  </data>
+  <data name="TodoDueClearButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>删除截止日期</value>
+  </data>
+  <data name="TodoRecurrenceClearButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>从不重复</value>
+  </data>
+  <data name="TodoRecurrenceClearButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>从不重复</value>
+  </data>
+  <data name="TodoRepeatLabel.Text" xml:space="preserve">
+    <value>重复</value>
+  </data>
+  <data name="TodoAttachLabel.Text" xml:space="preserve">
+    <value>添加文件</value>
+  </data>
+  <data name="TodoDueCancelButton.Content" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="TodoApplyDueButton.Content" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="TodoNotesBox.PlaceholderText" xml:space="preserve">
+    <value>添加备注</value>
+  </data>
+  <data name="TodoNotesBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>备注</value>
+  </data>
+  <data name="TodoListDialog.PrimaryButtonText" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="TodoListDialog.CloseButtonText" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="TodoListNameBox.Header" xml:space="preserve">
+    <value>名称</value>
+  </data>
+  <data name="TodoListNameBox.PlaceholderText" xml:space="preserve">
+    <value>清单名称</value>
+  </data>
+  <data name="TodoListColorLabel.Text" xml:space="preserve">
+    <value>颜色</value>
+  </data>
+  <data name="TodoRenameList.Text" xml:space="preserve">
+    <value>重命名</value>
+  </data>
+  <data name="TodoDeleteList.Text" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="TodoTaskDelete.Text" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <!-- ===== Todo page — code keys (AppStrings) ===== -->
+  <data name="TodoNavToday" xml:space="preserve">
+    <value>今日</value>
+  </data>
+  <data name="TodoNavImportant" xml:space="preserve">
+    <value>重要</value>
+  </data>
+  <data name="TodoNavPlanned" xml:space="preserve">
+    <value>计划内</value>
+  </data>
+  <data name="TodoNavAll" xml:space="preserve">
+    <value>全部</value>
+  </data>
+  <data name="TodoListsGroupCap" xml:space="preserve">
+    <value>我的清单</value>
+  </data>
+  <data name="TodoListWorkName" xml:space="preserve">
+    <value>工作</value>
+  </data>
+  <data name="TodoListLifeName" xml:space="preserve">
+    <value>生活</value>
+  </data>
+  <data name="TodoHeroDateFormat" xml:space="preserve">
+    <value>{0} · {1}</value>
+  </data>
+  <data name="TodoReminderStatusFormat" xml:space="preserve">
+    <value>将于 {0} 提醒</value>
+  </data>
+  <data name="TodoCreatedAtFormat" xml:space="preserve">
+    <value>创建于 {0}</value>
+  </data>
+  <data name="TodoNoneValue" xml:space="preserve">
+    <value>无</value>
+  </data>
+  <data name="TodoDeletedToastTitle" xml:space="preserve">
+    <value>已删除任务</value>
+  </data>
+  <data name="TodoUndoAction" xml:space="preserve">
+    <value>撤销</value>
+  </data>
+  <data name="TodoNewListTitle" xml:space="preserve">
+    <value>新建清单</value>
+  </data>
+  <data name="TodoRenameListTitle" xml:space="preserve">
+    <value>重命名清单</value>
+  </data>
+  <data name="TodoDeleteListTitle" xml:space="preserve">
+    <value>删除清单</value>
+  </data>
+  <data name="TodoDeleteListContentFormat" xml:space="preserve">
+    <value>将删除清单「{0}」及其中的 {1} 项任务，此操作无法撤销。</value>
+  </data>
+  <data name="TodoListNameRequired" xml:space="preserve">
+    <value>请输入清单名称</value>
+  </data>
+  <data name="TodoCreateListFailed" xml:space="preserve">
+    <value>新建清单失败，请查看日志</value>
+  </data>
+  <data name="TodoUpdateListFailed" xml:space="preserve">
+    <value>更新清单失败，请查看日志</value>
+  </data>
+  <data name="TodoDeleteListFailed" xml:space="preserve">
+    <value>删除清单失败，请查看日志</value>
+  </data>
+  <!-- ===== Todo reminder toasts (task 10-04, stage ③ — code keys) ===== -->
+  <data name="TodoToastDueFormat" xml:space="preserve">
+    <value>到期 {0}</value>
+  </data>
+  <!-- ===== Todo a11y names for icon-only targets (task 10-04) ===== -->
+  <data name="TodoTaskCheckButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>标记完成</value>
+  </data>
+  <data name="TodoTaskUncheckButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>恢复为未完成</value>
+  </data>
+  <data name="TodoTaskStarButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>标记重要</value>
+  </data>
+  <data name="TodoDetailCheckButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>标记完成</value>
+  </data>
+  <data name="TodoDetailStarButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>标记重要</value>
+  </data>
+  <data name="TodoListOptionsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>列表选项</value>
+  </data>
+  <data name="TodoSortBy.Text" xml:space="preserve">
+    <value>排序依据</value>
+  </data>
+  <data name="TodoSortByImportance" xml:space="preserve">
+    <value>重要性</value>
+  </data>
+  <data name="TodoSortByDueDate" xml:space="preserve">
+    <value>到期日期</value>
+  </data>
+  <data name="TodoSortByTitle" xml:space="preserve">
+    <value>字母顺序</value>
+  </data>
+  <data name="TodoSortByCreated" xml:space="preserve">
+    <value>创建日期</value>
+  </data>
+  <data name="TodoThemeLabel.Text" xml:space="preserve">
+    <value>主题</value>
+  </data>
+  <data name="TodoHideCompletedRow.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>隐藏已完成任务</value>
+  </data>
+  <data name="TodoHideCompletedLabel.Text" xml:space="preserve">
+    <value>隐藏已完成任务</value>
+  </data>
+  <data name="TodoEmailListLabel.Text" xml:space="preserve">
+    <value>以电子邮件发送列表</value>
+  </data>
+  <data name="TodoPinListLabel.Text" xml:space="preserve">
+    <value>固定到"开始"</value>
+  </data>
+  <data name="TodoHideSmartListLabel.Text" xml:space="preserve">
+    <value>隐藏智能列表</value>
+  </data>
+  <data name="TodoShowSmartListLabel.Text" xml:space="preserve">
+    <value>显示智能列表</value>
+  </data>
+  <data name="SettingsTodoSection.Text" xml:space="preserve">
+    <value>待办</value>
+  </data>
+  <data name="SettingsTodoTodayLabel.Text" xml:space="preserve">
+    <value>显示「今日」</value>
+  </data>
+  <data name="SettingsTodoTodaySwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>显示今日智能清单</value>
+  </data>
+  <data name="SettingsTodoImportantLabel.Text" xml:space="preserve">
+    <value>显示「重要」</value>
+  </data>
+  <data name="SettingsTodoImportantSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>显示重要智能清单</value>
+  </data>
+  <data name="SettingsTodoPlannedLabel.Text" xml:space="preserve">
+    <value>显示「计划内」</value>
+  </data>
+  <data name="SettingsTodoPlannedSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>显示计划内智能清单</value>
+  </data>
+  <data name="SwatchPurple.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>紫色</value>
+  </data>
+  <data name="SwatchTeal.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>青绿色</value>
+  </data>
 </root>

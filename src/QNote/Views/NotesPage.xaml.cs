@@ -99,6 +99,16 @@ public sealed partial class NotesPage : Page
         ViewModel.Detach();
     }
 
+    // ---------- mode switch (segmented control, shared with TodoPage) ----------
+
+    private void ModeSelector_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    {
+        // Navigates the root frame to TodoPage (flushes the dirty note first —
+        // MainWindow.SwitchToMode owns the choreography). No-op on echo ticks.
+        if (App.Window is MainWindow window)
+            window.SwitchToMode(sender.SelectedItem == TodoModeItem);
+    }
+
     /// <summary>
     /// Pushes the page's current theme onto the editor. The Win2D canvas does NOT follow
     /// <c>RequestedTheme</c> by itself — the three appearance brushes are pinned in XAML

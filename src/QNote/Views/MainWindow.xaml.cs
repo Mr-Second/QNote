@@ -40,6 +40,18 @@ public sealed partial class MainWindow : Window
     private AppSettings _snapshot = new();
     private bool _wasMinimized;
 
+    /// <summary>Page type of the ACTIVE mode (便签 / 待办). Default 便签 — persistence is deferred (stage ②).</summary>
+    private Type _modePage = typeof(NotesPage);
+
+    /// <summary>
+    /// Mode-switch re-entrancy guard. A page's SelectorBar raises SelectionChanged
+    /// for its XAML-set initial selection while the Navigate that CONSTRUCTS it is
+    /// still on the stack (RootFrame.Content is still the OLD page then — the
+    /// same-type guard below cannot catch it, and at launch Content is null, which
+    /// would recurse). Also collapses double-clicks during the async flush.
+    /// </summary>
+    private bool _modeSwitching;
+
     /// <summary>Tray double-click command (bound from XAML).</summary>
     public ICommand ShowWindowCommand { get; }
 
@@ -116,10 +128,125 @@ public sealed partial class MainWindow : Window
         _geometrySaveTimer.Tick += OnGeometrySaveTick;
         AppWindow.Changed += OnAppWindowChanged;
 
-        RootFrame.Navigate(typeof(NotesPage));
+        // Guarded: the page's SelectorBar initial-selection echo fires while this
+        // Navigate is on the stack (see _modeSwitching).
+        _modeSwitching = true;
+        RootFrame.Navigate(_modePage);
+        _modeSwitching = false;
         AppWindow.Closing += OnAppWindowClosing;
 
         _ = ApplyInitialSettingsAsync();
+    }
+
+    // ---------- mode switch (segmented control on both pages' left panes) ----------
+
+    /// <summary>
+    /// Switch the root frame between the 便签 and 待办 pages. No-ops when the
+    /// requested mode is already active (SelectorBar fires on its XAML-set
+    /// initial selection too). The outgoing page is flushed first — same
+    /// cross-write hazard class as the language switch.
+    /// </summary>
+    public void SwitchToMode(bool todo)
+    {
+        var target = todo ? typeof(TodoPage) : typeof(NotesPage);
+        if (target == _modePage && RootFrame.Content?.GetType() == target)
+            return;
+        if (_modeSwitching)
+            return;
+        _modeSwitching = true;
+        _modePage = target;
+        _ = SwitchModeAsync();
+    }
+
+    private async Task SwitchModeAsync()
+    {
+        try
+        {
+            await FlushActivePageAsync();
+            RootFrame.Navigate(_modePage);
+        }
+        finally
+        {
+            _modeSwitching = false;
+        }
+    }
+
+    /// <summary>
+    /// Toast deep-link target (task 10-04 stage ③): reveal the window from any
+    /// hidden state, switch the root frame to the 待办 page (the AWAITED form
+    /// of the segmented-switch flow, so the TodoPage exists before selection),
+    /// then select the task by uuid.
+    /// </summary>
+    public async Task ShowTodoTaskAsync(string taskUuid)
+    {
+        ShowFromTray();
+
+        if (_modePage != typeof(TodoPage) || RootFrame.Content is not TodoPage)
+        {
+            if (_modeSwitching)
+                return; // a mode switch is mid-flight — its target owns the frame
+            _modeSwitching = true;
+            _modePage = typeof(TodoPage);
+            try
+            {
+                await FlushActivePageAsync();
+                RootFrame.Navigate(_modePage);
+            }
+            finally
+            {
+                _modeSwitching = false;
+            }
+        }
+
+        if (RootFrame.Content is TodoPage todoPage)
+            await todoPage.SelectTaskByUuidAsync(taskUuid);
+    }
+
+    /// <summary>
+    /// Secondary-tile deep link (固定到开始, list-options menu 2026-10-16): the
+    /// same reveal + mode-switch choreography as the toast path, then select
+    /// the pinned list in the nav.
+    /// </summary>
+    public async Task ShowTodoListAsync(string listUuid)
+    {
+        ShowFromTray();
+
+        if (_modePage != typeof(TodoPage) || RootFrame.Content is not TodoPage)
+        {
+            if (_modeSwitching)
+                return; // a mode switch is mid-flight — its target owns the frame
+            _modeSwitching = true;
+            _modePage = typeof(TodoPage);
+            try
+            {
+                await FlushActivePageAsync();
+                RootFrame.Navigate(_modePage);
+            }
+            finally
+            {
+                _modeSwitching = false;
+            }
+        }
+
+        if (RootFrame.Content is TodoPage todoPage)
+            await todoPage.SelectListByUuidAsync(listUuid);
+    }
+
+    /// <summary>
+    /// Persist the active page's pending state: a dirty note (NotesPage) or
+    /// pending todo edits / staged deletes (TodoPage). No-op otherwise.
+    /// </summary>
+    private async Task FlushActivePageAsync()
+    {
+        switch (RootFrame.Content)
+        {
+            case NotesPage { ViewModel.IsDirty: true } notes:
+                await notes.ViewModel.FlushAsync();
+                break;
+            case TodoPage todo:
+                await todo.ViewModel.FlushAsync();
+                break;
+        }
     }
 
     private void ResizeToDefault()
@@ -268,17 +395,17 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Runtime language switch: flush the open note, re-point every language
-    /// surface (resw override + editor string table), then re-navigate so the
-    /// x:Uid'd elements re-resolve in the new language. The tray menu items
-    /// are refreshed directly here (see below); open ContentDialogs keep their
-    /// previous language until reopened (PRD-accepted).
+    /// Runtime language switch: flush the active page, re-point every language
+    /// surface (resw override + editor string table), then re-navigate to the
+    /// CURRENT MODE's page so every x:Uid'd element re-resolves in the new
+    /// language. The tray menu items are refreshed directly here (see below);
+    /// open ContentDialogs keep their previous language until reopened
+    /// (PRD-accepted).
     /// </summary>
     private async Task SwitchLanguageAsync(string mode)
     {
-        // The re-navigation discards the current page — persist any dirty edit first.
-        if (RootFrame.Content is NotesPage { ViewModel.IsDirty: true } page)
-            await page.ViewModel.FlushAsync();
+        // The re-navigation discards the current page — persist pending edits first.
+        await FlushActivePageAsync();
 
         AppLanguage.Apply(mode);
 
@@ -291,8 +418,18 @@ public sealed partial class MainWindow : Window
         RefreshTrayMenuTexts();
 
         // Same-type Navigate creates a fresh page instance (no page caching), so
-        // every x:Uid'd element re-resolves against the new language.
-        RootFrame.Navigate(typeof(NotesPage));
+        // every x:Uid'd element re-resolves against the new language. Guarded:
+        // the new page's SelectorBar initial-selection echo must not re-trigger
+        // a mode switch while this Navigate is on the stack.
+        _modeSwitching = true;
+        try
+        {
+            RootFrame.Navigate(_modePage);
+        }
+        finally
+        {
+            _modeSwitching = false;
+        }
     }
 
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
@@ -359,8 +496,7 @@ public sealed partial class MainWindow : Window
     {
         args.Cancel = true;
 
-        if (RootFrame.Content is NotesPage { ViewModel.IsDirty: true } page)
-            await page.ViewModel.FlushAsync();
+        await FlushActivePageAsync();
 
         AppWindow.Hide();
         _workingSetTrim.OnHidden();
@@ -422,10 +558,19 @@ public sealed partial class MainWindow : Window
             if (info is null)
                 return;
 
-            if (!AppWindow.IsVisible || RootFrame.Content is not NotesPage page)
+            if (!AppWindow.IsVisible)
                 return;
 
-            await page.ShowStartupUpdateAsync(info);
+            // The notice needs a dialog surface — whichever page the active mode shows.
+            switch (RootFrame.Content)
+            {
+                case NotesPage notesPage:
+                    await notesPage.ShowStartupUpdateAsync(info);
+                    break;
+                case TodoPage todoPage:
+                    await todoPage.ShowStartupUpdateAsync(info);
+                    break;
+            }
         }
         catch (Exception ex)
         {
@@ -485,8 +630,7 @@ public sealed partial class MainWindow : Window
         // H.NotifyIcon keeps a hidden menu-host window alive, so the app lingered
         // (and a second quit click then NRE'd on the destroyed AppWindow).
         // Application.Exit() is the only path that tears down every window.
-        if (RootFrame.Content is NotesPage { ViewModel.IsDirty: true } page)
-            await page.ViewModel.FlushAsync();
+        await FlushActivePageAsync();
 
         Application.Current.Exit();
     }

@@ -386,6 +386,74 @@
                 </Border>
             </StackPanel>
 
+            <!-- ============ 待办 ============ -->
+            <!-- Smart-list visibility RESTORE path (list-options ⋯ menu,
+                 2026-10-16): 隐藏智能列表 hides a view from the todo nav; these
+                 switches bring it back. 全部 is the fallback view and never
+                 hideable, so it has no switch here. -->
+            <StackPanel Spacing="2">
+                <TextBlock
+                    x:Uid="SettingsTodoSection"
+                    Margin="4,0,0,0"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="待办" />
+                <Border
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                    <StackPanel>
+                        <Grid Padding="10,3" ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="152" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Uid="SettingsTodoTodayLabel" VerticalAlignment="Center" Text="显示「今日」" />
+                            <ToggleSwitch
+                                x:Uid="SettingsTodoTodaySwitch"
+                                Grid.Column="1"
+                                HorizontalAlignment="Left"
+                                AutomationProperties.AutomationId="SettingsTodoTodaySwitch"
+                                IsOn="{x:Bind ViewModel.TodoTodayVisible, Mode=TwoWay}" />
+                        </Grid>
+                        <Border
+                            Margin="10,0"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0" />
+                        <Grid Padding="10,3" ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="152" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Uid="SettingsTodoImportantLabel" VerticalAlignment="Center" Text="显示「重要」" />
+                            <ToggleSwitch
+                                x:Uid="SettingsTodoImportantSwitch"
+                                Grid.Column="1"
+                                HorizontalAlignment="Left"
+                                AutomationProperties.AutomationId="SettingsTodoImportantSwitch"
+                                IsOn="{x:Bind ViewModel.TodoImportantVisible, Mode=TwoWay}" />
+                        </Grid>
+                        <Border
+                            Margin="10,0"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0" />
+                        <Grid Padding="10,3" ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="152" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Uid="SettingsTodoPlannedLabel" VerticalAlignment="Center" Text="显示「计划内」" />
+                            <ToggleSwitch
+                                x:Uid="SettingsTodoPlannedSwitch"
+                                Grid.Column="1"
+                                HorizontalAlignment="Left"
+                                AutomationProperties.AutomationId="SettingsTodoPlannedSwitch"
+                                IsOn="{x:Bind ViewModel.TodoPlannedVisible, Mode=TwoWay}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
             <!-- ============ 数据 ============ -->
             <StackPanel Spacing="2">
                 <TextBlock

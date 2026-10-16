@@ -116,6 +116,19 @@
     <PackageReference Include="H.NotifyIcon.WinUI" Version="2.4.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.10" />
+    <!--
+      Toast CONTENT generation for todo reminders (task 10-04, PRD Decision 3 —
+      deviated 2026-10-10): ONLY ToastContentBuilder.GetXml() is used. The
+      Toolkit's Compat scheduling/activation path (ToastNotificationManagerCompat)
+      is NativeAOT-incompatible (Reflection.Emit activator → IL3053/IL2104), so
+      scheduling goes through raw WinRT + the app's own source-generated COM
+      activator instead (Services/TodoToastComServer.cs). WinAppSDK's own
+      AppNotification API has NO scheduling capability (WindowsAppSDK#5050).
+      App-ONLY package — Core stays net10.0/WinRT-free. The package is in
+      maintenance mode (accepted tech debt, PRD): migrate the content-building
+      layer once WinAppSDK ships a scheduling API.
+    -->
+    <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.3" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2270" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />

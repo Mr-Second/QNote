@@ -42,6 +42,14 @@ public partial class App : Application
         // toolbar is built — same timing as the localization table above.
         WinUIRichEditor.Controls.RichEditorIcons.Provider = icon => QNote.Controls.QNoteIcons.Create(icon);
         Services = ConfigureServices();
+        // OS toast activation for todo reminders (task 10-04): register the
+        // COM activator in the app's initial startup code — CoRegisterClassObject
+        // makes the RUNNING process serve warm clicks, and the registration is
+        // also what the OS waits for when a toast click COLD-LAUNCHES the exe
+        // as a COM local server (see Services/TodoToastComServer.cs and
+        // Services/TodoToastActivation.cs for the delivery contract). Runs
+        // after the DI container so registration failures can be logged.
+        TodoToastActivation.Initialize();
     }
 
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
@@ -91,6 +99,12 @@ public partial class App : Application
         // diverges (e.g. a crash mid-write, a restored backup) → background rebuild.
         _ = ReconcileSearchIndexAsync(Services);
 
+        // Todo reminders (task 10-04 stage ③): launch reconcile — OS-dropped
+        // catch-up re-fire, stale scheduled-toast sweep, 14-day fill. Same
+        // fire-and-forget shape as the FTS reconcile (off the UI thread, logged,
+        // never fatal).
+        _ = ReconcileTodoRemindersAsync(Services);
+
         // Language: apply BEFORE any XAML loads (x:Uid resolves at element load;
         // PrimaryLanguageOverride decides which resw file serves the whole UI).
         // Always a CONCRETE tag — the override cannot be cleared ("" throws
@@ -105,6 +119,20 @@ public partial class App : Application
         // Single-instance (guard in Program): a second launch redirects its
         // activation here; surface the window exactly like the tray "show" path.
         AppInstance.GetCurrent().Activated += OnRedirectedActivation;
+
+        // A cold toast activation can arrive before the window/dispatcher exist
+        // (it is delivered "soon after process launch"); the stashed deep link
+        // is replayed now that the window can navigate.
+        TodoToastActivation.ReplayPending();
+
+        // Cold-start secondary-tile deep link (固定到开始): tile activations
+        // carry their args in this launch's AppLifecycle payload — probe them
+        // now that the window can navigate.
+        if (TryParseTileListUuid(AppInstance.GetCurrent().GetActivatedEventArgs()) is { } tileListUuid
+            && Window is MainWindow tileWindow)
+        {
+            _ = tileWindow.ShowTodoListAsync(tileListUuid);
+        }
 
         // StartMinimized: skip Activate (window stays hidden) and register the
         // tray icon explicitly — it only registers on Load/ForceCreate otherwise.
@@ -172,6 +200,20 @@ public partial class App : Application
         services.AddSingleton<IBackupService, BackupService>();
         services.AddSingleton<IImageService, ImageService>();
         services.AddSingleton<ILocalizationService, LocalizationService>();
+        // Todo domain (task 10-04): data + Core services. Stage ③ adds the
+        // reminder lifecycle: the Core coordinator owns WHEN a task's toast
+        // is scheduled/cancelled (fed by ITodoService mutations + the launch
+        // reconcile below), the Presentation scheduler executes over raw WinRT
+        // scheduling + the app's own COM activator (one code path, both
+        // channels, NativeAOT-safe — see ScheduledToastScheduler).
+        services.AddSingleton<ITodoRepository, TodoRepository>();
+        services.AddSingleton<IToastScheduler, ScheduledToastScheduler>();
+        services.AddSingleton<ITodoReminderCoordinator, TodoReminderCoordinator>();
+        // Attachment byte store (stage ⑤, PRD Decision 11) — registered BEFORE
+        // the service so its optional ctor param resolves.
+        services.AddSingleton<TodoAttachmentStore>();
+        services.AddSingleton<ITodoAttachmentStore>(sp => sp.GetRequiredService<TodoAttachmentStore>());
+        services.AddSingleton<ITodoService, TodoService>();
         // Presentation-side impl of the Core abstraction (window-level Win32 hotkey).
         services.AddSingleton<IGlobalHotkey, GlobalHotkeyService>();
         // Presentation-side impl of the Core abstraction (the OS state is the
@@ -198,6 +240,10 @@ public partial class App : Application
 
         // ViewModels
         services.AddTransient<NotesPageViewModel>();
+        // Todo page VM (task 10-04 stage ②): optional ctor params (clock /
+        // debounce overrides) fall back to production defaults — MS.DI honors
+        // optional-parameter defaults for unregistered types.
+        services.AddTransient<TodoPageViewModel>();
         // SettingsViewModel takes the identity flag so its update-check row can
         // hide in packaged runs.
         services.AddTransient(sp => new SettingsViewModel(
@@ -232,7 +278,8 @@ public partial class App : Application
     /// Redirected activation from a second launch (see <see cref="Program"/>).
     /// Raised off the UI thread — marshal to the DispatcherQueue and show the
     /// window the same way the tray "show" command does (covers hidden /
-    /// minimized / edge-hidden / StartMinimized states).
+    /// minimized / edge-hidden / StartMinimized states). A secondary-tile
+    /// deep link (固定到开始) also selects its list.
     /// </summary>
     private static void OnRedirectedActivation(object? sender, AppActivationArguments args)
     {
@@ -241,8 +288,31 @@ public partial class App : Application
             Services.GetRequiredService<ILogger<App>>()
                 .LogInformation("Activation redirected from a second launch (kind: {Kind}).", args.Kind);
             if (Window is MainWindow mainWindow)
-                mainWindow.ShowFromTray();
+            {
+                if (TryParseTileListUuid(args) is { } listUuid)
+                    _ = mainWindow.ShowTodoListAsync(listUuid);
+                else
+                    mainWindow.ShowFromTray();
+            }
         });
+    }
+
+    /// <summary>Secondary-tile argument shape: <c>todo-list:{listUuid}</c>
+    /// (see the pin handler in TodoPage). Shared by the warm redirect path and
+    /// the cold-start probe below.</summary>
+    internal static string? TryParseTileListUuid(AppActivationArguments args)
+    {
+        try
+        {
+            var raw = (args.Data as Windows.ApplicationModel.Activation.ILaunchActivatedEventArgs)?.Arguments;
+            return raw is { Length: > 10 } && raw.StartsWith("todo-list:", StringComparison.Ordinal)
+                ? raw["todo-list:".Length..]
+                : null;
+        }
+        catch
+        {
+            return null; // unexpected activation payload — plain launch
+        }
     }
 
     private static async Task LogStartupTaskStateAsync(IServiceProvider services)
@@ -356,6 +426,27 @@ public partial class App : Application
         {
             services.GetRequiredService<ILogger<App>>()
                 .LogError(ex, "Startup FTS reconcile failed; index will rebuild next launch.");
+        }
+    }
+
+    /// <summary>
+    /// Fire-and-forget todo reminder reconcile on startup (task 10-04 stage ③):
+    /// catch-up re-fire for OS-dropped reminders, stale scheduled-toast sweep,
+    /// 14-day fill. Never crashes the app — failures are logged and swallowed;
+    /// the schedule self-heals on the next launch (the same shape as
+    /// <see cref="ReconcileSearchIndexAsync"/>, but reminders are best-effort
+    /// so the log level is Warning, not Error). Runs off the UI thread.
+    /// </summary>
+    private static async Task ReconcileTodoRemindersAsync(IServiceProvider services)
+    {
+        try
+        {
+            await Task.Run(() => services.GetRequiredService<ITodoReminderCoordinator>().ReconcileAsync());
+        }
+        catch (Exception ex)
+        {
+            services.GetRequiredService<ILogger<App>>()
+                .LogWarning(ex, "Startup todo reminder reconcile failed; schedules heal on the next launch.");
         }
     }
 }

@@ -125,6 +125,20 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial string HotkeyError { get; set; } = "";
 
+    // ---------- 待办 ----------
+
+    /// <summary>智能清单可见性 (list-options ⋯ menu, 2026-10-16): the RESTORE path
+    /// for 隐藏智能列表 — the ⋯ menu hides, these switches unhide. 全部 is the
+    /// fallback view and never hideable.</summary>
+    [ObservableProperty]
+    public partial bool TodoTodayVisible { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool TodoImportantVisible { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool TodoPlannedVisible { get; set; } = true;
+
     /// <summary>Called by the view before showing the panel.</summary>
     public async Task InitializeAsync()
     {
@@ -144,6 +158,10 @@ public partial class SettingsViewModel : ObservableObject
         CheckUpdatesOnStartup = _snapshot.CheckUpdatesOnStartup;
         EdgeHideEnabled = _snapshot.EdgeHideEnabled;
         HideTaskbarIconOnEdgeHide = _snapshot.HideTaskbarIconOnEdgeHide;
+        var hiddenSmart = TodoSmartViewOptions.ParseSet(_snapshot.TodoHiddenSmartLists);
+        TodoTodayVisible = !hiddenSmart.Contains((int)TodoNavKind.Today);
+        TodoImportantVisible = !hiddenSmart.Contains((int)TodoNavKind.Important);
+        TodoPlannedVisible = !hiddenSmart.Contains((int)TodoNavKind.Planned);
         UpdateHotkeyDisplay();
         // Startup registration may already have failed (combo owned by another app).
         HotkeyError = _snapshot.EdgeHideHotkeyKey != 0 && !_hotkey.IsRegistered
@@ -178,6 +196,26 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnStartMinimizedChanged(bool value) => Save(_snapshot with { StartMinimized = value });
 
     partial void OnCheckUpdatesOnStartupChanged(bool value) => Save(_snapshot with { CheckUpdatesOnStartup = value });
+
+    partial void OnTodoTodayVisibleChanged(bool value) => SaveSmartListVisibility((int)TodoNavKind.Today, value);
+
+    partial void OnTodoImportantVisibleChanged(bool value) => SaveSmartListVisibility((int)TodoNavKind.Important, value);
+
+    partial void OnTodoPlannedVisibleChanged(bool value) => SaveSmartListVisibility((int)TodoNavKind.Planned, value);
+
+    /// <summary>Reflect one smart-list visibility switch into the hidden-kinds
+    /// settings CSV (TodoSmartViewOptions).</summary>
+    private void SaveSmartListVisibility(int kind, bool visible)
+    {
+        if (_loading)
+            return;
+        var hidden = new HashSet<int>(TodoSmartViewOptions.ParseSet(_snapshot.TodoHiddenSmartLists));
+        if (visible)
+            hidden.Remove(kind);
+        else
+            hidden.Add(kind);
+        Save(_snapshot with { TodoHiddenSmartLists = TodoSmartViewOptions.FormatSet(hidden) });
+    }
 
     partial void OnLaunchAtStartupChanged(bool value)
     {

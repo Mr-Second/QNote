@@ -806,4 +806,392 @@ Your notes will be stored in:
   <data name="AboutDialog.CloseButtonText" xml:space="preserve">
     <value>Close</value>
   </data>
+  <!-- ===== Todo page (task 10-04, stage ②) — XAML keys ===== -->
+  <data name="ModeNotesItem.Text" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="ModeTodoItem.Text" xml:space="preserve">
+    <value>To Do</value>
+  </data>
+  <data name="TodoSearch.PlaceholderText" xml:space="preserve">
+    <value>Search tasks</value>
+  </data>
+  <data name="TodoSearch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Search tasks</value>
+  </data>
+  <data name="TodoNewList.Text" xml:space="preserve">
+    <value>New list</value>
+  </data>
+  <data name="TodoNewListButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>New list</value>
+  </data>
+  <data name="TodoNewListButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>New list</value>
+  </data>
+  <data name="TodoCompletedSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Completed tasks</value>
+  </data>
+  <data name="TodoCompletedLabel.Text" xml:space="preserve">
+    <value>Completed</value>
+  </data>
+  <data name="TodoAddTaskBox.PlaceholderText" xml:space="preserve">
+    <value>Add a task</value>
+  </data>
+  <data name="TodoAddTaskBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Add a task</value>
+  </data>
+  <data name="TodoDetailDeleteButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Delete task</value>
+  </data>
+  <data name="TodoDetailDeleteButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Delete task</value>
+  </data>
+  <data name="TodoDetailCloseButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Close details</value>
+  </data>
+  <data name="TodoDetailCloseButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Close details</value>
+  </data>
+  <data name="TodoDetailTitle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Task title</value>
+  </data>
+  <data name="TodoDetailTitle.PlaceholderText" xml:space="preserve">
+    <value>Task title</value>
+  </data>
+  <data name="TodoRemindMeLabel.Text" xml:space="preserve">
+    <value>Remind me</value>
+  </data>
+  <data name="TodoRemindLaterToday.Text" xml:space="preserve">
+    <value>Later today</value>
+  </data>
+  <data name="TodoRemindTomorrow.Text" xml:space="preserve">
+    <value>Tomorrow</value>
+  </data>
+  <data name="TodoRemindNextWeek.Text" xml:space="preserve">
+    <value>Next week</value>
+  </data>
+  <data name="TodoRemindPickDateTime.Text" xml:space="preserve">
+    <value>Pick a date and time</value>
+  </data>
+  <data name="TodoComingSoon" xml:space="preserve">
+    <value>Coming soon</value>
+  </data>
+  <data name="TodoStepInput.PlaceholderText" xml:space="preserve">
+    <value>Add a step</value>
+  </data>
+  <data name="TodoStepInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Add a step</value>
+  </data>
+  <data name="TodoStepCheckButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Complete step</value>
+  </data>
+  <data name="TodoStepDeleteButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Delete step</value>
+  </data>
+  <data name="TodoAttachmentDeleteButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Delete attachment</value>
+  </data>
+  <data name="TodoAttachmentCountFormat" xml:space="preserve">
+    <value>{0} files</value>
+  </data>
+  <data name="TodoStepsFormat" xml:space="preserve">
+    <value>{0}/{1}</value>
+  </data>
+  <data name="TodoRepeatDaily.Text" xml:space="preserve">
+    <value>Daily</value>
+  </data>
+  <data name="TodoRepeatWeekdays.Text" xml:space="preserve">
+    <value>Weekdays</value>
+  </data>
+  <data name="TodoRepeatWeekly.Text" xml:space="preserve">
+    <value>Weekly</value>
+  </data>
+  <data name="TodoRepeatMonthly.Text" xml:space="preserve">
+    <value>Monthly</value>
+  </data>
+  <data name="TodoRepeatYearly.Text" xml:space="preserve">
+    <value>Yearly</value>
+  </data>
+  <data name="TodoRepeatCustom.Text" xml:space="preserve">
+    <value>Custom</value>
+  </data>
+  <data name="TodoRecurrenceDaily" xml:space="preserve">
+    <value>Daily</value>
+  </data>
+  <data name="TodoRecurrenceWeekdays" xml:space="preserve">
+    <value>Weekdays</value>
+  </data>
+  <data name="TodoRecurrenceWeekly" xml:space="preserve">
+    <value>Weekly</value>
+  </data>
+  <data name="TodoRecurrenceMonthly" xml:space="preserve">
+    <value>Monthly</value>
+  </data>
+  <data name="TodoRecurrenceYearly" xml:space="preserve">
+    <value>Yearly</value>
+  </data>
+  <data name="TodoRecurrenceCustomFormat" xml:space="preserve">
+    <value>Every {0} {1}</value>
+  </data>
+  <data name="TodoRecurrenceUnitDay" xml:space="preserve">
+    <value>day</value>
+  </data>
+  <data name="TodoRecurrenceUnitWeek" xml:space="preserve">
+    <value>week</value>
+  </data>
+  <data name="TodoRecurrenceUnitMonth" xml:space="preserve">
+    <value>month</value>
+  </data>
+  <data name="TodoRecurrenceUnitYear" xml:space="preserve">
+    <value>year</value>
+  </data>
+  <data name="TodoCustomRecurrenceTitle" xml:space="preserve">
+    <value>Custom repeat</value>
+  </data>
+  <data name="TodoCustomRecurrenceSave" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="TodoCustomRecurrenceCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="TodoAttachTooLargeTitle" xml:space="preserve">
+    <value>Attachment limit</value>
+  </data>
+  <data name="TodoAttachTooLargeMessage" xml:space="preserve">
+    <value>{0}: The total size of all files attached to a task cannot exceed 25 MB</value>
+  </data>
+  <data name="TodoRemindTimePicker.Header" xml:space="preserve">
+    <value>Reminder time</value>
+  </data>
+  <data name="TodoRemindTimePicker.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Reminder time</value>
+  </data>
+  <data name="TodoReminderOffButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Turn off reminder</value>
+  </data>
+  <data name="TodoReminderOffButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Turn off reminder</value>
+  </data>
+  <data name="TodoDueDateRow.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Set due date</value>
+  </data>
+  <data name="TodoDueDateLabel.Text" xml:space="preserve">
+    <value>Due date</value>
+  </data>
+  <data name="TodoDueToday.Text" xml:space="preserve">
+    <value>Today</value>
+  </data>
+  <data name="TodoDueTomorrow.Text" xml:space="preserve">
+    <value>Tomorrow</value>
+  </data>
+  <data name="TodoDueNextWeek.Text" xml:space="preserve">
+    <value>Next week</value>
+  </data>
+  <data name="TodoDuePickDate.Text" xml:space="preserve">
+    <value>Pick a date</value>
+  </data>
+  <data name="TodoDueClearButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Remove due date</value>
+  </data>
+  <data name="TodoDueClearButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Remove due date</value>
+  </data>
+  <data name="TodoRecurrenceClearButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Never repeat</value>
+  </data>
+  <data name="TodoRecurrenceClearButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Never repeat</value>
+  </data>
+  <data name="TodoRepeatLabel.Text" xml:space="preserve">
+    <value>Repeat</value>
+  </data>
+  <data name="TodoAttachLabel.Text" xml:space="preserve">
+    <value>Add a file</value>
+  </data>
+  <data name="TodoDueCancelButton.Content" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="TodoApplyDueButton.Content" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="TodoNotesBox.PlaceholderText" xml:space="preserve">
+    <value>Add notes</value>
+  </data>
+  <data name="TodoNotesBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="TodoListDialog.PrimaryButtonText" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="TodoListDialog.CloseButtonText" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="TodoListNameBox.Header" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="TodoListNameBox.PlaceholderText" xml:space="preserve">
+    <value>List name</value>
+  </data>
+  <data name="TodoListColorLabel.Text" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="TodoRenameList.Text" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="TodoDeleteList.Text" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="TodoTaskDelete.Text" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <!-- ===== Todo page — code keys (AppStrings) ===== -->
+  <data name="TodoNavToday" xml:space="preserve">
+    <value>Today</value>
+  </data>
+  <data name="TodoNavImportant" xml:space="preserve">
+    <value>Important</value>
+  </data>
+  <data name="TodoNavPlanned" xml:space="preserve">
+    <value>Planned</value>
+  </data>
+  <data name="TodoNavAll" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="TodoListsGroupCap" xml:space="preserve">
+    <value>My lists</value>
+  </data>
+  <data name="TodoListWorkName" xml:space="preserve">
+    <value>Work</value>
+  </data>
+  <data name="TodoListLifeName" xml:space="preserve">
+    <value>Life</value>
+  </data>
+  <data name="TodoHeroDateFormat" xml:space="preserve">
+    <value>{0}, {1}</value>
+  </data>
+  <data name="TodoReminderStatusFormat" xml:space="preserve">
+    <value>Reminder at {0}</value>
+  </data>
+  <data name="TodoCreatedAtFormat" xml:space="preserve">
+    <value>Created {0}</value>
+  </data>
+  <data name="TodoNoneValue" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="TodoDeletedToastTitle" xml:space="preserve">
+    <value>Task deleted</value>
+  </data>
+  <data name="TodoUndoAction" xml:space="preserve">
+    <value>Undo</value>
+  </data>
+  <data name="TodoNewListTitle" xml:space="preserve">
+    <value>New list</value>
+  </data>
+  <data name="TodoRenameListTitle" xml:space="preserve">
+    <value>Rename list</value>
+  </data>
+  <data name="TodoDeleteListTitle" xml:space="preserve">
+    <value>Delete list</value>
+  </data>
+  <data name="TodoDeleteListContentFormat" xml:space="preserve">
+    <value>This deletes "{0}" and its {1} tasks. This cannot be undone.</value>
+  </data>
+  <data name="TodoListNameRequired" xml:space="preserve">
+    <value>Enter a list name</value>
+  </data>
+  <data name="TodoCreateListFailed" xml:space="preserve">
+    <value>Failed to create the list; see the log</value>
+  </data>
+  <data name="TodoUpdateListFailed" xml:space="preserve">
+    <value>Failed to update the list; see the log</value>
+  </data>
+  <data name="TodoDeleteListFailed" xml:space="preserve">
+    <value>Failed to delete the list; see the log</value>
+  </data>
+  <!-- ===== Todo reminder toasts (task 10-04, stage ③ — code keys) ===== -->
+  <data name="TodoToastDueFormat" xml:space="preserve">
+    <value>Due {0}</value>
+  </data>
+  <!-- ===== Todo a11y names for icon-only targets (task 10-04) ===== -->
+  <data name="TodoTaskCheckButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Mark complete</value>
+  </data>
+  <data name="TodoTaskUncheckButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Mark incomplete</value>
+  </data>
+  <data name="TodoTaskStarButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Mark important</value>
+  </data>
+  <data name="TodoDetailCheckButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Mark complete</value>
+  </data>
+  <data name="TodoDetailStarButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Mark important</value>
+  </data>
+  <data name="TodoListOptionsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>List options</value>
+  </data>
+  <data name="TodoSortBy.Text" xml:space="preserve">
+    <value>Sort by</value>
+  </data>
+  <data name="TodoSortByImportance" xml:space="preserve">
+    <value>Importance</value>
+  </data>
+  <data name="TodoSortByDueDate" xml:space="preserve">
+    <value>Due date</value>
+  </data>
+  <data name="TodoSortByTitle" xml:space="preserve">
+    <value>Alphabetical</value>
+  </data>
+  <data name="TodoSortByCreated" xml:space="preserve">
+    <value>Created date</value>
+  </data>
+  <data name="TodoThemeLabel.Text" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="TodoHideCompletedRow.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Hide completed tasks</value>
+  </data>
+  <data name="TodoHideCompletedLabel.Text" xml:space="preserve">
+    <value>Hide completed tasks</value>
+  </data>
+  <data name="TodoEmailListLabel.Text" xml:space="preserve">
+    <value>Email list</value>
+  </data>
+  <data name="TodoPinListLabel.Text" xml:space="preserve">
+    <value>Pin to Start</value>
+  </data>
+  <data name="TodoHideSmartListLabel.Text" xml:space="preserve">
+    <value>Hide smart list</value>
+  </data>
+  <data name="TodoShowSmartListLabel.Text" xml:space="preserve">
+    <value>Show smart lists</value>
+  </data>
+  <data name="SettingsTodoSection.Text" xml:space="preserve">
+    <value>Todo</value>
+  </data>
+  <data name="SettingsTodoTodayLabel.Text" xml:space="preserve">
+    <value>Show "My Day"</value>
+  </data>
+  <data name="SettingsTodoTodaySwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Show the My Day smart list</value>
+  </data>
+  <data name="SettingsTodoImportantLabel.Text" xml:space="preserve">
+    <value>Show "Important"</value>
+  </data>
+  <data name="SettingsTodoImportantSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Show the Important smart list</value>
+  </data>
+  <data name="SettingsTodoPlannedLabel.Text" xml:space="preserve">
+    <value>Show "Planned"</value>
+  </data>
+  <data name="SettingsTodoPlannedSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Show the Planned smart list</value>
+  </data>
+  <data name="SwatchPurple.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Purple</value>
+  </data>
+  <data name="SwatchTeal.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Teal</value>
+  </data>
 </root>

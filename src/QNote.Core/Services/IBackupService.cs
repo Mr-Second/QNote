@@ -3,13 +3,14 @@ using QNote.Models;
 namespace QNote.Services;
 
 /// <summary>
-/// Backup / restore of the whole data set (notes + categories + settings + original
-/// images) as a single <c>.qns</c> file — a ZIP archive with optional AES-256
-/// encryption via LibArchive.Net (PRD D1, port of the Qt BackupManager without the
-/// external <c>7za.exe</c> child process).
+/// Backup / restore of the whole data set (notes + categories + settings + the
+/// todo domain + original images) as a single <c>.qns</c> file — a ZIP archive
+/// with optional AES-256 encryption via LibArchive.Net (PRD D1, port of the Qt
+/// BackupManager without the external <c>7za.exe</c> child process).
 ///
 /// Archive layout (entries at the root, Qt parity): <c>manifest.json</c>,
-/// <c>qnote.db</c> (a consistent <c>VACUUM INTO</c> snapshot of the live database),
+/// <c>qnote.db</c> (a consistent <c>VACUUM INTO</c> snapshot of the live database
+/// — the todo tables ride inside it, no dedicated entries),
 /// <c>images/&lt;sha256&gt;.&lt;ext&gt;</c> for every original image.
 /// </summary>
 public interface IBackupService
@@ -56,9 +57,11 @@ public interface IBackupService
     /// <summary>
     /// Restores from a backup archive. <see cref="RestoreMode.Overwrite"/> first writes
     /// an automatic unencrypted backup of the CURRENT data into <c>backups\</c> (PRD D4),
-    /// then swaps the database file and images; merge modes import per note (PRD D2).
+    /// then swaps the database file and images; merge modes import per uuid — notes,
+    /// categories (by name), todo lists and todo tasks (PRD D2, Requirement 8).
     /// Every mode finishes with a full FTS rebuild so search works immediately in the
-    /// current session (PRD D3 — fixes the Qt "restart to search" gap).
+    /// current session (PRD D3 — fixes the Qt "restart to search" gap), plus a
+    /// best-effort todo reminder reconcile.
     /// </summary>
     Task RestoreAsync(
         string archivePath,

@@ -95,7 +95,9 @@ internal static class BackupDatabaseReader
         return list;
     }
 
-    /// <summary><c>note_images</c> rows grouped by note id (empty when the staged DB predates schema v5).</summary>
+    /// <summary>
+    /// <c>note_images</c> rows grouped by note id (empty when the staged DB predates schema v5).
+    /// </summary>
     public static Dictionary<long, List<NoteImage>> ReadNoteImagesByNote(string dbPath)
     {
         var map = new Dictionary<long, List<NoteImage>>();
@@ -124,6 +126,159 @@ internal static class BackupDatabaseReader
             });
         }
         return map;
+    }
+
+    /// <summary>
+    /// All todo lists (schema v7+). Empty when the staged DB predates the todo
+    /// domain — a v6 archive restores with the todo domain simply absent (graceful).
+    /// </summary>
+    public static List<TodoList> ReadTodoLists(string dbPath)
+    {
+        using var conn = OpenReadOnly(dbPath);
+        if (!TableExists(conn, "todo_lists"))
+            return [];
+
+        // The list-options columns (2026-10-16) are probed: early v7 dev
+        // archives predate them — a missing column reads as its default
+        // (same idiom as CatchUpFiredAt below).
+        var hasOptions = ColumnExists(conn, "todo_lists", "SortMode");
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT Id, Uuid, Name, Color, SortOrder, CreatedAt, UpdatedAt" +
+            (hasOptions ? ", Theme, HideCompleted, SortMode " : " ") +
+            "FROM todo_lists ORDER BY SortOrder;";
+
+        var list = new List<TodoList>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            list.Add(new TodoList
+            {
+                Id = reader.GetInt64(0),
+                Uuid = reader.GetString(1),
+                Name = reader.GetString(2),
+                Color = reader.GetString(3),
+                SortOrder = reader.GetInt32(4),
+                CreatedAt = FromDbMs(reader.GetInt64(5)),
+                UpdatedAt = FromDbMs(reader.GetInt64(6)),
+                Theme = hasOptions ? reader.GetInt32(7) : 0,
+                HideCompleted = hasOptions && reader.GetInt64(8) != 0,
+                SortMode = hasOptions ? reader.GetInt32(9) : 0,
+            });
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// All todo tasks as full records (schema v7+), including the catch-up
+    /// reminder marker. Empty when the staged DB predates the todo domain. The
+    /// <c>CatchUpFiredAt</c> column is probed: early v7 builds created the todo
+    /// tables without it (the stage-③ heal predates any released archive, but
+    /// dev archives exist) — a missing column reads as "never fired".
+    /// </summary>
+    public static List<TodoTask> ReadTodoTasks(string dbPath)
+    {
+        using var conn = OpenReadOnly(dbPath);
+        if (!TableExists(conn, "todo_tasks"))
+            return [];
+
+        var hasCatchUp = ColumnExists(conn, "todo_tasks", "CatchUpFiredAt");
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT Id, Uuid, ListUuid, Title, Notes, DueAt, IsAllDay, ReminderOn, IsImportant, CompletedAt, " +
+            (hasCatchUp ? "CatchUpFiredAt, " : "NULL AS CatchUpFiredAt, ") +
+            "CreatedAt, UpdatedAt FROM todo_tasks ORDER BY Id;";
+
+        var list = new List<TodoTask>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            list.Add(new TodoTask
+            {
+                Id = reader.GetInt64(0),
+                Uuid = reader.GetString(1),
+                ListUuid = reader.GetString(2),
+                Title = reader.GetString(3),
+                Notes = reader.GetString(4),
+                DueAt = reader.IsDBNull(5) ? null : FromDbMs(reader.GetInt64(5)),
+                IsAllDay = reader.GetInt64(6) != 0,
+                ReminderOn = reader.GetInt64(7) != 0,
+                IsImportant = reader.GetInt64(8) != 0,
+                CompletedAt = reader.IsDBNull(9) ? null : FromDbMs(reader.GetInt64(9)),
+                CatchUpFiredAt = reader.IsDBNull(10) ? null : FromDbMs(reader.GetInt64(10)),
+                CreatedAt = FromDbMs(reader.GetInt64(11)),
+                UpdatedAt = FromDbMs(reader.GetInt64(12)),
+            });
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// All todo steps (schema v7+), keyed by the STAGED task id — the merge
+    /// pipeline remaps to the live task id. Empty when the staged DB predates
+    /// the todo domain or its stage-⑤ tables (guarded probe, same idiom as
+    /// <see cref="ReadTodoLists"/>).
+    /// </summary>
+    public static List<TodoStep> ReadTodoSteps(string dbPath)
+    {
+        using var conn = OpenReadOnly(dbPath);
+        if (!TableExists(conn, "todo_steps"))
+            return [];
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT Id, Uuid, TaskId, Title, CompletedAt, SortOrder, CreatedAt, UpdatedAt FROM todo_steps ORDER BY Id;";
+
+        var list = new List<TodoStep>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            list.Add(new TodoStep
+            {
+                Id = reader.GetInt64(0),
+                Uuid = reader.GetString(1),
+                TaskId = reader.GetInt64(2),
+                Title = reader.GetString(3),
+                CompletedAt = reader.IsDBNull(4) ? null : FromDbMs(reader.GetInt64(4)),
+                SortOrder = reader.GetInt32(5),
+                CreatedAt = FromDbMs(reader.GetInt64(6)),
+                UpdatedAt = FromDbMs(reader.GetInt64(7)),
+            });
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// All todo attachments (schema v7+), keyed by the STAGED task id — same
+    /// remap contract as <see cref="ReadTodoSteps"/>. The bytes themselves live
+    /// in the archive's <c>attachments/</c> entries, not the DB.
+    /// </summary>
+    public static List<TodoAttachment> ReadTodoAttachments(string dbPath)
+    {
+        using var conn = OpenReadOnly(dbPath);
+        if (!TableExists(conn, "todo_attachments"))
+            return [];
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT Id, Uuid, TaskId, FileName, Sha, ByteSize, CreatedAt, UpdatedAt FROM todo_attachments ORDER BY Id;";
+
+        var list = new List<TodoAttachment>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            list.Add(new TodoAttachment
+            {
+                Id = reader.GetInt64(0),
+                Uuid = reader.GetString(1),
+                TaskId = reader.GetInt64(2),
+                FileName = reader.GetString(3),
+                Sha = reader.GetString(4),
+                ByteSize = reader.GetInt64(5),
+                CreatedAt = FromDbMs(reader.GetInt64(6)),
+                UpdatedAt = FromDbMs(reader.GetInt64(7)),
+            });
+        }
+        return list;
     }
 
     private static SqliteConnection OpenReadOnly(string dbPath)
@@ -162,4 +317,8 @@ internal static class BackupDatabaseReader
 
     private static DateTimeOffset ParseUtc(string value) =>
         DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, UtcStyles);
+
+    /// <summary>Todo-domain timestamps are millisecond-epoch integers (schema v7 sync contract).</summary>
+    private static DateTimeOffset FromDbMs(long ms) =>
+        DateTimeOffset.FromUnixTimeMilliseconds(ms);
 }
