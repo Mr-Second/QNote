@@ -39,6 +39,19 @@ internal sealed class TestDatabase : IDisposable
 
     public NoteRepository NewRepository() => new(Factory);
 
+    public TodoRepository NewTodoRepository() => new(Factory);
+
+    public TodoService NewTodoService(Func<DateTimeOffset>? clock = null, ITodoAttachmentStore? attachments = null) =>
+        new(NewTodoRepository(), NullLogger<TodoService>.Instance, clock, attachments: attachments);
+
+    /// <summary>
+    /// A service wired with a REAL attachment store over the test root's
+    /// <c>attachments/</c> dir (stage ⑤): AddAttachmentAsync / delete-GC tests
+    /// need the bytes on disk, not just the rows.
+    /// </summary>
+    public TodoService NewTodoServiceWithAttachments(Func<DateTimeOffset>? clock = null) =>
+        NewTodoService(clock, new TodoAttachmentStore(Paths));
+
     public SearchService NewSearchService() => new(Factory, NewRepository(), NullLogger<SearchService>.Instance);
 
     public ImageService NewImageService() => new(Paths, NullLogger<ImageService>.Instance);

@@ -76,6 +76,7 @@ public sealed class ReswKeyParityTests
     [InlineData("UntitledNote")]
     [InlineData("HotkeyNotSet")]
     [InlineData("PortableFallbackContent")]
+    [InlineData("TodoToastDueFormat")]
     public void Resw_CriticalKeys_ExistInBothFiles(string key)
     {
         Assert.Contains(key, (IEnumerable<string>)LoadKeys("en-US").Keys);

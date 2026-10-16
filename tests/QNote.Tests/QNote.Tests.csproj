@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
@@ -21,6 +22,18 @@
   <ItemGroup>
     <!-- Tests reference Core only (no WinAppSDK) so the headless test host stays clean. -->
     <ProjectReference Include="..\..\src\QNote.Core\QNote.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- TodoPageViewModel family is compiled into BOTH the app and this test
+         assembly (link-include): the VMs are WinUI-free by design, so this
+         gives them headless coverage without referencing the WinUI app project.
+         Keep this list in lockstep with the ViewModels the todo tests touch. -->
+    <Compile Include="..\..\src\QNote\ViewModels\TodoPageViewModel.cs" Link="Presentation\TodoPageViewModel.cs" />
+    <Compile Include="..\..\src\QNote\ViewModels\TodoNavItemViewModel.cs" Link="Presentation\TodoNavItemViewModel.cs" />
+    <Compile Include="..\..\src\QNote\ViewModels\TodoTaskItemViewModel.cs" Link="Presentation\TodoTaskItemViewModel.cs" />
+    <Compile Include="..\..\src\QNote\ViewModels\TodoStepItemViewModel.cs" Link="Presentation\TodoStepItemViewModel.cs" />
+    <Compile Include="..\..\src\QNote\ViewModels\TodoTaskSorter.cs" Link="Presentation\TodoTaskSorter.cs" />
   </ItemGroup>
 
   <ItemGroup>
