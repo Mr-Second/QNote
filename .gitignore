@@ -53,6 +53,7 @@ project.lock.json
 .vscode/
 Thumbs.db
 Desktop.ini
+__pycache__/
 
 # Local packaging output (MSIX, certs, store screenshots)
 artifacts/

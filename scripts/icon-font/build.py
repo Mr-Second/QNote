@@ -15,7 +15,8 @@ Pipeline per SVG (24x24 viewBox):
   - fill paths: subpaths are adaptively flattened, then boolean-unioned per
     path element honoring that element's fill-rule (evenodd / nonzero)
   - stroke paths: offset by strokeWidth/2 with round joins (linecap honored)
-    into filled outlines, then unioned in
+    into filled outlines, then unioned in; CLOSED stroke paths take a
+    two-pass outer(+delta)/inner(-delta) offset so the ring keeps its hole
   - resulting contours are Douglas-Peucker simplified and mapped into the em
     box (24x24 viewBox -> upm 1024, centered on the baseline); outer contours
     end up clockwise, holes counter-clockwise (TrueType nonzero convention)
@@ -64,6 +65,9 @@ SIMPLIFY_TOL = 1.2        # clipper units (~0.012 svg units), Douglas-Peucker
 HEAD_TIMESTAMP = 3_874_435_200  # 2026-10-10T00:00:00Z
 
 # RichEditorIcon slot -> hmos SVG (alphabetical slot order == code point order).
+# TodoRepeat* slots (added 2026-10-15) are NOT RichEditorIcon members — they are
+# the todo page's repeat-menu calendar set (user-supplied, path-only, stroke
+# style; TodoRepeatWeekend is carried as a spare, no menu item uses it yet).
 SLOT_SVG = {
     "AlignCenter": "justifycenter.svg",
     "AlignJustify": "justifyfull.svg",
@@ -110,6 +114,31 @@ SLOT_SVG = {
     "ReplaceImage": "image.svg",
     "Strikethrough": "strikethrough.svg",
     "TextColor": "forecolor.svg",
+    "TodoRepeatCustom": "custom.svg",
+    "TodoRepeatDaily": "everyday.svg",
+    "TodoRepeatMonthly": "month.svg",
+    "TodoRepeatWeekdays": "workday.svg",
+    "TodoRepeatWeekend": "weekend.svg",
+    "TodoRepeatWeekly": "week.svg",
+    "TodoRepeatYearly": "year.svg",
+    # TodoTools* slots (added 2026-10-16) are the todo page's list-options
+    # menu set (user-supplied AI-generated, path-only; stroke style at 1.5
+    # except the two fill icons dot.svg/theme.svg). Slot names sort AFTER
+    # TodoRepeat* on purpose: the repeat-menu codepoints are HARD-CODED in
+    # TodoPage.xaml (F52D..F533 literals) and must never shift; Underline/
+    # Undo/UnmergeCells follow via named constants.
+    "TodoToolsDots": "dot.svg",
+    "TodoToolsEmail": "email.svg",
+    "TodoToolsEyeOff": "eyeoff.svg",
+    "TodoToolsHideCompleted": "finish.svg",
+    "TodoToolsPin": "pin.svg",
+    "TodoToolsPrint": "print.svg",
+    "TodoToolsSort": "sort.svg",
+    "TodoToolsSortByCreated": "create_time.svg",
+    "TodoToolsSortByDueDate": "deadline.svg",
+    "TodoToolsSortByImportance": "importance.svg",
+    "TodoToolsSortByTitle": "sort_by_letter.svg",
+    "TodoToolsTheme": "theme.svg",
     "Underline": "underline.svg",
     "Undo": "undo.svg",
     "UnmergeCells": "table-split-cells.svg",
@@ -206,6 +235,81 @@ def _flatten_quad(p0: complex, p1: complex, p2: complex,
     _flatten_quad(mid, b, p2, tol, out)
 
 
+def _arc_point(c: complex, rx: float, ry: float, phi: float, theta: float) -> complex:
+    """Parametric ellipse point (SVG spec F.6.3.1)."""
+    return c + complex(rx * math.cos(theta) * math.cos(phi) - ry * math.sin(theta) * math.sin(phi),
+                       rx * math.cos(theta) * math.sin(phi) + ry * math.sin(theta) * math.cos(phi))
+
+
+def _arc_derivative(rx: float, ry: float, phi: float, theta: float) -> complex:
+    return complex(-rx * math.sin(theta) * math.cos(phi) - ry * math.cos(theta) * math.sin(phi),
+                   -rx * math.sin(theta) * math.sin(phi) + ry * math.cos(theta) * math.cos(phi))
+
+
+def _flatten_arc(start: complex, end: complex, radius: complex, rotation_deg: float,
+                 large_arc: bool, sweep: bool, tol: float, out: list[complex]) -> None:
+    """SVG elliptical arc -> cubic beziers -> adaptive flatten.
+
+    Replaces svgpathtools' Arc.as_cubic_curves, which DROPS the large-arc flag
+    (a 278deg arc flattens as its 82deg complement — the repeat-year circular
+    arrow rendered as a bare hook). Endpoint->center conversion per SVG spec
+    F.6.5, then per-<=90deg-segment cubic approximation (k = 4/3*tan(d/4))."""
+    rx, ry = abs(radius.real), abs(radius.imag)
+    phi = math.radians(rotation_deg)
+    if rx == 0 or ry == 0 or start == end:
+        out.append(end)
+        return
+    # F.6.5.1: transform to center-origin space
+    dx, dy = (start.real - end.real) / 2, (start.imag - end.imag) / 2
+    cos_phi, sin_phi = math.cos(phi), math.sin(phi)
+    x1p = cos_phi * dx + sin_phi * dy
+    y1p = -sin_phi * dx + cos_phi * dy
+    # F.6.6.2: radii correction
+    lam = (x1p * x1p) / (rx * rx) + (y1p * y1p) / (ry * ry)
+    if lam > 1:
+        s = math.sqrt(lam)
+        rx, ry = rx * s, ry * s
+    # F.6.5.2: center
+    num = rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p
+    den = rx * rx * y1p * y1p + ry * ry * x1p * x1p
+    coef = math.sqrt(max(0.0, num / den)) if den != 0 else 0.0
+    if large_arc == sweep:
+        coef = -coef
+    cxp = coef * (rx * y1p) / ry
+    cyp = coef * (-ry * x1p) / rx
+    c = complex(cos_phi * cxp - sin_phi * cyp + (start.real + end.real) / 2,
+                sin_phi * cxp + cos_phi * cyp + (start.imag + end.imag) / 2)
+    # F.6.5.6-7: start angle + sweep
+    def ang(ux, uy, vx, vy):
+        n = math.hypot(ux, uy) * math.hypot(vx, vy)
+        if n == 0:
+            return 0.0
+        cos_t = max(-1.0, min(1.0, (ux * vx + uy * vy) / n))
+        t = math.acos(cos_t)
+        return -t if ux * vy - uy * vx < 0 else t
+
+    theta1 = ang(1, 0, (x1p - cxp) / rx, (y1p - cyp) / ry)
+    dtheta = ang((x1p - cxp) / rx, (y1p - cyp) / ry, (-x1p - cxp) / rx, (-y1p - cyp) / ry)
+    dtheta %= 2 * math.pi
+    if not sweep and dtheta > 0:
+        dtheta -= 2 * math.pi
+    elif sweep and dtheta < 0:
+        dtheta += 2 * math.pi
+    # split into <=90deg segments, cubic-approximate each, flatten adaptively
+    n_seg = max(1, int(math.ceil(abs(dtheta) / (math.pi / 2))))
+    step = dtheta / n_seg
+    k = 4 / 3 * math.tan(step / 4)
+    p0 = _arc_point(c, rx, ry, phi, theta1)
+    for i in range(n_seg):
+        t1 = theta1 + i * step
+        t2 = t1 + step
+        p3 = _arc_point(c, rx, ry, phi, t2)
+        p1 = p0 + k * _arc_derivative(rx, ry, phi, t1)
+        p2 = p3 - k * _arc_derivative(rx, ry, phi, t2)
+        _flatten_cubic(p0, p1, p2, p3, tol, out)
+        p0 = p3
+
+
 def _flatten_subpaths(d: str, tol: float) -> list[list[complex]]:
     path = parse_path(d)
     subpaths: list[list[complex]] = []
@@ -219,9 +323,8 @@ def _flatten_subpaths(d: str, tol: float) -> list[list[complex]]:
             elif isinstance(seg, CubicBezier):
                 _flatten_cubic(seg.start, seg.control1, seg.control2, seg.end, tol, points)
             elif isinstance(seg, Arc):
-                for cubic in seg.as_cubic_curves():
-                    _flatten_cubic(cubic.start, cubic.control1,
-                                   cubic.control2, cubic.end, tol, points)
+                _flatten_arc(seg.start, seg.end, seg.radius, seg.rotation,
+                             seg.large_arc, seg.sweep, tol, points)
             else:
                 raise TypeError(f"unsupported SVG segment: {type(seg).__name__}")
         subpaths.append(points)
@@ -248,13 +351,21 @@ def _stroke_outline(clip_pts: list[tuple[int, int]], width: float,
                     linecap: str) -> list[list[tuple[int, int]]]:
     offsetter = pyclipper.PyclipperOffset()
     closed = len(clip_pts) >= 4 and clip_pts[0] == clip_pts[-1]
+    delta = int(round(width * CLIP_SCALE / 2))
     if closed:
         offsetter.AddPath(clip_pts[:-1], pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
-    else:
-        end_type = {"round": pyclipper.ET_OPENROUND,
-                    "square": pyclipper.ET_OPENSQUARE}.get(linecap, pyclipper.ET_OPENBUTT)
-        offsetter.AddPath(clip_pts, pyclipper.JT_ROUND, end_type)
-    return offsetter.Execute(int(round(width * CLIP_SCALE / 2)))
+        # A positive offset on a CLOSED polygon returns only the expanded outer
+        # bound — the contracted inner bound needs a second negative pass, and
+        # must be REVERSED so the downstream NONZERO union punches it as a hole
+        # (single-pass = every closed stroke shape renders as a filled
+        # silhouette; latent until the stroke-based repeat icons arrived).
+        outer = offsetter.Execute(delta)
+        inner = offsetter.Execute(-delta)
+        return outer + [list(reversed(p)) for p in inner]
+    end_type = {"round": pyclipper.ET_OPENROUND,
+                "square": pyclipper.ET_OPENSQUARE}.get(linecap, pyclipper.ET_OPENBUTT)
+    offsetter.AddPath(clip_pts, pyclipper.JT_ROUND, end_type)
+    return offsetter.Execute(delta)
 
 
 def _point_line_dist(p: tuple[int, int], a: tuple[int, int], b: tuple[int, int]) -> float:

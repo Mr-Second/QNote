@@ -8,7 +8,9 @@ namespace QNote.Controls;
 /// scripts/icon-font/codepoints.json — a missing cmap entry renders as a silent tofu box.
 /// <para>
 /// EditLink / InsertLink point at the same glyph (link.svg); every other mapped slot has its
-/// own glyph. Regenerate via build.py, never edit by hand.
+/// own glyph. The TodoRepeat* slots are the todo page's repeat-menu calendar set and the
+/// TodoTools* slots its list-options menu set (neither are RichEditorIcon members;
+/// TodoRepeatWeekend is a spare). Regenerate via build.py, never edit by hand.
 /// </para>
 /// </summary>
 public static class QNoteIconGlyphs
@@ -58,9 +60,28 @@ public static class QNoteIconGlyphs
     public const int ReplaceImage = 0xF52A;
     public const int Strikethrough = 0xF52B;
     public const int TextColor = 0xF52C;
-    public const int Underline = 0xF52D;
-    public const int Undo = 0xF52E;
-    public const int UnmergeCells = 0xF52F;
+    public const int TodoRepeatCustom = 0xF52D;
+    public const int TodoRepeatDaily = 0xF52E;
+    public const int TodoRepeatMonthly = 0xF52F;
+    public const int TodoRepeatWeekdays = 0xF530;
+    public const int TodoRepeatWeekend = 0xF531;
+    public const int TodoRepeatWeekly = 0xF532;
+    public const int TodoRepeatYearly = 0xF533;
+    public const int TodoToolsDots = 0xF534;
+    public const int TodoToolsEmail = 0xF535;
+    public const int TodoToolsEyeOff = 0xF536;
+    public const int TodoToolsHideCompleted = 0xF537;
+    public const int TodoToolsPin = 0xF538;
+    public const int TodoToolsPrint = 0xF539;
+    public const int TodoToolsSort = 0xF53A;
+    public const int TodoToolsSortByCreated = 0xF53B;
+    public const int TodoToolsSortByDueDate = 0xF53C;
+    public const int TodoToolsSortByImportance = 0xF53D;
+    public const int TodoToolsSortByTitle = 0xF53E;
+    public const int TodoToolsTheme = 0xF53F;
+    public const int Underline = 0xF540;
+    public const int Undo = 0xF541;
+    public const int UnmergeCells = 0xF542;
 
     /// <summary>Slot name → code point for every mapped slot. Mirrors
     /// scripts/icon-font/codepoints.json exactly; the font-consistency test asserts the two
@@ -112,6 +133,25 @@ public static class QNoteIconGlyphs
         ["ReplaceImage"] = ReplaceImage,
         ["Strikethrough"] = Strikethrough,
         ["TextColor"] = TextColor,
+        ["TodoRepeatCustom"] = TodoRepeatCustom,
+        ["TodoRepeatDaily"] = TodoRepeatDaily,
+        ["TodoRepeatMonthly"] = TodoRepeatMonthly,
+        ["TodoRepeatWeekdays"] = TodoRepeatWeekdays,
+        ["TodoRepeatWeekend"] = TodoRepeatWeekend,
+        ["TodoRepeatWeekly"] = TodoRepeatWeekly,
+        ["TodoRepeatYearly"] = TodoRepeatYearly,
+        ["TodoToolsDots"] = TodoToolsDots,
+        ["TodoToolsEmail"] = TodoToolsEmail,
+        ["TodoToolsEyeOff"] = TodoToolsEyeOff,
+        ["TodoToolsHideCompleted"] = TodoToolsHideCompleted,
+        ["TodoToolsPin"] = TodoToolsPin,
+        ["TodoToolsPrint"] = TodoToolsPrint,
+        ["TodoToolsSort"] = TodoToolsSort,
+        ["TodoToolsSortByCreated"] = TodoToolsSortByCreated,
+        ["TodoToolsSortByDueDate"] = TodoToolsSortByDueDate,
+        ["TodoToolsSortByImportance"] = TodoToolsSortByImportance,
+        ["TodoToolsSortByTitle"] = TodoToolsSortByTitle,
+        ["TodoToolsTheme"] = TodoToolsTheme,
         ["Underline"] = Underline,
         ["Undo"] = Undo,
         ["UnmergeCells"] = UnmergeCells,

@@ -28,3 +28,22 @@ under the Creative Commons Attribution 4.0 International license
 subset is exercised: chevron-right / chevron-down (replace toggle),
 case-sensitive (match case), arrow-up / arrow-down (previous / next match),
 replace / replace-all, and widget-close.
+
+## Fabric MDL2 icon font — `src/QNote/Assets/Fonts/FabricMDL2Icons.ttf`
+
+The todo page's popover icons use the Fabric MDL2 Assets font — Microsoft's
+Fluent UI icon font, the same glyph family Microsoft To Do renders its popover
+icons from (verified by pixel-matching the real popups, 2026-10-13). The
+shipped file is an 8-glyph subset of the MIT-licensed
+`@fluentui/font-icons-mdl2@8.5.75` npm package
+(https://github.com/microsoft/fluentui/tree/master/packages/font-icons-mdl2):
+U+E919 AlarmClock (`提醒我` row), U+E8BF CalendarDay + U+F545/U+F546
+calendar-with-arrow/chevrons (due-date presets), U+EBF9 ReminderTime +
+U+E958 clock-with-arrow (reminder presets), and U+E917 Clock +
+U+EE99 DoubleChevronRight12 (composed in XAML as the clock+≫ combo — the
+real glyph exists only in To Do's private font). Internal family name
+`Fabric MDL2 Assets`; referenced at runtime as
+`ms-appx:///Assets/Fonts/FabricMDL2Icons.ttf#Fabric MDL2 Assets`.
+Reason: the OS Segoe fonts lack these glyphs, and the Win11 default icon font
+additionally remapped U+E787 from calendar to calculator, so the plain
+calendar (U+E787) and DateTime (U+EC92) glyphs pin `Segoe MDL2 Assets`.
