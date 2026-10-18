@@ -33,4 +33,7 @@ public sealed record TodoList
 
     /// <summary>排序依据 (TodoSortMode): 0 = manual/created order.</summary>
     public int SortMode { get; init; }
+
+    /// <summary>Soft-delete tombstone (schema v8): <c>null</c> = live.</summary>
+    public DateTimeOffset? DeletedAt { get; init; }
 }

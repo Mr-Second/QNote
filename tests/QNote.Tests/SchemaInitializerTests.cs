@@ -70,7 +70,7 @@ public sealed class SchemaInitializerTests
 
             using var check = factory.OpenRead();
             Assert.Equal(SchemaInitializer.CurrentVersion, GetUserVersion(check));
-            Assert.Equal(8, ColumnCount(check, "notes"));
+            Assert.Equal(9, ColumnCount(check, "notes"));
             Assert.Equal("Content", LastColumn(check, "notes")); // moved to the end
             Assert.Equal("旧标题", Scalar(check, "SELECT Title FROM notes WHERE Uuid = 'uuid-1';"));
             Assert.Equal("RTF正文", Scalar(check, "SELECT Content FROM notes WHERE Uuid = 'uuid-1';"));

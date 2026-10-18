@@ -30,4 +30,10 @@ public sealed record Note
     public DateTimeOffset CreatedAt { get; init; }
 
     public DateTimeOffset UpdatedAt { get; init; }
+
+    /// <summary>
+    /// Soft-delete tombstone (schema v8): <c>null</c> = live. A deleted note keeps
+    /// its row so the deletion can propagate; every read path filters it out.
+    /// </summary>
+    public DateTimeOffset? DeletedAt { get; init; }
 }

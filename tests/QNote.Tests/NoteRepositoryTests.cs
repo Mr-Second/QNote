@@ -146,17 +146,22 @@ public sealed class NoteRepositoryTests
     }
 
     [Fact]
-    public async Task Timestamps_RoundTripAsUtc()
+    public async Task Timestamps_RoundTripAsUtc_AtMillisecondPrecision()
     {
         using var db = new TestDatabase();
         var repo = db.NewRepository();
-        var when = DateTimeOffset.UtcNow.AddMinutes(-30);
+        // v8 stores epoch-ms: the instant is preserved to the millisecond (the
+        // 100ns tick precision of DateTimeOffset is deliberately dropped — one
+        // comparison unit for every synced table).
+        var when = DateTimeOffset.FromUnixTimeMilliseconds(
+            DateTimeOffset.UtcNow.AddMinutes(-30).ToUnixTimeMilliseconds());
 
         var created = await repo.CreateAsync(NewNote(created: when, updated: when));
         var loaded = await repo.GetByIdAsync(created.Id);
 
         Assert.Equal(when, loaded!.CreatedAt);            // exact instant preserved
         Assert.Equal(TimeSpan.Zero, loaded.CreatedAt.Offset); // read back as UTC
+        Assert.Null(loaded.DeletedAt);
     }
 
     private static Note NewNote(

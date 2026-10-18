@@ -19,6 +19,12 @@ public sealed record TodoAttachment
     /// <summary>Owning task id (todo_tasks.Id; no FK by schema convention).</summary>
     public long TaskId { get; init; }
 
+    /// <summary>
+    /// Cross-device parent key (schema v8): the parent task's <see cref="TodoTask.Uuid"/>
+    /// (see <see cref="TodoStep.TaskUuid"/> — same rationale).
+    /// </summary>
+    public string TaskUuid { get; init; } = string.Empty;
+
     /// <summary>The user-facing file name shown in the detail pane.</summary>
     public string FileName { get; init; } = string.Empty;
 
@@ -30,6 +36,9 @@ public sealed record TodoAttachment
     public DateTimeOffset CreatedAt { get; init; }
 
     public DateTimeOffset UpdatedAt { get; init; }
+
+    /// <summary>Soft-delete tombstone (schema v8): <c>null</c> = live.</summary>
+    public DateTimeOffset? DeletedAt { get; init; }
 }
 
 /// <summary>

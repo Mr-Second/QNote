@@ -23,7 +23,7 @@ public sealed class TodoMigrationTests
             new SchemaInitializer(factory).EnsureCreated();
 
             using var check = factory.OpenRead();
-            Assert.Equal(7, GetUserVersion(check));
+            Assert.Equal(8, GetUserVersion(check));
             Assert.True(TableExists(check, "todo_lists"), "todo_lists table missing");
             Assert.True(TableExists(check, "todo_tasks"), "todo_tasks table missing");
             Assert.True(TableExists(check, "idx_todo_tasks_list"), "todo list index missing");
@@ -71,7 +71,7 @@ public sealed class TodoMigrationTests
             new SchemaInitializer(factory).EnsureCreated();
 
             using var check = factory.OpenRead();
-            Assert.Equal(7, GetUserVersion(check));
+            Assert.Equal(8, GetUserVersion(check));
             Assert.True(ColumnExists(check, "todo_tasks", "CatchUpFiredAt"), "heal did not add CatchUpFiredAt");
             // List-options menu (2026-10-16): the three todo_lists columns heal
             // the same way — v7 is still unshipped, dev databases ride the ALTER.
@@ -115,7 +115,7 @@ public sealed class TodoMigrationTests
             new SchemaInitializer(factory).EnsureCreated();
 
             using var check = factory.OpenRead();
-            Assert.Equal(7, GetUserVersion(check));
+            Assert.Equal(8, GetUserVersion(check));
             Assert.Equal(SchemaInitializer.WorkListUuid, Scalar(check, "SELECT Uuid FROM todo_lists WHERE Name = '工作';"));
             // The task row relinked — no orphaned ListUuid.
             Assert.Equal(SchemaInitializer.WorkListUuid, Scalar(check, "SELECT ListUuid FROM todo_tasks WHERE Uuid = 'task-1';"));
@@ -168,7 +168,7 @@ public sealed class TodoMigrationTests
             new SchemaInitializer(factory).EnsureCreated();
 
             using var check = factory.OpenRead();
-            Assert.Equal(7, GetUserVersion(check));
+            Assert.Equal(8, GetUserVersion(check));
 
             // Notes untouched (byte-for-byte column contract, ISO timestamps intact).
             Assert.Equal("旧笔记", Scalar(check, "SELECT Title FROM notes WHERE Uuid = 'note-uuid-1';"));
@@ -221,7 +221,7 @@ public sealed class TodoMigrationTests
 
             using (var check = factory.OpenRead())
             {
-                Assert.Equal(7, GetUserVersion(check));
+                Assert.Equal(8, GetUserVersion(check));
                 Assert.Equal(2, SelectListNames(check).Count); // seeds not duplicated
                 Assert.Equal(listUuids, SelectListUuids(check).ToArray());
                 Assert.Equal(categoryUuids, SelectCategoryUuids(check));
@@ -247,7 +247,7 @@ public sealed class TodoMigrationTests
             new SchemaInitializer(factory).EnsureCreated();
 
             using var check = factory.OpenRead();
-            Assert.Equal(7, GetUserVersion(check));
+            Assert.Equal(8, GetUserVersion(check));
             Assert.True(ColumnExists(check, "categories", "Uuid"));
             Assert.True(TableExists(check, "todo_lists"));
             Assert.True(TableExists(check, "todo_tasks"));

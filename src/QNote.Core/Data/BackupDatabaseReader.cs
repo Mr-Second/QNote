@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Globalization;
 using Microsoft.Data.Sqlite;
 using QNote.Models;
@@ -10,6 +11,12 @@ namespace QNote.Data;
 /// analysis and per-note import. This is not the live store, so it deliberately does
 /// not go through <see cref="DbConnectionFactory"/> (which is bound to the live path)
 /// and never writes — the merge/overwrite logic lives in <c>BackupService</c>.
+/// Since schema v8 this reader accepts the v8 (or newer) shape ONLY, per the
+/// forward-only compatibility decision: notes/categories timestamps are INTEGER
+/// epoch-ms here, and a pre-v8 archive (TEXT ISO) is rejected loudly rather than
+/// type-probed. Overwrite restore still works for old archives (the DB file is
+/// swapped, then migrated forward by <c>SchemaInitializer</c>) — only the
+/// row-by-row merge path needs this reader.
 /// </summary>
 internal static class BackupDatabaseReader
 {
@@ -25,27 +32,28 @@ internal static class BackupDatabaseReader
         return Convert.ToInt64(cmd.ExecuteScalar() ?? 0L);
     }
 
-    /// <summary>Uuid → UpdatedAt for every note in the staged DB (conflict analysis).</summary>
+    /// <summary>Uuid → UpdatedAt for every LIVE note in the staged DB (conflict analysis).</summary>
     public static IReadOnlyDictionary<string, DateTimeOffset> ReadUuidMap(string dbPath)
     {
         using var conn = OpenReadOnly(dbPath);
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT Uuid, UpdatedAt FROM notes;";
+        cmd.CommandText = "SELECT Uuid, UpdatedAt FROM notes WHERE DeletedAt IS NULL;";
 
         var map = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
-            map[reader.GetString(0)] = ParseUtc(reader.GetString(1));
+            map[reader.GetString(0)] = ReadMs(reader, 1, "notes.UpdatedAt");
         return map;
     }
 
-    /// <summary>All notes as full records (incl. Content). Requires schema ≥ v2 (PlainText).</summary>
+    /// <summary>All LIVE notes as full records (incl. Content). Requires schema v8.</summary>
     public static List<Note> ReadNotes(string dbPath)
     {
         using var conn = OpenReadOnly(dbPath);
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "SELECT Id, Uuid, Title, Category, CreatedAt, UpdatedAt, PlainText, Content FROM notes ORDER BY Id;";
+            "SELECT Id, Uuid, Title, Category, CreatedAt, UpdatedAt, DeletedAt, PlainText, Content " +
+            "FROM notes WHERE DeletedAt IS NULL ORDER BY Id;";
 
         var list = new List<Note>();
         using var reader = cmd.ExecuteReader();
@@ -57,27 +65,26 @@ internal static class BackupDatabaseReader
                 Uuid = reader.GetString(1),
                 Title = reader.GetString(2),
                 Category = reader.GetString(3),
-                CreatedAt = ParseUtc(reader.GetString(4)),
-                UpdatedAt = ParseUtc(reader.GetString(5)),
-                PlainText = reader.GetString(6),
-                Content = reader.GetString(7),
+                CreatedAt = ReadMs(reader, 4, "notes.CreatedAt"),
+                UpdatedAt = ReadMs(reader, 5, "notes.UpdatedAt"),
+                PlainText = reader.GetString(7),
+                Content = reader.GetString(8),
             });
         }
         return list;
     }
 
-    /// <summary>All categories (v4+ shape; IconKey/Color tolerated as missing on older schemas).</summary>
+    /// <summary>All LIVE categories (v8 shape: timestamps + uuid are present).</summary>
     public static List<Category> ReadCategories(string dbPath)
     {
         using var conn = OpenReadOnly(dbPath);
         if (!TableExists(conn, "categories"))
             return [];
 
-        var hasColor = ColumnExists(conn, "categories", "Color");
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = hasColor
-            ? "SELECT Id, Name, IconKey, Color, SortOrder FROM categories ORDER BY SortOrder;"
-            : "SELECT Id, Name, IconKey, '' AS Color, SortOrder FROM categories ORDER BY SortOrder;";
+        cmd.CommandText =
+            "SELECT Id, Name, IconKey, Color, SortOrder, Uuid, CreatedAt, UpdatedAt " +
+            "FROM categories WHERE DeletedAt IS NULL ORDER BY SortOrder;";
 
         var list = new List<Category>();
         using var reader = cmd.ExecuteReader();
@@ -90,6 +97,9 @@ internal static class BackupDatabaseReader
                 IconKey = reader.GetString(2),
                 Color = reader.GetString(3),
                 SortOrder = reader.GetInt32(4),
+                Uuid = reader.GetString(5),
+                CreatedAt = ReadMs(reader, 6, "categories.CreatedAt"),
+                UpdatedAt = ReadMs(reader, 7, "categories.UpdatedAt"),
             });
         }
         return list;
@@ -143,9 +153,12 @@ internal static class BackupDatabaseReader
         // (same idiom as CatchUpFiredAt below).
         var hasOptions = ColumnExists(conn, "todo_lists", "SortMode");
         using var cmd = conn.CreateCommand();
+        // DeletedAt is NOT probed: it belongs to v8, which the caller already
+        // gates on (ValidateStaging rejects pre-v8 merge). The v7 option columns
+        // keep their probe — early v7 dev archives predate them.
         cmd.CommandText = "SELECT Id, Uuid, Name, Color, SortOrder, CreatedAt, UpdatedAt" +
             (hasOptions ? ", Theme, HideCompleted, SortMode " : " ") +
-            "FROM todo_lists ORDER BY SortOrder;";
+            "FROM todo_lists WHERE DeletedAt IS NULL ORDER BY SortOrder;";
 
         var list = new List<TodoList>();
         using var reader = cmd.ExecuteReader();
@@ -186,7 +199,7 @@ internal static class BackupDatabaseReader
         cmd.CommandText =
             "SELECT Id, Uuid, ListUuid, Title, Notes, DueAt, IsAllDay, ReminderOn, IsImportant, CompletedAt, " +
             (hasCatchUp ? "CatchUpFiredAt, " : "NULL AS CatchUpFiredAt, ") +
-            "CreatedAt, UpdatedAt FROM todo_tasks ORDER BY Id;";
+            "CreatedAt, UpdatedAt FROM todo_tasks WHERE DeletedAt IS NULL ORDER BY Id;";
 
         var list = new List<TodoTask>();
         using var reader = cmd.ExecuteReader();
@@ -226,7 +239,8 @@ internal static class BackupDatabaseReader
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "SELECT Id, Uuid, TaskId, Title, CompletedAt, SortOrder, CreatedAt, UpdatedAt FROM todo_steps ORDER BY Id;";
+            "SELECT Id, Uuid, TaskId, Title, CompletedAt, SortOrder, CreatedAt, UpdatedAt " +
+            "FROM todo_steps WHERE DeletedAt IS NULL ORDER BY Id;";
 
         var list = new List<TodoStep>();
         using var reader = cmd.ExecuteReader();
@@ -260,7 +274,8 @@ internal static class BackupDatabaseReader
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "SELECT Id, Uuid, TaskId, FileName, Sha, ByteSize, CreatedAt, UpdatedAt FROM todo_attachments ORDER BY Id;";
+            "SELECT Id, Uuid, TaskId, FileName, Sha, ByteSize, CreatedAt, UpdatedAt " +
+            "FROM todo_attachments WHERE DeletedAt IS NULL ORDER BY Id;";
 
         var list = new List<TodoAttachment>();
         using var reader = cmd.ExecuteReader();
@@ -318,7 +333,19 @@ internal static class BackupDatabaseReader
     private static DateTimeOffset ParseUtc(string value) =>
         DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, UtcStyles);
 
-    /// <summary>Todo-domain timestamps are millisecond-epoch integers (schema v7 sync contract).</summary>
-    private static DateTimeOffset FromDbMs(long ms) =>
-        DateTimeOffset.FromUnixTimeMilliseconds(ms);
+/// <summary>
+/// Every synced timestamp is a millisecond-epoch integer since v8 (notes,
+/// categories AND the todo domain) — one shape, no type probe.
+/// A TEXT value here means a pre-v8 archive slipped past the version gate; that
+/// is reported as "version too old" rather than being coerced (decision 9).
+/// </summary>
+private static DateTimeOffset FromDbMs(long ms) =>
+    DateTimeOffset.FromUnixTimeMilliseconds(ms);
+
+private static DateTimeOffset ReadMs(DbDataReader reader, int ordinal, string column) =>
+    reader.GetFieldType(ordinal) == typeof(long)
+        ? FromDbMs(reader.GetInt64(ordinal))
+        : throw new InvalidOperationException(
+            $"Backup column '{column}' holds a non-integer timestamp ({reader.GetFieldType(ordinal).Name}); " +
+            "the archive predates schema v8 and cannot be merged — use overwrite restore instead.");
 }

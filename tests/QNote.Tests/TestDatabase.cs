@@ -57,7 +57,7 @@ internal sealed class TestDatabase : IDisposable
     public ImageService NewImageService() => new(Paths, NullLogger<ImageService>.Instance);
 
     public CategoryService NewCategoryService() =>
-        new(NewRepository(), NewImageService(), NullLogger<CategoryService>.Instance);
+        new(NewRepository(), NullLogger<CategoryService>.Instance);
 
     public NoteService NewNoteService() =>
         new(NewRepository(), NewImageService(), NullLogger<NoteService>.Instance);

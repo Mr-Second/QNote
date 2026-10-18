@@ -137,8 +137,11 @@ public sealed class NoteImageRepositoryTests
 
         await noteService.DeleteAsync(note.Id);
 
-        Assert.Empty(await db.NewRepository().GetNoteImagesAsync(note.Id));
-        Assert.False(File.Exists(imported.OriginalPath), "orphaned original should be pruned");
+        // Soft delete (v8): the note is invisible, but its image rows and the
+        // original bytes stay — the tombstone owns them until an explicit purge.
+        Assert.Null(await noteService.GetByIdAsync(note.Id));
+        Assert.Single(await db.NewRepository().GetNoteImagesAsync(note.Id));
+        Assert.True(File.Exists(imported.OriginalPath), "a soft delete must not prune originals");
     }
 
     [Fact]
@@ -269,6 +272,38 @@ public sealed class NoteImageRepositoryTests
 
         var hit = Assert.Single(map);
         Assert.Equal(ShaA, hit.Value);
+    }
+
+    [Fact]
+    public async Task FindOriginalShaByDisplayHash_NeverAdoptsFromATombstonedNote()
+    {
+        using var db = new TestDatabase();
+        var repo = db.NewRepository();
+        var source = await repo.CreateAsync(NewNote());
+        var display = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 8, 8 };
+        await repo.AddNoteImagesAsync(source.Id, [Image(source.Id, ShaA) with { DisplayBytes = display }]);
+
+        await repo.DeleteAsync(source.Id);
+
+        // A tombstone's row still exists (soft delete keeps it for undo / a peer),
+        // but it is not an address a live note may adopt: a purge deletes those bytes.
+        Assert.Empty(await repo.FindOriginalShaByDisplayHashAsync([Sha256Hex(display)]));
+    }
+
+    [Fact]
+    public async Task FindOriginalShaByDisplayHash_IgnoresNonDigestInput()
+    {
+        using var db = new TestDatabase();
+        var repo = db.NewRepository();
+        var note = await repo.CreateAsync(NewNote());
+        var display = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 9 };
+        await repo.AddNoteImagesAsync(note.Id, [Image(note.Id, ShaA) with { DisplayBytes = display }]);
+
+        // Only a 64-hex digest may reach the filesystem (database-guidelines: the
+        // sha gate on any caller-supplied value). Garbage is dropped, not matched.
+        Assert.Empty(await repo.FindOriginalShaByDisplayHashAsync(["../etc/passwd", "abc"]));
+        Assert.Single(await repo.FindOriginalShaByDisplayHashAsync(
+            ["../etc/passwd", Sha256Hex(display)]));
     }
 
     [Fact]

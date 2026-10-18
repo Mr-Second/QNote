@@ -631,10 +631,93 @@ public sealed class TodoRepositoryTests
 
         var shas = await repo.DeleteTaskAsync(task.Id);
 
-        Assert.Equal([sha], shas); // only the deleted task's sha goes for GC
+        // Soft delete (v8): the tombstones still own their bytes, so NOTHING may be
+        // handed to the file GC — a hard prune here would make the delete undoable.
+        Assert.Empty(shas);
         Assert.Empty(await repo.GetStepsAsync(task.Id));
         Assert.Empty(await repo.GetAttachmentsAsync(task.Id));
         Assert.Single(await repo.GetAttachmentsAsync(kept.Id));
+        Assert.Equal(1, await repo.CountAttachmentRefsAsync(keptSha));
+
+        // The rows survive as tombstones so the deletion can propagate to a peer.
+        await using var conn = db.Factory.OpenRead();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT COUNT(*) FROM todo_attachments WHERE Uuid = 'att-1' AND DeletedAt IS NOT NULL;";
+        Assert.Equal(1L, (long)(await cmd.ExecuteScalarAsync())!);
+    }
+
+    [Fact]
+    public async Task DeleteListAsync_TombstonesPreTombstonedTasksChildrenToo()
+    {
+        using var db = new TestDatabase();
+        var repo = db.NewTodoRepository();
+        var list = await repo.CreateListAsync(new TodoList
+        {
+            Uuid = "list-cascade", Name = "级联", CreatedAt = Now, UpdatedAt = Now,
+        });
+        var dead = await repo.CreateTaskAsync(NewTask(list.Uuid, "早就删掉的任务"));
+        var live = await repo.CreateTaskAsync(NewTask(list.Uuid, "还活着的任务"));
+        await repo.CreateStepAsync(Step(live.Id, "s-live", "活的步骤"));
+
+        // Order matters: a task tombstone first, THEN the list. Addressing the
+        // cascade by the list's LIVE task ids would leave the dead task's live
+        // step/attachment behind — a child of a tombstoned parent.
+        await repo.DeleteTaskAsync(dead.Id);
+        await using (var conn = db.Factory.OpenWrite())
+        await using (var cmd = conn.CreateCommand())
+        {
+            // Re-create a live child under the tombstoned task directly: that is
+            // the state a soft-delete-only task leaves when an earlier build ran.
+            cmd.CommandText =
+                "INSERT INTO todo_steps (Uuid, TaskId, TaskUuid, Title, CreatedAt, UpdatedAt) " +
+                "SELECT 's-orphan', $id, Uuid, '孤儿步骤', 1, 1 FROM todo_tasks WHERE Id = $id;";
+            cmd.Parameters.AddWithValue("$id", dead.Id);
+            cmd.ExecuteNonQuery();
+        }
+
+        var (taskUuids, shas) = await repo.DeleteListAsync(list.Id);
+
+        Assert.Empty(shas);
+        Assert.Contains(dead.Uuid, taskUuids);
+        Assert.Contains(live.Uuid, taskUuids);
+        Assert.DoesNotContain(await repo.GetListsAsync(), l => l.Id == list.Id);
+
+        await using var check = db.Factory.OpenRead();
+        await using var count = check.CreateCommand();
+        count.CommandText = "SELECT COUNT(*) FROM todo_steps WHERE DeletedAt IS NULL;";
+        Assert.Equal(0L, (long)(await count.ExecuteScalarAsync())!);
+    }
+
+    [Fact]
+    public async Task CreateStepAndAttachment_RefuseWhenTheParentTaskIsGone()
+    {
+        using var db = new TestDatabase();
+        var repo = db.NewTodoRepository();
+
+        // No such task: a child row carrying an empty TaskUuid is unusable to sync.
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => repo.CreateStepAsync(Step(424242, "s-nowhere", "无父步骤")));
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => repo.CreateAttachmentAsync(new TodoAttachment
+            {
+                Uuid = "att-nowhere", TaskId = 424242, FileName = "x.bin",
+                Sha = new string('d', 64), ByteSize = 1, CreatedAt = Now, UpdatedAt = Now,
+            }));
+    }
+
+    [Fact]
+    public async Task CreateStepAsync_StampsTheParentsUuid()
+    {
+        using var db = new TestDatabase();
+        var repo = db.NewTodoRepository();
+        var work = await GetWorkListAsync(db);
+        var task = await repo.CreateTaskAsync(NewTask(work.Uuid, "父任务"));
+
+        var step = await repo.CreateStepAsync(Step(task.Id, "s-uuid", "步骤"));
+
+        Assert.Equal(task.Uuid, step.TaskUuid);
+        Assert.Equal(task.Uuid, Assert.Single(await repo.GetStepsAsync(task.Id)).TaskUuid);
     }
 
     private static TodoStep Step(long taskId, string uuid, string title)

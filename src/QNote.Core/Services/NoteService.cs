@@ -62,9 +62,11 @@ public sealed class NoteService : INoteService
 
     public async Task DeleteAsync(long id, CancellationToken ct = default)
     {
-        var orphans = await _repo.DeleteAsync(id, ct);
-        await _images.DeleteOriginalsAsync(orphans, ct);
-        _log.LogInformation("Deleted note {Id} (pruned {Orphans} orphaned original image(s))", id, orphans.Count);
+        // Soft delete (schema v8): the row becomes a tombstone and its images stay
+        // on disk. No orphan prune here — the tombstone still holds the references,
+        // and the note must stay restorable until the tombstone is purged.
+        await _repo.DeleteAsync(id, ct);
+        _log.LogInformation("Soft-deleted note {Id}", id);
     }
 
     public Task AddNoteImagesAsync(long noteId, IReadOnlyList<NoteImage> images, CancellationToken ct = default) =>

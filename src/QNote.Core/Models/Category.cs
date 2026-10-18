@@ -20,4 +20,13 @@ public sealed record Category
     /// pre-v7 rows were backfilled by the migration. Identity — never rewritten.
     /// </summary>
     public string Uuid { get; init; } = string.Empty;
+
+    /// <summary>Creation instant (schema v8, epoch-ms in storage).</summary>
+    public DateTimeOffset CreatedAt { get; init; }
+
+    /// <summary>Last mutation instant (schema v8) — the LWW key for a category row.</summary>
+    public DateTimeOffset UpdatedAt { get; init; }
+
+    /// <summary>Soft-delete tombstone (schema v8): <c>null</c> = live.</summary>
+    public DateTimeOffset? DeletedAt { get; init; }
 }

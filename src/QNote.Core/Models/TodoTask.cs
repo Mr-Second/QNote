@@ -57,4 +57,7 @@ public sealed record TodoTask
     public DateTimeOffset CreatedAt { get; init; }
 
     public DateTimeOffset UpdatedAt { get; init; }
+
+    /// <summary>Soft-delete tombstone (schema v8): <c>null</c> = live.</summary>
+    public DateTimeOffset? DeletedAt { get; init; }
 }

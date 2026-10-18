@@ -58,8 +58,13 @@ public sealed class BackupService : IBackupService
     /// </summary>
     private const int AutoBackupRetention = 5;
 
-    /// <summary>Oldest backup schema the merge path can read per-note (v2 introduced PlainText).</summary>
-    private const long MinMergeableSchema = 2;
+    /// <summary>
+    /// Oldest backup schema the merge path can read per-note. v8 is the floor:
+    /// the merge reader is v8-only by decision (no type probes for pre-v8 TEXT
+    /// timestamps or the missing DeletedAt column). Overwrite restore is NOT gated
+    /// here — it swaps the file and migrates it forward.
+    /// </summary>
+    private const long MinMergeableSchema = 8;
 
     private readonly AppPaths _paths;
     private readonly DbConnectionFactory _factory;
@@ -477,6 +482,9 @@ public sealed class BackupService : IBackupService
                         Name = category.Name,
                         IconKey = category.IconKey,
                         Color = category.Color,
+                        Uuid = category.Uuid,
+                        CreatedAt = category.CreatedAt,
+                        UpdatedAt = category.UpdatedAt,
                     }, ct);
                 }
             }
@@ -494,7 +502,11 @@ public sealed class BackupService : IBackupService
                     // Merge keeps the newer UpdatedAt; import-new skips conflicts outright.
                     if (mode == RestoreMode.Merge && note.UpdatedAt > existing.UpdatedAt)
                     {
-                        await _notes.UpdateAsync(note with { Id = existing.Id }, ct);
+                        // ImportNoteAsync, not UpdateAsync: a merge must land the
+                        // archived row as-is (uuid + both timestamps), and it is the
+                        // only writer that can CLEAR a tombstone — which is exactly
+                        // what restoring a note this device deleted has to do.
+                        await _notes.ImportNoteAsync(note with { Id = existing.Id }, ct);
                         await RestoreNoteImagesAsync(staging, existing.Id, ImagesOf(backupImages, note.Id), ct);
                         updated++;
                     }
@@ -505,7 +517,7 @@ public sealed class BackupService : IBackupService
                 }
                 else
                 {
-                    var created = await _notes.CreateAsync(note, ct);
+                    var created = await _notes.ImportNoteAsync(note, ct);
                     await RestoreNoteImagesAsync(staging, created.Id, ImagesOf(backupImages, note.Id), ct);
                     imported++;
                 }
@@ -990,8 +1002,13 @@ public sealed class BackupService : IBackupService
         }
         if (requireMergeable && effective < MinMergeableSchema)
         {
+            // Decision 9 (forward-only compatibility): a pre-v8 archive stores
+            // notes/categories timestamps as TEXT ISO and has no DeletedAt. The
+            // row-by-row merge reader is v8-only, so this fails LOUDLY instead of
+            // silently coercing types. Overwrite restore still works: it replaces
+            // the DB file wholesale and SchemaInitializer migrates it forward.
             throw new BackupException(BackupErrorKind.UnsupportedVersion,
-                $"The backup's database schema (v{effective}) is too old to merge note-by-note; use overwrite restore instead.",
+                $"The backup's database schema (v{effective}) is too old to merge note-by-note (this build merges v{MinMergeableSchema}+); use overwrite restore instead, or export a fresh backup with this version.",
                 schemaFound: (int)effective,
                 schemaSupported: (int)SchemaInitializer.CurrentVersion);
         }

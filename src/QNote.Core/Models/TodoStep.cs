@@ -16,6 +16,13 @@ public sealed record TodoStep
     /// <summary>Owning task id (todo_tasks.Id; no FK by schema convention).</summary>
     public long TaskId { get; init; }
 
+    /// <summary>
+    /// Cross-device parent key (schema v8): the parent task's <see cref="TodoTask.Uuid"/>.
+    /// <see cref="TaskId"/> stays authoritative locally; TaskUuid is what a synced
+    /// row carries, because a peer's local id means nothing here.
+    /// </summary>
+    public string TaskUuid { get; init; } = string.Empty;
+
     public string Title { get; init; } = string.Empty;
 
     /// <summary>Completion instant; <c>null</c> = unchecked.</summary>
@@ -27,4 +34,7 @@ public sealed record TodoStep
     public DateTimeOffset CreatedAt { get; init; }
 
     public DateTimeOffset UpdatedAt { get; init; }
+
+    /// <summary>Soft-delete tombstone (schema v8): <c>null</c> = live.</summary>
+    public DateTimeOffset? DeletedAt { get; init; }
 }

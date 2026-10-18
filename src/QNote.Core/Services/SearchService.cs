@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
@@ -57,7 +56,7 @@ public sealed class SearchService : ISearchService
         cmd.CommandText =
             "SELECT n.Id, n.Uuid, n.Title, substr(n.PlainText, 1, $len) AS Preview, n.Category, n.CreatedAt, n.UpdatedAt " +
             "FROM notes_fts f JOIN notes n ON n.Id = f.rowid " +
-            "WHERE notes_fts MATCH $q" + (hasCategory ? " AND n.Category = $cat" : "") + " " +
+            "WHERE notes_fts MATCH $q AND n.DeletedAt IS NULL" + (hasCategory ? " AND n.Category = $cat" : "") + " " +
             $"ORDER BY {orderBy};";
         cmd.Parameters.AddWithValue("$q", ftsQuery);
         cmd.Parameters.AddWithValue("$len", ListPreviewLength);
@@ -75,8 +74,8 @@ public sealed class SearchService : ISearchService
                 Title = reader.GetString(2),
                 Preview = reader.GetString(3),
                 Category = reader.GetString(4),
-                CreatedAt = ParseUtc(reader.GetString(5)),
-                UpdatedAt = ParseUtc(reader.GetString(6)),
+                CreatedAt = FromDbMs(reader.GetInt64(5)),
+                UpdatedAt = FromDbMs(reader.GetInt64(6)),
             });
         }
 
@@ -145,8 +144,11 @@ public sealed class SearchService : ISearchService
         await using (var conn = _factory.OpenRead())
         await using (var cmd = conn.CreateCommand())
         {
+            // Both sides count LIVE notes only: a tombstone has no FTS row by
+            // contract (DeleteAsync/ImportNoteAsync drop it), so counting them on
+            // the notes side would report a permanent mismatch and rebuild forever.
             cmd.CommandText =
-                "SELECT (SELECT COUNT(*) FROM notes), (SELECT COUNT(*) FROM notes_fts);";
+                "SELECT (SELECT COUNT(*) FROM notes WHERE DeletedAt IS NULL), (SELECT COUNT(*) FROM notes_fts);";
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             await reader.ReadAsync(ct);
             noteCount = reader.GetInt64(0);
@@ -185,7 +187,6 @@ public sealed class SearchService : ISearchService
         return sb.ToString();
     }
 
-    private static DateTimeOffset ParseUtc(string value) =>
-        DateTimeOffset.Parse(value, CultureInfo.InvariantCulture,
-            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
+    private static DateTimeOffset FromDbMs(long ms) =>
+        DateTimeOffset.FromUnixTimeMilliseconds(ms);
 }

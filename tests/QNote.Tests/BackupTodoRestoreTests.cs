@@ -247,7 +247,7 @@ public sealed class BackupTodoRestoreTests
         // The post-swap migration brings the v6 file forward to the current
         // schema: todo tables exist again, seeded lists restored, no user tasks —
         // the pre-v7 local todo domain was swapped out with the file.
-        Assert.Equal(7, target.UserVersion());
+        Assert.Equal(SchemaInitializer.CurrentVersion, target.UserVersion());
         var lists = await target.TodoRepo.GetListsAsync();
         Assert.Equal(2, lists.Count);
         Assert.Equal(["工作", "生活"], lists.Select(l => l.Name).OrderBy(n => n, StringComparer.Ordinal));

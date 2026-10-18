@@ -6,7 +6,9 @@ namespace QNote.Data;
 /// Persistence for notes and categories over the single <c>qnote.db</c>. The
 /// repository maintains the <c>notes_fts</c> FTS5 shadow inside the same write
 /// transaction as the notes mutation, so the table and its index stay consistent
-/// without a separate indexing service (parity-map §6).
+/// without a separate indexing service (parity-map §6). Since schema v8 every read
+/// path excludes soft-deleted rows (<c>DeletedAt</c> set) and every delete is a
+/// tombstone write; timestamps are millisecond-epoch integers in storage.
 /// Services depend on this interface, never on raw connections.
 /// </summary>
 public interface INoteRepository
@@ -33,11 +35,26 @@ public interface INoteRepository
     Task UpdateAsync(Note note, CancellationToken ct = default);
 
     /// <summary>
-    /// Deletes a note by id (no-op if it does not exist). Returns the content addresses
-    /// (<c>note_images.sha256</c>) that are no longer referenced by ANY note after the
-    /// delete — the caller prunes those original files from disk.
+    /// Soft-deletes a note by id (no-op if it does not exist): stamps
+    /// <c>DeletedAt</c> AND <c>UpdatedAt</c> with one instant (so a peer's LWW can
+    /// never treat the deletion as stale and resurrect the row) and drops the FTS
+    /// shadow row. The row itself stays until a tombstone purge.
+    /// Performs NO image GC: the originals stay on disk while the tombstone exists.
+    /// Returns an empty list (the return type is kept for the hard-delete variants).
     /// </summary>
     Task<IReadOnlyList<string>> DeleteAsync(long id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Sync import primitive (schema v8): upserts a FULL note row keyed by
+    /// <see cref="Note.Uuid"/>, preserving every timestamp — including
+    /// <see cref="Note.DeletedAt"/> — exactly as supplied, in ONE transaction, and
+    /// keeps <c>notes_fts</c> in step (indexed when live, removed when a tombstone).
+    /// The local <see cref="Note.Id"/> is preserved on conflict.
+    /// Unlike <see cref="CreateAsync"/>/<see cref="UpdateAsync"/>, which exist for
+    /// local editing and re-stamp identity and time, this is the writer for
+    /// replicated rows: re-applying the same input is idempotent.
+    /// </summary>
+    Task<Note> ImportNoteAsync(Note note, CancellationToken ct = default);
 
     /// <summary>
     /// Full index projection of every note (Id, Title, PlainText) for an FTS full
@@ -70,13 +87,14 @@ public interface INoteRepository
     Task UpdateCategoryAsync(Category category, CancellationToken ct = default);
 
     /// <summary>
-    /// Deletes a category AND all its notes (Qt parity: destructive, caller confirms
-    /// first) plus their FTS shadow rows — all inside one transaction. Returns the
-    /// content addresses no longer referenced by any note (for original-file pruning).
+    /// Soft-deletes a category and every live note under it (Qt parity: destructive,
+    /// caller confirms first) — all tombstones share one instant — and drops the
+    /// affected FTS shadow rows, in one transaction. Performs no image GC (see
+    /// <see cref="DeleteAsync"/>); returns an empty list.
     /// </summary>
     Task<IReadOnlyList<string>> DeleteCategoryAsync(long id, CancellationToken ct = default);
 
-    /// <summary>Persists a new ordering: <paramref name="orderedIds"/> index → SortOrder.</summary>
+    /// <summary>Persists a new ordering: <paramref name="orderedIds"/> index → SortOrder (bumps UpdatedAt).</summary>
     Task ReorderCategoriesAsync(IReadOnlyList<long> orderedIds, CancellationToken ct = default);
 
     /// <summary>Note count per category name (<c>GROUP BY Category</c>; uncategorized notes sit under <c>""</c>).</summary>

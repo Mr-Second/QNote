@@ -87,10 +87,13 @@ public sealed class TodoService : ITodoService
 
     public async Task DeleteListAsync(long id, CancellationToken ct = default)
     {
-        var (taskUuids, attachmentShas) = await _repo.DeleteListAsync(id, ct);
+        // Soft delete (schema v8): the repository cascades tombstones and returns
+        // NO attachment shas on purpose — the bytes are still referenced by the
+        // tombstones, so running the file-GC here would destroy data that a purge-
+        // free undo (or a peer still holding the rows live) still needs.
+        var (taskUuids, _) = await _repo.DeleteListAsync(id, ct);
         await CancelRemindersAsync(taskUuids, ct);
-        await DeleteOrphanFilesAsync(attachmentShas, ct);
-        _log.LogInformation("Deleted todo list {Id} ({Count} tasks cascaded)", id, taskUuids.Count);
+        _log.LogInformation("Soft-deleted todo list {Id} ({Count} tasks tombstoned)", id, taskUuids.Count);
     }
 
     public async Task<TodoTask> CreateTaskAsync(string listUuid, string title, CancellationToken ct = default)
@@ -138,15 +141,15 @@ public sealed class TodoService : ITodoService
 
     public async Task DeleteTaskAsync(long id, CancellationToken ct = default)
     {
-        // Read before delete: the reminder cancel keys on the uuid, which the
-        // delete itself does not return. The delete returns the attachment shas
-        // so store files that lost their last reference go too.
+        // Read before the delete: the reminder cancel keys on the uuid, which the
+        // delete itself does not return. The delete returns NO shas (soft delete —
+        // the tombstones keep their byte references), so this path deliberately
+        // skips DeleteOrphanFilesAsync.
         var task = await _repo.GetTaskByIdAsync(id, ct);
-        var shas = await _repo.DeleteTaskAsync(id, ct);
+        await _repo.DeleteTaskAsync(id, ct);
         if (task is not null)
             await CancelReminderAsync(task.Uuid, ct);
-        await DeleteOrphanFilesAsync(shas, ct);
-        _log.LogInformation("Deleted todo task {Id}", id);
+        _log.LogInformation("Soft-deleted todo task {Id}", id);
     }
 
     public async Task<TodoTask?> CompleteTaskAsync(long id, CancellationToken ct = default)
@@ -347,22 +350,12 @@ public sealed class TodoService : ITodoService
     public async Task<(TodoAttachment? Removed, int RemainingRefs)> DeleteAttachmentAsync(
         long attachmentId, CancellationToken ct = default)
     {
-        var (removed, remaining) = await _repo.DeleteAttachmentAsync(attachmentId, ct);
-        if (removed is not null && remaining == 0 && _attachments is not null)
-            await _attachments.TryDeleteAsync(removed.Sha, ct);
-        return (removed, remaining);
-    }
-
-    /// <summary>Deletes store files whose sha lost its last DB reference (task/list deletion path).</summary>
-    private async Task DeleteOrphanFilesAsync(IReadOnlyList<string> shas, CancellationToken ct)
-    {
-        if (_attachments is null)
-            return;
-        foreach (var sha in shas.Distinct(StringComparer.Ordinal))
-        {
-            if (await _repo.CountAttachmentRefsAsync(sha, ct) == 0)
-                await _attachments.TryDeleteAsync(sha, ct);
-        }
+        // Soft delete (schema v8): the row becomes a tombstone, and the store file
+        // MUST stay — the tombstone still references it, and deleting the bytes
+        // would make the soft delete irreversible. File reclamation belongs to the
+        // explicit tombstone-purge path, never to a user-facing delete.
+        // RemainingRefs counts LIVE rows only, so it is diagnostics, not a GC signal.
+        return await _repo.DeleteAttachmentAsync(attachmentId, ct);
     }
 
     public Task<IReadOnlyList<TodoTaskSummary>> GetTodayAsync(

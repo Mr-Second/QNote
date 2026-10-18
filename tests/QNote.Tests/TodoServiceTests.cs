@@ -486,7 +486,7 @@ public sealed class TodoServiceTests
     }
 
     [Fact]
-    public async Task DeleteAttachmentAsync_LastReference_DeletesTheFile_SharedKeepsIt()
+    public async Task DeleteAttachmentAsync_KeepsTheFile_EvenOnTheLastReference()
     {
         using var db = new TestDatabase();
         var svc = db.NewTodoServiceWithAttachments(() => Now);
@@ -500,15 +500,16 @@ public sealed class TodoServiceTests
 
         var (removed, remaining) = await svc.DeleteAttachmentAsync(first.Id);
         Assert.Equal("一.bin", removed!.FileName);
-        Assert.Equal(1, remaining);
-        Assert.True(File.Exists(file)); // the second row still holds the bytes alive
+        Assert.Equal(1, remaining); // live references only — the tombstone is not counted
+        Assert.True(File.Exists(file));
 
-        await svc.DeleteAttachmentAsync(second.Id);
-        Assert.False(File.Exists(file)); // last reference gone → the file goes too
+        (_, remaining) = await svc.DeleteAttachmentAsync(second.Id);
+        Assert.Equal(0, remaining); // no live reference left…
+        Assert.True(File.Exists(file)); // …but the tombstones still own the bytes
     }
 
     [Fact]
-    public async Task DeleteTaskAsync_GCsOrphanedAttachmentFiles()
+    public async Task DeleteTaskAsync_KeepsAttachmentFiles_BecauseTheTombstoneStillOwnsThem()
     {
         using var db = new TestDatabase();
         var svc = db.NewTodoServiceWithAttachments(() => Now);
@@ -522,8 +523,11 @@ public sealed class TodoServiceTests
 
         await svc.DeleteTaskAsync(task.Id);
 
-        Assert.False(File.Exists(Path.Combine(db.Paths.AttachmentsDir, orphan.Sha))); // orphaned → GC'd
-        Assert.True(File.Exists(Path.Combine(db.Paths.AttachmentsDir, shared.Sha)));  // still referenced
+        // Soft delete (v8): every byte stays on disk. The tombstoned rows still
+        // reference them, and a peer may still hold the task live — pruning here
+        // would make the delete irreversible.
+        Assert.True(File.Exists(Path.Combine(db.Paths.AttachmentsDir, orphan.Sha)));
+        Assert.True(File.Exists(Path.Combine(db.Paths.AttachmentsDir, shared.Sha)));
         Assert.Null(await svc.GetTaskAsync(task.Id));
     }
 }
