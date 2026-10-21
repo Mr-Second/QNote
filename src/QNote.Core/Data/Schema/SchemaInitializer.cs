@@ -26,6 +26,21 @@ public sealed class SchemaInitializer
     /// <summary>Well-known uuid of the seeded 生活 list (see <see cref="WorkListUuid"/>).</summary>
     public const string LifeListUuid = "00000000000000000000000000000002";
 
+    /// <summary>
+    /// Well-known uuid of the seeded 工作 category (user ruling 2026-10-21, task
+    /// 10-06): the built-in categories must carry STABLE cross-device identities
+    /// exactly like the built-in lists — the v7/v8 random backfill would make two
+    /// peers sync the seeded categories as distinct entries (工作×2 on every peer).
+    /// Same 32-hex reserved shape as the list uuids, different block.
+    /// </summary>
+    public const string WorkCategoryUuid = "00000000000000000000000000010001";
+
+    /// <summary>Well-known uuid of the seeded 生活 category (see <see cref="WorkCategoryUuid"/>).</summary>
+    public const string LifeCategoryUuid = "00000000000000000000000000010002";
+
+    /// <summary>Well-known uuid of the seeded 重要 category (see <see cref="WorkCategoryUuid"/>).</summary>
+    public const string ImportantCategoryUuid = "00000000000000000000000000010003";
+
     private static readonly DateTimeStyles UtcStyles =
         DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal;
 
@@ -82,6 +97,13 @@ public sealed class SchemaInitializer
         // builtin stays deleted (the name lookup finds nothing to rewrite); a
         // user-RENAMED one degrades to ordinary user data and is left alone.
         NormalizeBuiltinListIdentity(conn);
+
+        // Built-in CATEGORY identity heal (task 10-06, user ruling 2026-10-21):
+        // dev databases already stamped v8 carry RANDOM uuids on the seeded
+        // categories (the v8 fix below post-dates them). Same launch-time
+        // guarded-probe pattern as the list heal; notes link categories by NAME,
+        // so nothing needs relinking.
+        NormalizeBuiltinCategoryUuids(conn, null);
 
         // Stage ⑤ heal (task 10-04): steps / attachments / RecurrenceRule joined
         // the still-UNCOMMITTED v7 shape — same guarded-probe pattern. Databases
@@ -637,6 +659,12 @@ public sealed class SchemaInitializer
         // that has a real one, which is the correct outcome for "unknown".
         Execute(conn, tx, "UPDATE categories SET Uuid = lower(hex(randomblob(16))) WHERE Uuid = '';");
 
+        // The built-ins get STABLE well-known uuids (user ruling 2026-10-21): the
+        // random ids the backfill just wrote would duplicate them on every synced
+        // peer. Notes link categories by NAME, so no relink is needed — the rows
+        // are re-uuid'd in place, before the unique index below takes hold.
+        NormalizeBuiltinCategoryUuids(conn, tx);
+
         // v7 could only enforce uuid uniqueness by writer discipline (SQLite cannot
         // ADD COLUMN ... UNIQUE). The index is creatable now, so identity becomes a
         // DB-level guarantee before any sync code trusts it.
@@ -767,6 +795,40 @@ public sealed class SchemaInitializer
             rewrite.ExecuteNonQuery();
         }
         tx.Commit();
+    }
+
+    /// <summary>
+    /// Adopts the well-known builtin-CATEGORY identity for databases whose seeded
+    /// categories carry random uuids (pre-ruling v8 dev databases). The OLDEST row
+    /// with the exact builtin name is the seed (user-created same-name rows stay
+    /// ordinary data); a user-RENAMED builtin degrades to ordinary user data; a
+    /// user-DELETED one has nothing to rewrite. Notes link categories by NAME, so
+    /// no relink is needed. No-op when the table/column do not exist yet.
+    /// </summary>
+    private static void NormalizeBuiltinCategoryUuids(SqliteConnection conn, SqliteTransaction? tx)
+    {
+        if (!TableExists(conn, "categories") || !ColumnExists(conn, "categories", "Uuid"))
+            return;
+
+        NormalizeBuiltinCategory(conn, tx, "工作", WorkCategoryUuid);
+        NormalizeBuiltinCategory(conn, tx, "生活", LifeCategoryUuid);
+        NormalizeBuiltinCategory(conn, tx, "重要", ImportantCategoryUuid);
+    }
+
+    private static void NormalizeBuiltinCategory(
+        SqliteConnection conn, SqliteTransaction? tx, string name, string wellKnownUuid)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        // Only the OLDEST exact-name row adopts the identity: the seed guards make
+        // duplicates essentially impossible, but a user-created same-name category
+        // must never collide with the reserved uuid under the unique index.
+        cmd.CommandText =
+            "UPDATE categories SET Uuid = $fixed WHERE Id = (" +
+            "SELECT Id FROM categories WHERE Name = $name AND Uuid <> $fixed ORDER BY Id LIMIT 1);";
+        cmd.Parameters.AddWithValue("$fixed", wellKnownUuid);
+        cmd.Parameters.AddWithValue("$name", name);
+        cmd.ExecuteNonQuery();
     }
 
     private static bool ColumnExists(SqliteConnection conn, string table, string column)

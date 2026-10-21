@@ -59,6 +59,95 @@ public sealed class SyncSchemaMigrationTests
         }
     }
 
+    // ---------- 1b. built-in category identity (task 10-06, user ruling 2026-10-21) ----------
+
+    [Fact]
+    public void FreshDb_BuiltinCategories_CarryStableWellKnownUuids()
+    {
+        var dbPath = NewDbPath();
+        try
+        {
+            var factory = new DbConnectionFactory(dbPath, pooling: false);
+            new SchemaInitializer(factory).EnsureCreated();
+
+            using var conn = factory.OpenRead();
+            Assert.Equal(SchemaInitializer.WorkCategoryUuid, CategoryUuidByName(conn, "工作"));
+            Assert.Equal(SchemaInitializer.LifeCategoryUuid, CategoryUuidByName(conn, "生活"));
+            Assert.Equal(SchemaInitializer.ImportantCategoryUuid, CategoryUuidByName(conn, "重要"));
+        }
+        finally
+        {
+            Cleanup(dbPath);
+        }
+    }
+
+    [Fact]
+    public void V8Db_WithRandomBuiltinCategoryUuids_IsHealedOnNextLaunch()
+    {
+        // Simulates a pre-ruling v8 dev database: the seeded names carry random uuids.
+        var dbPath = NewDbPath();
+        try
+        {
+            var factory = new DbConnectionFactory(dbPath, pooling: false);
+            new SchemaInitializer(factory).EnsureCreated();
+            using (var conn = factory.OpenWrite())
+            using (var scramble = conn.CreateCommand())
+            {
+                scramble.CommandText =
+                    "UPDATE categories SET Uuid = lower(hex(randomblob(16))) WHERE Name IN ('工作','生活','重要');";
+                scramble.ExecuteNonQuery();
+            }
+
+            // The launch-time heal re-adopts the stable identity — and is idempotent.
+            new SchemaInitializer(factory).EnsureCreated();
+            new SchemaInitializer(factory).EnsureCreated();
+
+            using var check = factory.OpenRead();
+            Assert.Equal(SchemaInitializer.WorkCategoryUuid, CategoryUuidByName(check, "工作"));
+            Assert.Equal(SchemaInitializer.LifeCategoryUuid, CategoryUuidByName(check, "生活"));
+            Assert.Equal(SchemaInitializer.ImportantCategoryUuid, CategoryUuidByName(check, "重要"));
+        }
+        finally
+        {
+            Cleanup(dbPath);
+        }
+    }
+
+    [Fact]
+    public void RenamedBuiltinCategory_KeepsItsOwnUuid()
+    {
+        var dbPath = NewDbPath();
+        try
+        {
+            var factory = new DbConnectionFactory(dbPath, pooling: false);
+            new SchemaInitializer(factory).EnsureCreated();
+
+            string renamedUuid;
+            using (var conn = factory.OpenWrite())
+            using (var rename = conn.CreateCommand())
+            {
+                // Same exact-match rule as CategoryDisplayNames: a renamed builtin
+                // degrades to ordinary user data and must NOT adopt the stable id.
+                rename.CommandText = "UPDATE categories SET Name = '我的工作' WHERE Name = '工作';";
+                rename.ExecuteNonQuery();
+                using var read = conn.CreateCommand();
+                read.CommandText = "SELECT Uuid FROM categories WHERE Name = '我的工作';";
+                renamedUuid = (string)read.ExecuteScalar()!;
+            }
+
+            new SchemaInitializer(factory).EnsureCreated();
+
+            using var check = factory.OpenRead();
+            using var cmd = check.CreateCommand();
+            cmd.CommandText = "SELECT Uuid FROM categories WHERE Name = '我的工作';";
+            Assert.Equal(renamedUuid, (string)cmd.ExecuteScalar()!);
+        }
+        finally
+        {
+            Cleanup(dbPath);
+        }
+    }
+
     // ---------- 2. v7 -> v8 lossless ----------
 
     [Fact]
@@ -751,6 +840,14 @@ public sealed class SyncSchemaMigrationTests
 
     private static long GetUserVersion(SqliteConnection conn) =>
         ScalarLong(conn, "PRAGMA user_version;");
+
+    private static string CategoryUuidByName(SqliteConnection conn, string name)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT Uuid FROM categories WHERE Name = $name;";
+        cmd.Parameters.AddWithValue("$name", name);
+        return (string)cmd.ExecuteScalar()!;
+    }
 
     private static bool TableExists(SqliteConnection conn, string name)
     {

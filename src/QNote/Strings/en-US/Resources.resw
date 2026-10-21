@@ -957,6 +957,9 @@ Your notes will be stored in:
   <data name="TodoAttachTooLargeTitle" xml:space="preserve">
     <value>Attachment limit</value>
   </data>
+  <data name="SyncConflictCopySuffix" xml:space="preserve">
+    <value> (conflict)</value>
+  </data>
   <data name="TodoAttachTooLargeMessage" xml:space="preserve">
     <value>{0}: The total size of all files attached to a task cannot exceed 25 MB</value>
   </data>

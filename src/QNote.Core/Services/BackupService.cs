@@ -506,7 +506,7 @@ public sealed class BackupService : IBackupService
                         // archived row as-is (uuid + both timestamps), and it is the
                         // only writer that can CLEAR a tombstone — which is exactly
                         // what restoring a note this device deleted has to do.
-                        await _notes.ImportNoteAsync(note with { Id = existing.Id }, ct);
+                        await _notes.ImportNoteAsync(note with { Id = existing.Id }, ct: ct);
                         await RestoreNoteImagesAsync(staging, existing.Id, ImagesOf(backupImages, note.Id), ct);
                         updated++;
                     }
@@ -517,7 +517,7 @@ public sealed class BackupService : IBackupService
                 }
                 else
                 {
-                    var created = await _notes.ImportNoteAsync(note, ct);
+                    var created = await _notes.ImportNoteAsync(note, ct: ct);
                     await RestoreNoteImagesAsync(staging, created.Id, ImagesOf(backupImages, note.Id), ct);
                     imported++;
                 }

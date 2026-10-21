@@ -53,8 +53,19 @@ public interface INoteRepository
     /// Unlike <see cref="CreateAsync"/>/<see cref="UpdateAsync"/>, which exist for
     /// local editing and re-stamp identity and time, this is the writer for
     /// replicated rows: re-applying the same input is idempotent.
+    /// When <paramref name="images"/> is supplied (the sync apply path), the
+    /// <c>note_images</c> rows are upserted into the SAME transaction; when
+    /// <paramref name="syncState"/> is supplied, the bookkeeping row joins the
+    /// same transaction too (PRD decision 11 — data and its sync state are
+    /// atomic). The original FILES behind the rows are the caller's job and must
+    /// be materialized BEFORE this call (a crash then leaves only orphan files,
+    /// which the next cycle re-applies).
     /// </summary>
-    Task<Note> ImportNoteAsync(Note note, CancellationToken ct = default);
+    Task<Note> ImportNoteAsync(
+        Note note,
+        IReadOnlyList<NoteImage>? images = null,
+        SyncStateEntry? syncState = null,
+        CancellationToken ct = default);
 
     /// <summary>
     /// Full index projection of every note (Id, Title, PlainText) for an FTS full
@@ -68,6 +79,15 @@ public interface INoteRepository
     /// across databases).
     /// </summary>
     Task<IReadOnlyDictionary<string, (long Id, DateTimeOffset UpdatedAt)>> GetUuidTimestampsAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Stamp projection of EVERY note row — live AND tombstoned (schema v8) — as
+    /// (Id, Uuid, UpdatedAt, DeletedAt). The sync engine's delta matrix decides
+    /// from these without loading Content. Backup merge owns
+    /// <see cref="GetUuidTimestampsAsync"/> (live-only by design); don't change
+    /// its semantics.
+    /// </summary>
+    Task<IReadOnlyList<SyncRowStamp>> GetAllUuidTimestampsAsync(CancellationToken ct = default);
 
     /// <summary>All categories ordered by <see cref="Category.SortOrder"/> (incl. <see cref="Category.Uuid"/>).</summary>
     Task<IReadOnlyList<Category>> GetCategoriesAsync(CancellationToken ct = default);
@@ -96,6 +116,41 @@ public interface INoteRepository
 
     /// <summary>Persists a new ordering: <paramref name="orderedIds"/> index → SortOrder (bumps UpdatedAt).</summary>
     Task ReorderCategoriesAsync(IReadOnlyList<long> orderedIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// Stamp projection of EVERY category row — live AND tombstoned (schema v8).
+    /// The category-side delta matrix decides from these.
+    /// </summary>
+    Task<IReadOnlyList<SyncRowStamp>> GetAllCategoryUuidTimestampsAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Sync import primitive for categories: upserts the FULL row keyed by
+    /// <see cref="Category.Uuid"/>, preserving every field verbatim — including
+    /// <see cref="Category.DeletedAt"/> and <see cref="Category.SortOrder"/> — and
+    /// keeps the local <see cref="Category.Id"/> on conflict. Deliberately does
+    /// NOT fan a rename out to <c>notes.Category</c> (unlike
+    /// <see cref="UpdateCategoryAsync"/>): each note's own container carries its
+    /// category name, so the fan-out belongs to the notes' own sync. When
+    /// <paramref name="syncState"/> is supplied, the bookkeeping row joins the
+    /// same transaction (PRD decision 11).
+    /// </summary>
+    Task<Category> ImportCategoryAsync(
+        Category category, SyncStateEntry? syncState = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Applies a cloud tombstone to a note that is ALREADY tombstoned (the
+    /// "peer deleted later" reconcile branch): re-stamps DeletedAt AND UpdatedAt
+    /// to <paramref name="deletedAt"/> verbatim — content untouched, FTS row
+    /// (already dropped for a tombstone) defensively re-dropped in case the row
+    /// was live. No-op when no row carries the uuid. The sync state joins the
+    /// same transaction when supplied.
+    /// </summary>
+    Task ImportNoteTombstoneAsync(
+        string uuid, DateTimeOffset deletedAt, SyncStateEntry? syncState = null, CancellationToken ct = default);
+
+    /// <summary>Category counterpart of <see cref="ImportNoteTombstoneAsync"/>.</summary>
+    Task ImportCategoryTombstoneAsync(
+        string uuid, DateTimeOffset deletedAt, SyncStateEntry? syncState = null, CancellationToken ct = default);
 
     /// <summary>Note count per category name (<c>GROUP BY Category</c>; uncategorized notes sit under <c>""</c>).</summary>
     Task<IReadOnlyDictionary<string, int>> CountNotesByCategoryAsync(CancellationToken ct = default);

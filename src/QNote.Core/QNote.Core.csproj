@@ -33,6 +33,12 @@
       pinned to bundle 3.0.5 (lib.e_sqlite3 = SQLite 3.53.x).
     -->
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
+    <!--
+      System.IO.Hashing: CRC32 for the .qnote sync container (PRD decision 10/13).
+      Crc32 is NOT in the Microsoft.NETCore.App shared framework — a bare `using`
+      is CS0234 — so it must be an explicit PackageReference.
+    -->
+    <PackageReference Include="System.IO.Hashing" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
   </ItemGroup>
 

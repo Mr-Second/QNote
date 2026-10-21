@@ -183,7 +183,11 @@ public sealed class NoteRepository : INoteRepository
     }
 
     /// <inheritdoc/>
-    public async Task<Note> ImportNoteAsync(Note note, CancellationToken ct = default)
+    public async Task<Note> ImportNoteAsync(
+        Note note,
+        IReadOnlyList<NoteImage>? images = null,
+        SyncStateEntry? syncState = null,
+        CancellationToken ct = default)
     {
         await using var conn = _factory.OpenWrite();
         await using var tx = conn.BeginTransaction();
@@ -226,6 +230,16 @@ public sealed class NoteRepository : INoteRepository
         else
             await DeleteFtsRowAsync(conn, tx, id, ct);
 
+        // The apply path's images and the sync-state row join the SAME transaction
+        // (PRD decision 11): note upsert + FTS + note_images + sync_state are atomic.
+        if (images is { Count: > 0 })
+        {
+            foreach (var image in images)
+                await UpsertNoteImageAsync(conn, tx, id, image with { NoteId = id }, ct);
+        }
+        if (syncState is not null)
+            await SyncStateStore.UpsertWithinAsync(conn, tx, syncState, ct);
+
         await tx.CommitAsync(ct);
         return note with { Id = id };
     }
@@ -265,6 +279,20 @@ public sealed class NoteRepository : INoteRepository
         while (await reader.ReadAsync(ct))
             map[reader.GetString(0)] = (reader.GetInt64(1), FromDbMs(reader.GetInt64(2)));
         return map;
+    }
+
+    public async Task<IReadOnlyList<SyncRowStamp>> GetAllUuidTimestampsAsync(CancellationToken ct = default)
+    {
+        await using var conn = _factory.OpenRead();
+        await using var cmd = conn.CreateCommand();
+        // Tombstones included — the sync matrix must see them to propagate deletions.
+        cmd.CommandText = "SELECT Id, Uuid, UpdatedAt, DeletedAt FROM notes;";
+
+        var list = new List<SyncRowStamp>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+            list.Add(MapStamp(reader));
+        return list;
     }
 
     public async Task<IReadOnlyList<Category>> GetCategoriesAsync(CancellationToken ct = default)
@@ -442,6 +470,135 @@ public sealed class NoteRepository : INoteRepository
 
         await tx.CommitAsync(ct);
     }
+
+    public async Task<IReadOnlyList<SyncRowStamp>> GetAllCategoryUuidTimestampsAsync(CancellationToken ct = default)
+    {
+        await using var conn = _factory.OpenRead();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT Id, Uuid, UpdatedAt, DeletedAt FROM categories;";
+
+        var list = new List<SyncRowStamp>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+            list.Add(MapStamp(reader));
+        return list;
+    }
+
+    /// <inheritdoc/>
+    public async Task<Category> ImportCategoryAsync(
+        Category category, SyncStateEntry? syncState = null, CancellationToken ct = default)
+    {
+        if (category.Uuid.Length == 0)
+            throw new ArgumentException("The imported category must carry its uuid.", nameof(category));
+
+        await using var conn = _factory.OpenWrite();
+        await using var tx = conn.BeginTransaction();
+
+        long id;
+        await using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            // Verbatim uuid upsert, local Id preserved on conflict. Every field —
+            // including DeletedAt and SortOrder — is replicated data. Deliberately
+            // NO name fan-out to notes (unlike UpdateCategoryAsync): each note's
+            // own container carries its category name, so the link heals through
+            // the notes' own sync instead of locally re-stamping their clocks.
+            cmd.CommandText =
+                "INSERT INTO categories (Name, IconKey, Color, Uuid, SortOrder, CreatedAt, UpdatedAt, DeletedAt) " +
+                "VALUES ($name, $icon, $color, $uuid, $sortOrder, $createdAt, $updatedAt, $deletedAt) " +
+                "ON CONFLICT(Uuid) DO UPDATE SET " +
+                "Name = excluded.Name, IconKey = excluded.IconKey, Color = excluded.Color, " +
+                "SortOrder = excluded.SortOrder, CreatedAt = excluded.CreatedAt, " +
+                "UpdatedAt = excluded.UpdatedAt, DeletedAt = excluded.DeletedAt " +
+                "RETURNING Id;";
+            cmd.Parameters.AddWithValue("$name", category.Name);
+            cmd.Parameters.AddWithValue("$icon", category.IconKey);
+            cmd.Parameters.AddWithValue("$color", category.Color);
+            cmd.Parameters.AddWithValue("$uuid", category.Uuid);
+            cmd.Parameters.AddWithValue("$sortOrder", category.SortOrder);
+            cmd.Parameters.AddWithValue("$createdAt", ToDbMs(category.CreatedAt));
+            cmd.Parameters.AddWithValue("$updatedAt", ToDbMs(category.UpdatedAt));
+            cmd.Parameters.AddWithValue("$deletedAt",
+                category.DeletedAt is { } deleted ? ToDbMs(deleted) : DBNull.Value);
+
+            var result = await cmd.ExecuteScalarAsync(ct)
+                ?? throw new InvalidOperationException("Category import upsert returned no value.");
+            id = (long)result;
+        }
+
+        if (syncState is not null)
+            await SyncStateStore.UpsertWithinAsync(conn, tx, syncState, ct);
+
+        await tx.CommitAsync(ct);
+        return category with { Id = id };
+    }
+
+    /// <inheritdoc/>
+    public async Task ImportNoteTombstoneAsync(
+        string uuid, DateTimeOffset deletedAt, SyncStateEntry? syncState = null, CancellationToken ct = default)
+    {
+        ValidateImportUuid(uuid);
+
+        await using var conn = _factory.OpenWrite();
+        await using var tx = conn.BeginTransaction();
+
+        await using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            // Content untouched; both stamps move to the cloud's delete instant (the
+            // delete = DeletedAt = UpdatedAt rule). The FTS drop is defensive: the
+            // row is normally already tombstoned (no FTS row), but this writer must
+            // never leave a searchable row behind if it ever re-stamps a live one.
+            cmd.CommandText =
+                "UPDATE notes SET DeletedAt = $deletedAt, UpdatedAt = $deletedAt WHERE Uuid = $uuid;\n" +
+                "DELETE FROM notes_fts WHERE rowid IN (SELECT Id FROM notes WHERE Uuid = $uuid);";
+            cmd.Parameters.AddWithValue("$uuid", uuid);
+            cmd.Parameters.AddWithValue("$deletedAt", ToDbMs(deletedAt));
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+
+        if (syncState is not null)
+            await SyncStateStore.UpsertWithinAsync(conn, tx, syncState, ct);
+
+        await tx.CommitAsync(ct);
+    }
+
+    /// <inheritdoc/>
+    public async Task ImportCategoryTombstoneAsync(
+        string uuid, DateTimeOffset deletedAt, SyncStateEntry? syncState = null, CancellationToken ct = default)
+    {
+        ValidateImportUuid(uuid);
+
+        await using var conn = _factory.OpenWrite();
+        await using var tx = conn.BeginTransaction();
+
+        await using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText =
+                "UPDATE categories SET DeletedAt = $deletedAt, UpdatedAt = $deletedAt WHERE Uuid = $uuid;";
+            cmd.Parameters.AddWithValue("$uuid", uuid);
+            cmd.Parameters.AddWithValue("$deletedAt", ToDbMs(deletedAt));
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+
+        if (syncState is not null)
+            await SyncStateStore.UpsertWithinAsync(conn, tx, syncState, ct);
+
+        await tx.CommitAsync(ct);
+    }
+
+    private static void ValidateImportUuid(string uuid)
+    {
+        if (string.IsNullOrEmpty(uuid))
+            throw new ArgumentException("The entry uuid must not be empty.", nameof(uuid));
+    }
+
+    private static SyncRowStamp MapStamp(SqliteDataReader reader) => new(
+        reader.GetInt64(0),
+        reader.GetString(1),
+        FromDbMs(reader.GetInt64(2)),
+        reader.IsDBNull(3) ? null : FromDbMs(reader.GetInt64(3)));
 
     public async Task<IReadOnlyDictionary<string, int>> CountNotesByCategoryAsync(CancellationToken ct = default)
     {

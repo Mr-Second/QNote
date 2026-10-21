@@ -957,6 +957,9 @@
   <data name="TodoAttachTooLargeTitle" xml:space="preserve">
     <value>附件超限</value>
   </data>
+  <data name="SyncConflictCopySuffix" xml:space="preserve">
+    <value>（冲突副本）</value>
+  </data>
   <data name="TodoAttachTooLargeMessage" xml:space="preserve">
     <value>{0}：附加到任务的所有文件的总大小不可超过 25 MB</value>
   </data>
