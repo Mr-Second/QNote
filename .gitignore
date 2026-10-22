@@ -57,3 +57,4 @@ __pycache__/
 
 # Local packaging output (MSIX, certs, store screenshots)
 artifacts/
+.playwright-mcp/
