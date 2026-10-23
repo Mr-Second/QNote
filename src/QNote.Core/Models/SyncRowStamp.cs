@@ -16,3 +16,9 @@ public sealed record SyncRowStamp(
     /// <summary>Null <see cref="DeletedAt"/> = the row is live.</summary>
     public bool IsLive => DeletedAt is null;
 }
+
+/// <summary>
+/// Expected local state for a replicated write. Null Stamp means absent;
+/// Row adds a full comparison for live rows, including same-millisecond edits.
+/// </summary>
+public sealed record SyncImportSnapshot<T>(SyncRowStamp? Stamp, T? Row) where T : class;

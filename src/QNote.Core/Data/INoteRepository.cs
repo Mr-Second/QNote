@@ -31,8 +31,11 @@ public interface INoteRepository
     /// <summary>Inserts a new note and returns it with the DB-assigned <see cref="Note.Id"/>.</summary>
     Task<Note> CreateAsync(Note note, CancellationToken ct = default);
 
-    /// <summary>Updates Title/Content/Category/UpdatedAt of an existing note by id.</summary>
-    Task UpdateAsync(Note note, CancellationToken ct = default);
+    /// <summary>Persists a local edit with a strictly advancing millisecond clock and returns the stored row.</summary>
+    Task<Note> UpdateAsync(Note note, CancellationToken ct = default);
+
+    /// <summary>Atomically saves against the loaded baseline, or preserves a stale draft as a new conflict copy with its images.</summary>
+    Task<Note> SaveDraftAsync(Note draft, Note baseline, string conflictSuffix, CancellationToken ct = default);
 
     /// <summary>
     /// Soft-deletes a note by id (no-op if it does not exist): stamps
@@ -60,12 +63,16 @@ public interface INoteRepository
     /// atomic). The original FILES behind the rows are the caller's job and must
     /// be materialized BEFORE this call (a crash then leaves only orphan files,
     /// which the next cycle re-applies).
+    /// An optional <paramref name="expected"/> snapshot is checked inside that
+    /// transaction; a concurrent local change throws DBConcurrencyException
+    /// before any data, image rows, FTS or agreement is written.
     /// </summary>
     Task<Note> ImportNoteAsync(
         Note note,
         IReadOnlyList<NoteImage>? images = null,
         SyncStateEntry? syncState = null,
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        SyncImportSnapshot<Note>? expected = null);
 
     /// <summary>
     /// Full index projection of every note (Id, Title, PlainText) for an FTS full
@@ -133,9 +140,12 @@ public interface INoteRepository
     /// category name, so the fan-out belongs to the notes' own sync. When
     /// <paramref name="syncState"/> is supplied, the bookkeeping row joins the
     /// same transaction (PRD decision 11).
+    /// With <paramref name="expected"/>, concurrent local changes reject the
+    /// entire replicated write with DBConcurrencyException.
     /// </summary>
     Task<Category> ImportCategoryAsync(
-        Category category, SyncStateEntry? syncState = null, CancellationToken ct = default);
+        Category category, SyncStateEntry? syncState = null, CancellationToken ct = default,
+        SyncImportSnapshot<Category>? expected = null);
 
     /// <summary>
     /// Applies a cloud tombstone to a note that is ALREADY tombstoned (the
@@ -144,13 +154,16 @@ public interface INoteRepository
     /// (already dropped for a tombstone) defensively re-dropped in case the row
     /// was live. No-op when no row carries the uuid. The sync state joins the
     /// same transaction when supplied.
+    /// With <paramref name="expected"/>, a changed row rejects the transaction.
     /// </summary>
     Task ImportNoteTombstoneAsync(
-        string uuid, DateTimeOffset deletedAt, SyncStateEntry? syncState = null, CancellationToken ct = default);
+        string uuid, DateTimeOffset deletedAt, SyncStateEntry? syncState = null, CancellationToken ct = default,
+        SyncImportSnapshot<Note>? expected = null);
 
     /// <summary>Category counterpart of <see cref="ImportNoteTombstoneAsync"/>.</summary>
     Task ImportCategoryTombstoneAsync(
-        string uuid, DateTimeOffset deletedAt, SyncStateEntry? syncState = null, CancellationToken ct = default);
+        string uuid, DateTimeOffset deletedAt, SyncStateEntry? syncState = null, CancellationToken ct = default,
+        SyncImportSnapshot<Category>? expected = null);
 
     /// <summary>Note count per category name (<c>GROUP BY Category</c>; uncategorized notes sit under <c>""</c>).</summary>
     Task<IReadOnlyDictionary<string, int>> CountNotesByCategoryAsync(CancellationToken ct = default);

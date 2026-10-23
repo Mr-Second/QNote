@@ -27,6 +27,8 @@ internal sealed class FakeSyncDriver : ISyncDriver
 
     public bool SupportsRangeRead { get; set; } = true;
 
+    public Func<string, CancellationToken, Task>? BeforeRead { get; set; }
+
     public FakeSyncDriver Seed(string path, byte[] content)
     {
         Files[path] = content;
@@ -46,8 +48,12 @@ internal sealed class FakeSyncDriver : ISyncDriver
         return Task.FromResult(new DriverListing(files, Truncated));
     }
 
-    public Task<byte[]?> ReadFileAsync(string path, CancellationToken ct = default) =>
-        Task.FromResult(Files.TryGetValue(path, out var bytes) ? (byte[]?)bytes : null);
+    public async Task<byte[]?> ReadFileAsync(string path, CancellationToken ct = default)
+    {
+        if (BeforeRead is { } before)
+            await before(path, ct);
+        return Files.TryGetValue(path, out var bytes) ? bytes : null;
+    }
 
     public Task<byte[]?> ReadRangeAsync(string path, long offset, int count, CancellationToken ct = default)
     {

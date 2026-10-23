@@ -22,6 +22,9 @@
          fresh MSAL clients without a real account or an interactive sign-in. -->
     <Compile Include="..\..\src\QNote\Services\MsalCachePersistence.cs" Link="Presentation\MsalCachePersistence.cs" />
     <Compile Include="..\..\src\QNote\Services\MsalTokenProvider.cs" Link="Presentation\MsalTokenProvider.cs" />
+    <Compile Include="..\..\src\QNote\Services\SyncConfigurationStore.cs" Link="Presentation\SyncConfigurationStore.cs" />
+    <Compile Include="..\..\src\QNote\Services\SyncService.cs" Link="Presentation\SyncService.cs" />
+    <Compile Include="..\..\src\QNote\ViewModels\SettingsViewModel.cs" Link="Presentation\SettingsViewModel.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -43,6 +46,16 @@
     <Compile Include="..\..\src\QNote\ViewModels\TodoTaskItemViewModel.cs" Link="Presentation\TodoTaskItemViewModel.cs" />
     <Compile Include="..\..\src\QNote\ViewModels\TodoStepItemViewModel.cs" Link="Presentation\TodoStepItemViewModel.cs" />
     <Compile Include="..\..\src\QNote\ViewModels\TodoTaskSorter.cs" Link="Presentation\TodoTaskSorter.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Notes VM behavior is tested headlessly with resource-only test stubs. -->
+    <Compile Include="..\..\src\QNote\ViewModels\NotesPageViewModel.cs" Link="Presentation\NotesPageViewModel.cs" />
+    <Compile Include="..\..\src\QNote\ViewModels\NoteItemViewModel.cs" Link="Presentation\NoteItemViewModel.cs" />
+    <Compile Include="..\..\src\QNote\ViewModels\CategoryItemViewModel.cs" Link="Presentation\CategoryItemViewModel.cs" />
+    <Compile Include="..\..\src\QNote\Services\CategoryDisplayNames.cs" Link="Presentation\CategoryDisplayNames.cs" />
+    <Compile Include="..\..\src\QNote\Services\CategoryErrorText.cs" Link="Presentation\CategoryErrorText.cs" />
+    <Compile Include="..\..\src\QNote\Controls\IconCatalog.cs" Link="Presentation\IconCatalog.cs" />
   </ItemGroup>
 
   <ItemGroup>

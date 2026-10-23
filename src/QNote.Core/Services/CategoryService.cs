@@ -17,11 +17,14 @@ public sealed partial class CategoryService : ICategoryService
 
     private readonly INoteRepository _repo;
     private readonly ILogger<CategoryService> _log;
+    private readonly Action<SyncEntryKind, string>? _onLocalChange;
 
-    public CategoryService(INoteRepository repo, ILogger<CategoryService> log)
+    public CategoryService(INoteRepository repo, ILogger<CategoryService> log,
+        Action<SyncEntryKind, string>? onLocalChange = null)
     {
         _repo = repo;
         _log = log;
+        _onLocalChange = onLocalChange;
     }
 
     public Task<IReadOnlyList<Category>> GetAllAsync(CancellationToken ct = default) =>
@@ -38,6 +41,7 @@ public sealed partial class CategoryService : ICategoryService
         var created = await _repo.CreateCategoryAsync(
             new Category { Name = name, Color = color, IconKey = iconKey }, ct);
         _log.LogInformation("Created category '{Name}' ({Id})", created.Name, created.Id);
+        _onLocalChange?.Invoke(SyncEntryKind.Category, created.Uuid);
         return created;
     }
 
@@ -58,6 +62,10 @@ public sealed partial class CategoryService : ICategoryService
         ValidateColor(category.Color);
 
         await _repo.UpdateCategoryAsync(category with { IconKey = category.IconKey ?? existing.IconKey }, ct);
+        // The caller may supply an edit model without its persisted UUID. One
+        // category trigger covers the repository's atomic note-name fan-out:
+        // the queue requests a full cycle, not a targeted upload.
+        _onLocalChange?.Invoke(SyncEntryKind.Category, existing.Uuid);
         _log.LogInformation("Updated category {Id} ('{Old}' → '{New}')", category.Id, existing.Name, category.Name);
     }
 
@@ -74,11 +82,22 @@ public sealed partial class CategoryService : ICategoryService
         // their image originals stay on disk — the repository reports no orphans,
         // so nothing is pruned here.
         await _repo.DeleteCategoryAsync(id, ct);
+        _onLocalChange?.Invoke(SyncEntryKind.Category, existing.Uuid);
         _log.LogInformation("Soft-deleted category '{Name}' ({Id}) and its notes", existing.Name, id);
     }
 
-    public Task ReorderAsync(IReadOnlyList<long> orderedIds, CancellationToken ct = default) =>
-        _repo.ReorderCategoriesAsync(orderedIds, ct);
+    public async Task ReorderAsync(IReadOnlyList<long> orderedIds, CancellationToken ct = default)
+    {
+        IReadOnlyList<Category> categories = _onLocalChange is null
+            ? []
+            : await _repo.GetCategoriesAsync(ct);
+        await _repo.ReorderCategoriesAsync(orderedIds, ct);
+        foreach (var category in categories)
+        {
+            if (orderedIds.Contains(category.Id))
+                _onLocalChange?.Invoke(SyncEntryKind.Category, category.Uuid);
+        }
+    }
 
     public Task<IReadOnlyDictionary<string, int>> CountNotesAsync(CancellationToken ct = default) =>
         _repo.CountNotesByCategoryAsync(ct);

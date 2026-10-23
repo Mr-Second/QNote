@@ -1,3 +1,4 @@
+using System.Data;
 using System.Data.Common;
 using System.Globalization;
 using Microsoft.Data.Sqlite;
@@ -98,7 +99,14 @@ public sealed class NoteRepository : INoteRepository
     {
         await using var conn = _factory.OpenWrite();
         await using var tx = conn.BeginTransaction();
+        var created = await CreateNoteWithinAsync(conn, tx, note, ct);
+        await tx.CommitAsync(ct);
+        return created;
+    }
 
+    private static async Task<Note> CreateNoteWithinAsync(SqliteConnection conn, SqliteTransaction tx,
+        Note note, CancellationToken ct)
+    {
         long id;
         await using (var cmd = conn.CreateCommand())
         {
@@ -121,35 +129,101 @@ public sealed class NoteRepository : INoteRepository
         }
 
         await UpsertFtsAsync(conn, tx, id, note.Title, note.PlainText, ct);
-        await tx.CommitAsync(ct);
-
-        return note with { Id = id };
+        return StoredClocks(note with { Id = id });
     }
 
-    public async Task UpdateAsync(Note note, CancellationToken ct = default)
+    public async Task<Note> UpdateAsync(Note note, CancellationToken ct = default)
     {
         await using var conn = _factory.OpenWrite();
         await using var tx = conn.BeginTransaction();
+        var saved = await UpdateNoteWithinAsync(conn, tx, note, ct);
+        await tx.CommitAsync(ct);
+        return saved;
+    }
 
+    private static async Task<Note> UpdateNoteWithinAsync(SqliteConnection conn, SqliteTransaction tx,
+        Note note, CancellationToken ct)
+    {
+        Note saved;
         await using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
             cmd.CommandText =
-                "UPDATE notes SET Title = $title, Content = $content, PlainText = $plainText, Category = $category, UpdatedAt = $updatedAt " +
-                $"WHERE Id = $id AND {NotDeleted};";
+                "UPDATE notes SET Title = $title, Content = $content, PlainText = $plainText, Category = $category, " +
+                "UpdatedAt = MAX(UpdatedAt + 1, $updatedAt) " +
+                $"WHERE Id = $id AND {NotDeleted} RETURNING {NoteColumns};";
             cmd.Parameters.AddWithValue("$title", note.Title);
             cmd.Parameters.AddWithValue("$content", note.Content);
             cmd.Parameters.AddWithValue("$plainText", note.PlainText);
             cmd.Parameters.AddWithValue("$category", note.Category);
-            cmd.Parameters.AddWithValue("$updatedAt", ToDbMs(note.UpdatedAt));
+            cmd.Parameters.AddWithValue("$updatedAt", ToDbMs(DateTimeOffset.UtcNow));
             cmd.Parameters.AddWithValue("$id", note.Id);
 
-            await cmd.ExecuteNonQueryAsync(ct);
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            if (!await reader.ReadAsync(ct))
+                throw new InvalidOperationException($"Note {note.Id} does not exist or was deleted.");
+            saved = MapNote(reader);
         }
 
         await UpsertFtsAsync(conn, tx, note.Id, note.Title, note.PlainText, ct);
-        await tx.CommitAsync(ct);
+        return saved;
     }
+
+    public async Task<Note> SaveDraftAsync(Note draft, Note baseline, string conflictSuffix, CancellationToken ct = default)
+    {
+        if (draft.Id != baseline.Id || draft.Uuid != baseline.Uuid)
+            throw new ArgumentException("The draft must belong to its loaded baseline.", nameof(draft));
+        await using var conn = _factory.OpenWrite();
+        await using var tx = conn.BeginTransaction();
+        Note? current;
+        await using (var read = conn.CreateCommand())
+        {
+            read.Transaction = tx;
+            read.CommandText = $"SELECT {NoteColumns} FROM notes WHERE Uuid = $uuid;";
+            read.Parameters.AddWithValue("$uuid", baseline.Uuid);
+            await using var reader = await read.ExecuteReaderAsync(ct);
+            current = await reader.ReadAsync(ct) ? MapNote(reader) : null;
+        }
+        Note saved;
+        if (current is { DeletedAt: null } && current == StoredClocks(baseline))
+            saved = await UpdateNoteWithinAsync(conn, tx, draft, ct);
+        else
+        {
+            var category = draft.Category;
+            if (category.Length > 0)
+            {
+                await using var exists = conn.CreateCommand();
+                exists.Transaction = tx;
+                exists.CommandText = $"SELECT 1 FROM categories WHERE Name = $name AND {NotDeleted} LIMIT 1;";
+                exists.Parameters.AddWithValue("$name", category);
+                if (await exists.ExecuteScalarAsync(ct) is null)
+                    category = "";
+            }
+            var now = FromDbMs(ToDbMs(DateTimeOffset.UtcNow));
+            saved = await CreateNoteWithinAsync(conn, tx, draft with
+            {
+                Id = 0, Uuid = Guid.NewGuid().ToString("N"), Title = draft.Title + conflictSuffix,
+                Category = category, CreatedAt = now, UpdatedAt = now, DeletedAt = null,
+            }, ct);
+            // Adoption already linked draft images to the old note. Clone their
+            // metadata/display bytes in this transaction before pruning either row.
+            await using var images = conn.CreateCommand();
+            images.Transaction = tx;
+            images.CommandText = "INSERT INTO note_images (note_id, sha256, ext, byte_size, width, height, created_at, display_bytes) " +
+                "SELECT $copy, sha256, ext, byte_size, width, height, created_at, display_bytes FROM note_images WHERE note_id = $source;";
+            images.Parameters.AddWithValue("$copy", saved.Id);
+            images.Parameters.AddWithValue("$source", baseline.Id);
+            await images.ExecuteNonQueryAsync(ct);
+        }
+        await tx.CommitAsync(ct);
+        return saved;
+    }
+
+    private static Note StoredClocks(Note note) => note with
+    {
+        CreatedAt = FromDbMs(ToDbMs(note.CreatedAt)), UpdatedAt = FromDbMs(ToDbMs(note.UpdatedAt)),
+        DeletedAt = note.DeletedAt is { } deleted ? FromDbMs(ToDbMs(deleted)) : null,
+    };
 
     /// <summary>
     /// Soft-deletes a note: stamps <c>DeletedAt</c> AND <c>UpdatedAt</c> with the
@@ -171,7 +245,7 @@ public sealed class NoteRepository : INoteRepository
         {
             cmd.Transaction = tx;
             cmd.CommandText =
-                $"UPDATE notes SET DeletedAt = $now, UpdatedAt = $now WHERE Id = $id AND {NotDeleted};\n" +
+                $"UPDATE notes SET DeletedAt = MAX(UpdatedAt + 1, $now), UpdatedAt = MAX(UpdatedAt + 1, $now) WHERE Id = $id AND {NotDeleted};\n" +
                 "DELETE FROM notes_fts WHERE rowid = $id;";
             cmd.Parameters.AddWithValue("$now", now);
             cmd.Parameters.AddWithValue("$id", id);
@@ -187,10 +261,14 @@ public sealed class NoteRepository : INoteRepository
         Note note,
         IReadOnlyList<NoteImage>? images = null,
         SyncStateEntry? syncState = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        SyncImportSnapshot<Note>? expected = null)
     {
         await using var conn = _factory.OpenWrite();
         await using var tx = conn.BeginTransaction();
+
+        if (expected is not null)
+            await EnsureNoteUnchangedAsync(conn, tx, note.Uuid, expected, ct);
 
         long id;
         await using (var cmd = conn.CreateCommand())
@@ -372,7 +450,7 @@ public sealed class NoteRepository : INoteRepository
         {
             cmd.Transaction = tx;
             cmd.CommandText =
-                $"UPDATE categories SET Name = $name, IconKey = $icon, Color = $color, UpdatedAt = $now " +
+                $"UPDATE categories SET Name = $name, IconKey = $icon, Color = $color, UpdatedAt = MAX(UpdatedAt + 1, $now) " +
                 $"WHERE Id = $id AND {NotDeleted};";
             cmd.Parameters.AddWithValue("$name", category.Name);
             cmd.Parameters.AddWithValue("$icon", category.IconKey);
@@ -391,7 +469,7 @@ public sealed class NoteRepository : INoteRepository
         {
             await using var fanOut = conn.CreateCommand();
             fanOut.Transaction = tx;
-            fanOut.CommandText = "UPDATE notes SET Category = $new, UpdatedAt = $now WHERE Category = $old;";
+            fanOut.CommandText = "UPDATE notes SET Category = $new, UpdatedAt = MAX(UpdatedAt + 1, $now) WHERE Category = $old;";
             fanOut.Parameters.AddWithValue("$new", category.Name);
             fanOut.Parameters.AddWithValue("$old", oldName);
             fanOut.Parameters.AddWithValue("$now", now);
@@ -428,6 +506,16 @@ public sealed class NoteRepository : INoteRepository
         }
 
         var now = ToDbMs(DateTimeOffset.UtcNow);
+        await using (var newest = conn.CreateCommand())
+        {
+            newest.Transaction = tx;
+            newest.CommandText = "SELECT MAX(UpdatedAt) FROM (SELECT UpdatedAt FROM notes WHERE Category = $name " +
+                $"AND {NotDeleted} UNION ALL SELECT UpdatedAt FROM categories WHERE Id = $id AND {NotDeleted});";
+            newest.Parameters.AddWithValue("$name", name);
+            newest.Parameters.AddWithValue("$id", id);
+            if (await newest.ExecuteScalarAsync(ct) is long previous)
+                now = Math.Max(now, checked(previous + 1));
+        }
         await using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -461,7 +549,7 @@ public sealed class NoteRepository : INoteRepository
         {
             await using var cmd = conn.CreateCommand();
             cmd.Transaction = tx;
-            cmd.CommandText = $"UPDATE categories SET SortOrder = $ord, UpdatedAt = $now WHERE Id = $id AND {NotDeleted};";
+            cmd.CommandText = $"UPDATE categories SET SortOrder = $ord, UpdatedAt = MAX(UpdatedAt + 1, $now) WHERE Id = $id AND {NotDeleted};";
             cmd.Parameters.AddWithValue("$ord", i);
             cmd.Parameters.AddWithValue("$now", now);
             cmd.Parameters.AddWithValue("$id", orderedIds[i]);
@@ -486,13 +574,17 @@ public sealed class NoteRepository : INoteRepository
 
     /// <inheritdoc/>
     public async Task<Category> ImportCategoryAsync(
-        Category category, SyncStateEntry? syncState = null, CancellationToken ct = default)
+        Category category, SyncStateEntry? syncState = null, CancellationToken ct = default,
+        SyncImportSnapshot<Category>? expected = null)
     {
         if (category.Uuid.Length == 0)
             throw new ArgumentException("The imported category must carry its uuid.", nameof(category));
 
         await using var conn = _factory.OpenWrite();
         await using var tx = conn.BeginTransaction();
+
+        if (expected is not null)
+            await EnsureCategoryUnchangedAsync(conn, tx, category.Uuid, expected, ct);
 
         long id;
         await using (var cmd = conn.CreateCommand())
@@ -535,12 +627,16 @@ public sealed class NoteRepository : INoteRepository
 
     /// <inheritdoc/>
     public async Task ImportNoteTombstoneAsync(
-        string uuid, DateTimeOffset deletedAt, SyncStateEntry? syncState = null, CancellationToken ct = default)
+        string uuid, DateTimeOffset deletedAt, SyncStateEntry? syncState = null, CancellationToken ct = default,
+        SyncImportSnapshot<Note>? expected = null)
     {
         ValidateImportUuid(uuid);
 
         await using var conn = _factory.OpenWrite();
         await using var tx = conn.BeginTransaction();
+
+        if (expected is not null)
+            await EnsureNoteUnchangedAsync(conn, tx, uuid, expected, ct);
 
         await using (var cmd = conn.CreateCommand())
         {
@@ -565,12 +661,16 @@ public sealed class NoteRepository : INoteRepository
 
     /// <inheritdoc/>
     public async Task ImportCategoryTombstoneAsync(
-        string uuid, DateTimeOffset deletedAt, SyncStateEntry? syncState = null, CancellationToken ct = default)
+        string uuid, DateTimeOffset deletedAt, SyncStateEntry? syncState = null, CancellationToken ct = default,
+        SyncImportSnapshot<Category>? expected = null)
     {
         ValidateImportUuid(uuid);
 
         await using var conn = _factory.OpenWrite();
         await using var tx = conn.BeginTransaction();
+
+        if (expected is not null)
+            await EnsureCategoryUnchangedAsync(conn, tx, uuid, expected, ct);
 
         await using (var cmd = conn.CreateCommand())
         {
@@ -586,6 +686,35 @@ public sealed class NoteRepository : INoteRepository
             await SyncStateStore.UpsertWithinAsync(conn, tx, syncState, ct);
 
         await tx.CommitAsync(ct);
+    }
+
+    private static async Task EnsureNoteUnchangedAsync(SqliteConnection conn, SqliteTransaction tx,
+        string uuid, SyncImportSnapshot<Note> expected, CancellationToken ct)
+    {
+        await using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = $"SELECT {NoteColumns} FROM notes WHERE Uuid = $uuid;";
+        cmd.Parameters.AddWithValue("$uuid", uuid);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        var current = await reader.ReadAsync(ct) ? MapNote(reader) : null;
+        var stamp = current is null ? null : new SyncRowStamp(current.Id, current.Uuid, current.UpdatedAt, current.DeletedAt);
+        if (stamp != expected.Stamp || expected.Row is not null && current != expected.Row)
+            throw new DBConcurrencyException("The local note changed during sync; retry on the next cycle.");
+    }
+
+    private static async Task EnsureCategoryUnchangedAsync(SqliteConnection conn, SqliteTransaction tx,
+        string uuid, SyncImportSnapshot<Category> expected, CancellationToken ct)
+    {
+        await using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT Id, Name, IconKey, Color, SortOrder, Uuid, CreatedAt, UpdatedAt, DeletedAt " +
+            "FROM categories WHERE Uuid = $uuid;";
+        cmd.Parameters.AddWithValue("$uuid", uuid);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        var current = await reader.ReadAsync(ct) ? MapCategory(reader) : null;
+        var stamp = current is null ? null : new SyncRowStamp(current.Id, current.Uuid, current.UpdatedAt, current.DeletedAt);
+        if (stamp != expected.Stamp || expected.Row is not null && current != expected.Row)
+            throw new DBConcurrencyException("The local category changed during sync; retry on the next cycle.");
     }
 
     private static void ValidateImportUuid(string uuid)

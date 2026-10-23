@@ -11,8 +11,8 @@ namespace QNote.ViewModels;
 /// <summary>
 /// Settings panel view-model. Loads the typed <see cref="AppSettings"/> snapshot
 /// once (<see cref="InitializeAsync"/>), exposes index/bool properties for the
-/// controls, and saves the whole snapshot on every change — settings apply
-/// immediately, there is no save button (Qt parity: SettingsDialog).
+/// controls, and saves general settings immediately (Qt parity: SettingsDialog).
+/// Sync destination drafts require the explicit save-and-enable action.
 /// Indices mirror the enum values (0/1/2 in declaration order).
 /// </summary>
 public partial class SettingsViewModel : ObservableObject
@@ -22,6 +22,9 @@ public partial class SettingsViewModel : ObservableObject
     private readonly IStartupTaskService _startup;
     private readonly IGitHubUpdateService _update;
     private readonly ITokenProvider _syncTokens;
+    private readonly SyncService _syncService;
+    private SyncConfiguration _savedSyncConfiguration = new();
+    private bool _syncConfigurationLoaded;
     private readonly ILogger<SettingsViewModel> _log;
 
     private bool _loading = true;
@@ -34,6 +37,7 @@ public partial class SettingsViewModel : ObservableObject
         IStartupTaskService startup,
         IGitHubUpdateService update,
         ITokenProvider syncTokens,
+        SyncService syncService,
         bool isPackaged,
         ILogger<SettingsViewModel> log)
     {
@@ -42,6 +46,7 @@ public partial class SettingsViewModel : ObservableObject
         _startup = startup;
         _update = update;
         _syncTokens = syncTokens;
+        _syncService = syncService;
         _log = log;
 
         // 检查更新入口仅解包（portable）模式显示：Store 渠道自带自动更新。
@@ -125,10 +130,6 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial string HotkeyDisplay { get; set; } = "";
 
-    /// <summary>热键注册失败 / 录入校验提示；空串 = 无错误.</summary>
-    [ObservableProperty]
-    public partial string HotkeyError { get; set; } = "";
-
     // ---------- 待办 ----------
 
     /// <summary>智能清单可见性 (list-options ⋯ menu, 2026-10-16): the RESTORE path
@@ -168,14 +169,21 @@ public partial class SettingsViewModel : ObservableObject
         TodoPlannedVisible = !hiddenSmart.Contains((int)TodoNavKind.Planned);
         UpdateHotkeyDisplay();
         // Startup registration may already have failed (combo owned by another app).
-        HotkeyError = _snapshot.EdgeHideHotkeyKey != 0 && !_hotkey.IsRegistered
-            ? AppStrings.GetString("HotkeyRegisterFailed")
-            : "";
+        if (_snapshot.EdgeHideHotkeyKey != 0 && !_hotkey.IsRegistered)
+            ReportOperation(false, "SettingsOperationFailedTitle", AppStrings.GetString("HotkeyRegisterFailed"));
         _loading = false;
 
-        await RefreshStartupStateAsync();
+        try { await RefreshStartupStateAsync(); }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Reading startup registration failed.");
+            LaunchAtStartupToggleEnabled = false;
+            LaunchAtStartupHint = AppStrings.GetString("StartupUnavailable");
+            ReportOperation(false, "SettingsOperationFailedTitle", LaunchAtStartupHint);
+        }
         // 同步账号（MSAL 本地账号枚举，无网络）随面板打开一起刷新。
         await RefreshSyncAccountAsync();
+        await LoadSyncConfigurationAsync();
     }
 
     partial void OnDensityIndexChanged(int value) => Save(_snapshot with { ListDensity = (NoteListDensity)value });
@@ -241,10 +249,17 @@ public partial class SettingsViewModel : ObservableObject
             _ = enable
                 ? await _startup.RequestEnableAsync()
                 : await _startup.DisableAsync();
-        }
-        finally
-        {
             await RefreshStartupStateAsync();
+            if (LaunchAtStartup != enable)
+                ReportOperation(false, "SettingsOperationFailedTitle", LaunchAtStartupHint.Length > 0
+                    ? LaunchAtStartupHint : AppStrings.GetString("StartupOperationFailed"));
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Changing startup registration failed.");
+            try { await RefreshStartupStateAsync(); }
+            catch (Exception refreshError) { _log.LogWarning(refreshError, "Re-reading startup registration failed."); }
+            ReportOperation(false, "SettingsOperationFailedTitle", AppStrings.GetString("StartupOperationFailed"));
         }
     }
 
@@ -311,17 +326,32 @@ public partial class SettingsViewModel : ObservableObject
     /// <summary>
     /// 录入完成：持久化并重新注册（先注销旧键）；注册失败时提示但不回滚设置、不崩应用。
     /// </summary>
-    public void CommitHotkey(int modifiers, int virtualKey)
+    public async Task CommitHotkeyAsync(int modifiers, int virtualKey)
     {
-        Save(_snapshot with { EdgeHideHotkeyModifiers = modifiers, EdgeHideHotkeyKey = virtualKey });
-        UpdateHotkeyDisplay();
-        HotkeyError = _hotkey.TryRegister(modifiers, virtualKey)
-            ? ""
-            : AppStrings.GetString("HotkeyRegisterFailed");
+        try
+        {
+            var next = _snapshot with { EdgeHideHotkeyModifiers = modifiers, EdgeHideHotkeyKey = virtualKey };
+            await _settings.SaveAsync(next);
+            _snapshot = next;
+            UpdateHotkeyDisplay();
+            if (_hotkey.TryRegister(modifiers, virtualKey))
+                ReportOperation(true, "SettingsSavedTitle", HotkeyDisplay);
+            else
+                ReportOperation(false, "SettingsOperationFailedTitle", AppStrings.GetString("HotkeyRegisterFailed"));
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Saving the global shortcut failed.");
+            UpdateHotkeyDisplay();
+            ReportOperation(false, "SettingsOperationFailedTitle", AppStrings.GetString("SettingsSaveFailed"));
+        }
     }
 
     /// <summary>清空 = 禁用手动热键（Backspace/Delete 录入）.</summary>
-    public void ClearHotkey() => CommitHotkey(0, 0);
+    public Task ClearHotkeyAsync() => CommitHotkeyAsync(0, 0);
+
+    public void RejectHotkeyCapture() =>
+        ReportOperation(false, "SettingsOperationFailedTitle", AppStrings.GetString("HotkeyNeedsModifier"));
 
     private void UpdateHotkeyDisplay() =>
         HotkeyDisplay = _snapshot.EdgeHideHotkeyKey == 0
@@ -339,8 +369,8 @@ public partial class SettingsViewModel : ObservableObject
     public partial string UpdateCheckButtonText { get; set; } = AppStrings.GetString("CheckUpdateButton");
 
     /// <summary>
-    /// 检查完成（服务结果，非异常）。弹窗编排归视图：设置对话框先关闭，
-    /// 再由 NotesPage 弹结果对话框（同一时刻只允许一个 ContentDialog）。
+    /// A newer release requests a download decision in the host view. Routine
+    /// up-to-date/failure results use OperationCompleted without closing settings.
     /// </summary>
     public event Action<UpdateCheckResult>? UpdateCheckCompleted;
 
@@ -351,14 +381,18 @@ public partial class SettingsViewModel : ObservableObject
         try
         {
             var result = await _update.CheckLatestAsync();
-            UpdateCheckCompleted?.Invoke(result);
+            if (result.Status == UpdateCheckStatus.UpdateAvailable && result.ReleaseUrl is { Length: > 0 })
+                UpdateCheckCompleted?.Invoke(result);
+            else
+                ReportOperation(result.Status == UpdateCheckStatus.UpToDate, "CheckUpdateTitle",
+                    AppStrings.GetString(result.Status == UpdateCheckStatus.UpToDate ? "UpToDateContent" : "CheckUpdateFailedContent"));
         }
         catch (Exception ex)
         {
             // Defensive only — the service contract is result-not-exception. A
             // violation still surfaces as a Failed result instead of crashing.
             _log.LogError(ex, "检查更新命令失败");
-            UpdateCheckCompleted?.Invoke(new UpdateCheckResult(UpdateCheckStatus.Failed, null, null, ex.Message));
+            ReportOperation(false, "CheckUpdateTitle", AppStrings.GetString("CheckUpdateFailedContent"));
         }
         finally
         {
@@ -382,38 +416,32 @@ public partial class SettingsViewModel : ObservableObject
     /// <summary>已登录按钮文本.</summary>
     public string SyncSignOutText => AppStrings.GetString("SyncSignOut");
 
-    /// <summary>登录/登出失败提示；空串 = 无错误.</summary>
-    [ObservableProperty]
-    public partial string SyncError { get; set; } = "";
+    /// <summary>Transient settings outcomes use the panel's existing AppToast.</summary>
+    public event Action<SettingsOperationOutcome>? OperationCompleted;
 
-    /// <summary>SyncError 非空 → 显示错误行（空串时收起，否则空行把按钮顶离垂直居中）.</summary>
-    public bool SyncHasError => SyncError.Length > 0;
-
-    partial void OnSyncErrorChanged(string value) => OnPropertyChanged(nameof(SyncHasError));
-
-    /// <summary>
-    /// 登录/注销成功。弹窗编排归视图：SettingsPanel 据此弹 ResultTip toast
-    /// （成功=绿卡，自动消失）。失败不经过此事件 — 走内联 SyncError。
-    /// </summary>
-    public event Action<SyncAuthOutcome>? SyncAuthCompleted;
+    private void ReportOperation(bool success, string titleKey, string message) =>
+        OperationCompleted?.Invoke(new SettingsOperationOutcome(success, AppStrings.GetString(titleKey), message));
 
     /// <summary>SettingsPanel 打开时拉取当前账号（MSAL 账号枚举 = 本地缓存读取，无网络）.</summary>
     public async Task RefreshSyncAccountAsync()
     {
         try
         {
-            var account = await _syncTokens.GetSignedInAccountAsync();
-            SyncSignedIn = account is not null;
-            SyncAccountDisplay = account?.Username is { Length: > 0 } username
-                ? username
-                : AppStrings.GetString("SyncNotSignedIn");
+            await ReadSyncAccountAsync();
         }
         catch (Exception ex)
         {
             _log.LogWarning(ex, "读取同步账号失败");
-            SyncSignedIn = false;
-            SyncAccountDisplay = AppStrings.GetString("SyncNotSignedIn");
+            ReportOperation(false, "SettingsOperationFailedTitle", AppStrings.GetString("SyncAccountReadFailed"));
         }
+    }
+
+    private async Task ReadSyncAccountAsync()
+    {
+        var account = await _syncTokens.GetSignedInAccountAsync();
+        SyncSignedIn = account is not null;
+        SyncAccountDisplay = account?.Username is { Length: > 0 } username
+            ? username : AppStrings.GetString("SyncNotSignedIn");
     }
 
     /// <summary>
@@ -423,7 +451,6 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task SyncAuthAsync()
     {
-        SyncError = "";
         var wasSignedIn = SyncSignedIn; // pre-command state (same rule as the error mapping)
         try
         {
@@ -432,15 +459,14 @@ public partial class SettingsViewModel : ObservableObject
             // back empty right after an interactive sign-in (live-caught), which
             // left the button reading 登录 until the panel was reopened.
             // RefreshSyncAccountAsync still reconciles afterwards.
+            await _syncService.ChangeAccountAsync(async () =>
+            {
             if (wasSignedIn)
             {
                 await _syncTokens.SignOutAsync();
                 SyncSignedIn = false;
                 SyncAccountDisplay = AppStrings.GetString("SyncNotSignedIn");
-                SyncAuthCompleted?.Invoke(new SyncAuthOutcome(
-                    Success: true, SignedIn: false,
-                    Title: AppStrings.GetString("SyncSignOutSuccess"),
-                    Message: ""));
+                ReportOperation(true, "SyncSignOutSuccess", "");
             }
             else
             {
@@ -449,13 +475,12 @@ public partial class SettingsViewModel : ObservableObject
                 SyncAccountDisplay = result.Account?.Username is { Length: > 0 } username
                     ? username
                     : AppStrings.GetString("SyncNotSignedIn");
-                SyncAuthCompleted?.Invoke(new SyncAuthOutcome(
-                    Success: true, SignedIn: true,
-                    Title: AppStrings.GetString("SyncSignInSuccess"),
-                    Message: result.Account?.Username ?? ""));
+                ReportOperation(true, "SyncSignInSuccess", result.Account?.Username ?? "");
             }
+            });
             _log.LogInformation("同步账号状态切换成功（nowSignedIn={SignedIn}）", !wasSignedIn);
-            await RefreshSyncAccountAsync();
+            try { await ReadSyncAccountAsync(); }
+            catch (Exception ex) { _log.LogWarning(ex, "Account reconciliation failed after a successful auth operation."); }
         }
         catch (OperationCanceledException)
         {
@@ -466,8 +491,143 @@ public partial class SettingsViewModel : ObservableObject
         {
             // wasSignedIn: true = a sign-out was attempted, false = a sign-in.
             _log.LogWarning(ex, wasSignedIn ? "退出同步账号失败" : "交互式同步登录失败");
-            SyncError = AppStrings.GetString(wasSignedIn ? "SyncSignOutError" : "SyncSignInError");
+            ReportOperation(false, "SettingsOperationFailedTitle",
+                AppStrings.GetString(wasSignedIn ? "SyncSignOutError" : "SyncSignInError"));
         }
+    }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SyncWebDavSelected))]
+    [NotifyPropertyChangedFor(nameof(SyncOneDriveSelected))]
+    [NotifyPropertyChangedFor(nameof(ShowWebDavHttpWarning))]
+    public partial int SyncProviderIndex { get; set; }
+
+    public bool SyncWebDavSelected => SyncProviderIndex == 1;
+    public bool SyncOneDriveSelected => !SyncWebDavSelected;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowWebDavHttpWarning))]
+    public partial string WebDavFolderUrl { get; set; } = "";
+
+    public bool ShowWebDavHttpWarning => SyncWebDavSelected
+        && Uri.TryCreate(WebDavFolderUrl.Trim(), UriKind.Absolute, out var uri)
+        && uri.Scheme == Uri.UriSchemeHttp && uri.Host.Length > 0;
+
+    [ObservableProperty]
+    public partial string WebDavUsername { get; set; } = "";
+
+    [ObservableProperty]
+    public partial string WebDavPassword { get; set; } = "";
+
+    public string SyncOneDriveOptionText => SyncProviderOption(SyncProvider.OneDrive, "OneDrive");
+    public string SyncWebDavOptionText => SyncProviderOption(SyncProvider.WebDav, "WebDAV");
+    public string SyncOneDriveOptionName => SyncProviderOption(SyncProvider.OneDrive, "OneDrive", accessible: true);
+    public string SyncWebDavOptionName => SyncProviderOption(SyncProvider.WebDav, "WebDAV", accessible: true);
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SyncConfigurationEnabled))]
+    public partial bool SyncConfigurationBusy { get; set; }
+
+    public bool SyncConfigurationEnabled => !SyncConfigurationBusy;
+
+    private async Task LoadSyncConfigurationAsync()
+    {
+        try
+        {
+            _savedSyncConfiguration = await _syncService.GetConfigurationAsync();
+            RefreshSyncProviderChecks();
+            SyncProviderIndex = (int)_savedSyncConfiguration.Provider;
+            WebDavFolderUrl = _savedSyncConfiguration.FolderUrl;
+            WebDavUsername = _savedSyncConfiguration.Username;
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "The saved sync configuration could not be loaded.");
+            RefreshSyncProviderChecks(loaded: false);
+            ReportOperation(false, "SettingsOperationFailedTitle", AppStrings.GetString("SyncConfigurationUnreadable"));
+        }
+    }
+
+    private SyncConfiguration DraftSyncConfiguration()
+    {
+        var password = WebDavPassword;
+        if (password.Length == 0 && WebDavFolderUrl == _savedSyncConfiguration.FolderUrl
+            && WebDavUsername == _savedSyncConfiguration.Username)
+            password = _savedSyncConfiguration.Password;
+        return new SyncConfiguration
+        {
+            Provider = SyncWebDavSelected ? SyncProvider.WebDav : SyncProvider.OneDrive,
+            FolderUrl = WebDavFolderUrl, Username = WebDavUsername, Password = password,
+        }.Validate();
+    }
+
+    [RelayCommand]
+    private Task SaveSyncConfigurationAsync() => RunSyncConfigurationAsync(async () =>
+    {
+        var configuration = DraftSyncConfiguration();
+        await _syncService.SaveConfigurationAsync(configuration);
+        _savedSyncConfiguration = configuration;
+        RefreshSyncProviderChecks();
+        WebDavFolderUrl = configuration.FolderUrl;
+        WebDavPassword = "";
+    }, "SyncConfigurationSaved", "SettingsSavedTitle");
+
+    [RelayCommand]
+    private Task TestWebDavAsync() => RunSyncConfigurationAsync(
+        () => _syncService.TestWebDavAsync(DraftSyncConfiguration()), "SyncWebDavTestSucceeded", "SyncWebDavTestSucceededTitle");
+
+    [RelayCommand]
+    private Task ForgetWebDavAsync() => RunSyncConfigurationAsync(async () =>
+    {
+        await _syncService.SaveConfigurationAsync(new SyncConfiguration());
+        _savedSyncConfiguration = new SyncConfiguration();
+        RefreshSyncProviderChecks();
+        SyncProviderIndex = 0;
+        WebDavFolderUrl = WebDavUsername = WebDavPassword = "";
+    }, "SyncWebDavRemoved", "SettingsClearedTitle");
+
+    private string SyncProviderOption(SyncProvider provider, string name, bool accessible = false) =>
+        _syncConfigurationLoaded && _savedSyncConfiguration.Provider == provider
+            ? AppStrings.GetFormat(accessible ? "SyncActiveProviderName" : "SyncActiveProviderOption", name)
+            : name;
+
+    private void RefreshSyncProviderChecks(bool loaded = true)
+    {
+        _syncConfigurationLoaded = loaded;
+        OnPropertyChanged(nameof(SyncOneDriveOptionText));
+        OnPropertyChanged(nameof(SyncWebDavOptionText));
+        OnPropertyChanged(nameof(SyncOneDriveOptionName));
+        OnPropertyChanged(nameof(SyncWebDavOptionName));
+    }
+
+    private async Task RunSyncConfigurationAsync(Func<Task> action, string successKey, string successTitleKey)
+    {
+        if (SyncConfigurationBusy)
+            return;
+        SyncConfigurationBusy = true;
+        var success = false;
+        string messageKey;
+        try
+        {
+            await action();
+            success = true;
+            messageKey = successKey;
+        }
+        catch (ArgumentException)
+        {
+            messageKey = "SyncWebDavInvalid";
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "The sync configuration operation failed.");
+            messageKey = ex is SyncDriverException driverError
+                ? driverError.Kind == SyncDriverErrorKind.AuthRequired ? "SyncWebDavAuthFailed" : "SyncWebDavOperationFailed"
+                : "SyncConfigurationSaveFailed";
+        }
+        finally { SyncConfigurationBusy = false; }
+        ReportOperation(success, success ? successTitleKey
+            : successKey == "SyncWebDavTestSucceeded" ? "SyncWebDavTestFailedTitle" : "SettingsOperationFailedTitle",
+            AppStrings.GetString(messageKey));
     }
 
     private void Save(AppSettings next)
@@ -488,10 +648,9 @@ public partial class SettingsViewModel : ObservableObject
         catch (Exception ex)
         {
             _log.LogError(ex, "保存设置失败");
+            ReportOperation(false, "SettingsOperationFailedTitle", AppStrings.GetString("SettingsSaveFailed"));
         }
     }
 }
 
-/// <summary>登录/注销成功的 toast 载荷（失败走内联 SyncError，不弹 toast）.
-/// SignedIn = 命令完成后的状态，视图据此立即重涂按钮（不等账号重枚举）.</summary>
-public sealed record SyncAuthOutcome(bool Success, bool SignedIn, string Title, string Message);
+public sealed record SettingsOperationOutcome(bool Success, string Title, string Message);

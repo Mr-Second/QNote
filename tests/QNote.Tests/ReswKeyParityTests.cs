@@ -77,9 +77,35 @@ public sealed class ReswKeyParityTests
     [InlineData("HotkeyNotSet")]
     [InlineData("PortableFallbackContent")]
     [InlineData("TodoToastDueFormat")]
+    [InlineData("SyncActiveProviderOption")]
+    [InlineData("SyncNowTarget")]
+    [InlineData("SyncToastDoneAtTarget")]
+    [InlineData("SyncToastFailedAtTarget")]
+    [InlineData("SyncWebDavTestSucceededTitle")]
+    [InlineData("SyncWebDavTestFailedTitle")]
+    [InlineData("SettingsSavedTitle")]
+    [InlineData("SettingsClearedTitle")]
+    [InlineData("SettingsOperationFailedTitle")]
     public void Resw_CriticalKeys_ExistInBothFiles(string key)
     {
         Assert.Contains(key, (IEnumerable<string>)LoadKeys("en-US").Keys);
         Assert.Contains(key, (IEnumerable<string>)LoadKeys("zh-Hans").Keys);
+    }
+
+    [Theory]
+    [InlineData("zh-Hans")]
+    [InlineData("en-US")]
+    public void SyncDestinationMessages_KeepProviderAndFolderVisible(string language)
+    {
+        var values = XDocument.Load(ReswPath(language)).Root!.Elements("data")
+            .ToDictionary(e => (string)e.Attribute("name")!, e => (string)e.Element("value")!);
+        foreach (var key in new[] { "SyncActiveProviderOption", "SyncToastDoneAtTarget", "SyncToastFailedAtTarget" })
+        {
+            Assert.Contains("OneDrive", string.Format(values[key], "OneDrive"));
+            Assert.Contains("WebDAV", string.Format(values[key], "WebDAV"));
+        }
+        var detail = string.Format(values["SyncDestinationWebDav"], "test-user", "https://dav.example.com/QNote/");
+        Assert.Contains("test-user", detail);
+        Assert.Contains("https://dav.example.com/QNote/", detail);
     }
 }

@@ -25,7 +25,14 @@ public sealed partial class NotesPage : Page
 {
     private readonly WreEditorController _editor;
     private readonly SyncPollingScheduler _syncPolling;
-    private readonly ITokenProvider _syncTokens;
+    private readonly SyncService _syncService;
+    private bool _pairingPromptOpen;
+    private bool _pairingPromptDismissed;
+    private bool _syncSubscribed;
+    private int _syncRefreshQueued;
+    private Task _editorLoadTask = Task.CompletedTask;
+    private int _editorLoadVersion;
+    private bool _pairingSyncRunning;
     private bool _settingsOpen;
     private bool _dialogOpen;
     private bool _dataDialogOpen;
@@ -39,7 +46,7 @@ public sealed partial class NotesPage : Page
     {
         ViewModel = App.Services.GetRequiredService<NotesPageViewModel>();
         _syncPolling = App.Services.GetRequiredService<SyncPollingScheduler>();
-        _syncTokens = App.Services.GetRequiredService<ITokenProvider>();
+        _syncService = App.Services.GetRequiredService<SyncService>();
         InitializeComponent();
 
         _editor = new WreEditorController(
@@ -54,6 +61,7 @@ public sealed partial class NotesPage : Page
         // underneath this flush.
         ViewModel.EditorContentProvider = async () =>
         {
+            await _editorLoadTask;
             var (markdown, changed) = await _editor.AdoptAndSnapshotAsync();
             return new NotesPageViewModel.EditorSnapshot(markdown, changed);
         };
@@ -105,6 +113,8 @@ public sealed partial class NotesPage : Page
 
     private void OnPageUnloaded(object sender, RoutedEventArgs e)
     {
+        _syncPolling.CycleCompleted -= OnSyncCycleCompleted;
+        _syncSubscribed = false;
         _autoSaveTimer?.Stop();
         StopSyncSpin();
         ViewModel.Detach();
@@ -134,6 +144,11 @@ public sealed partial class NotesPage : Page
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
+        if (!_syncSubscribed)
+        {
+            _syncPolling.CycleCompleted += OnSyncCycleCompleted;
+            _syncSubscribed = true;
+        }
         // Sync readiness (local MSAL cache probe, no network) before the VM load.
         await RefreshSyncButtonStateAsync();
         await ViewModel.LoadAsync();
@@ -143,8 +158,8 @@ public sealed partial class NotesPage : Page
 
     /// <summary>
     /// Refreshes the header sync button's readiness: enabled iff a sync account is
-    /// configured (OneDrive signed in; the future WebDAV L3 target extends this
-    /// check). MSAL account enumeration is a local-cache read, no network. The
+    /// configured (OneDrive signed in or WebDAV saved). Destination metadata and
+    /// MSAL account enumeration are local reads, without network traffic. The
     /// churn point is the settings dialog (sign-in/out), so this also runs when it
     /// closes; sign-in from TodoPage's settings is picked up on the next page load.
     /// </summary>
@@ -152,14 +167,22 @@ public sealed partial class NotesPage : Page
     {
         try
         {
-            _syncReady = await _syncTokens.GetSignedInAccountAsync() is not null;
+            var destination = await _syncService.GetDestinationAsync();
+            _syncReady = destination.IsReady;
+            var detail = SyncOutcomeText.DestinationDetail(destination);
+            ToolTipService.SetToolTip(SyncNowButton, AppStrings.GetFormat("SyncNowTarget", detail));
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(
+                SyncNowButton, AppStrings.GetFormat("SyncNowTarget", detail));
         }
         catch
         {
             // Same call the settings VM logs; here a failure just means "not ready".
             _syncReady = false;
+            ToolTipService.SetToolTip(SyncNowButton, AppStrings.GetString("SyncConfigurationUnreadable"));
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(
+                SyncNowButton, AppStrings.GetString("SyncNotStarted"));
         }
-        SyncNowButton.IsEnabled = _syncReady;
+        SyncNowButton.IsEnabled = _syncReady && !_syncSpinning;
     }
 
     private async void SyncNow_Click(object sender, RoutedEventArgs e)
@@ -171,6 +194,7 @@ public sealed partial class NotesPage : Page
         StartSyncSpin();
         try
         {
+            await ViewModel.FlushAsync();
             // bypass: explicit user intent. The scheduler single-flights — clicking
             // while a background cycle runs awaits THAT cycle.
             var cycle = _syncPolling.TriggerNow(bypassThrottle: true);
@@ -179,11 +203,23 @@ public sealed partial class NotesPage : Page
                 ResultTip.ShowError(AppStrings.GetString("SyncNotStarted"), "");
                 return;
             }
-            var outcome = SyncOutcomeText.Describe(await cycle);
+            var result = await cycle;
+            if (result?.AbortKind == SyncCycleAbortKind.PairingRequired)
+            {
+                result = await ShowSyncPairingAsync(result.PairingTarget, result.Destination);
+                if (result is null)
+                    return;
+            }
+            var outcome = SyncOutcomeText.Describe(result);
             if (outcome.Success)
                 ResultTip.ShowSuccess(outcome.Title, outcome.Message);
             else
                 ResultTip.ShowError(outcome.Title, outcome.Message);
+        }
+        catch (Exception ex)
+        {
+            App.Services.GetRequiredService<ILogger<NotesPage>>().LogError(ex, "Manual sync failed.");
+            ResultTip.ShowError(AppStrings.GetString("SyncToastFailed"), AppStrings.GetString("SyncAbortGeneric"));
         }
         finally
         {
@@ -191,6 +227,106 @@ public sealed partial class NotesPage : Page
             _syncSpinning = false;
             await RefreshSyncButtonStateAsync();
         }
+    }
+
+    private void OnSyncCycleCompleted(SyncCycleResult? result)
+    {
+        if (result?.AbortKind != SyncCycleAbortKind.PairingRequired)
+        {
+            if (result is null || result.Downloaded + result.TombstonesApplied + result.ConflictCopies == 0
+                || Interlocked.Exchange(ref _syncRefreshQueued, 1) != 0)
+                return;
+            if (App.DispatcherQueue?.TryEnqueue(async () =>
+            {
+                Interlocked.Exchange(ref _syncRefreshQueued, 0);
+                if (IsLoaded)
+                    await ViewModel.RefreshAfterSyncAsync();
+            }) != true)
+                Interlocked.Exchange(ref _syncRefreshQueued, 0);
+            return;
+        }
+        App.DispatcherQueue?.TryEnqueue(async () =>
+        {
+            if (!IsLoaded || _pairingPromptDismissed || _syncSpinning || _pairingPromptOpen
+                || _settingsOpen || _dataDialogOpen || _dialogOpen)
+                return;
+            try
+            {
+                var outcome = await ShowSyncPairingAsync(result.PairingTarget, result.Destination);
+                if (outcome is not null)
+                {
+                    var text = SyncOutcomeText.Describe(outcome);
+                    if (text.Success) ResultTip.ShowSuccess(text.Title, text.Message);
+                    else ResultTip.ShowError(text.Title, text.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Services.GetRequiredService<ILogger<NotesPage>>().LogError(ex, "The first-pairing dialog failed.");
+                ResultTip.ShowError(AppStrings.GetString("SyncToastFailed"), AppStrings.GetString("SyncAbortGeneric"));
+            }
+        });
+    }
+
+    private async Task<SyncCycleResult?> ShowSyncPairingAsync(string? target, SyncDestination? destination)
+    {
+        if (_pairingPromptOpen)
+            return null;
+        _pairingPromptOpen = true;
+        try
+        {
+            var choices = new RadioButtons { SelectedIndex = 0 };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(choices, "SyncPairingChoices");
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(choices, AppStrings.GetString("SyncPairingTitle"));
+            foreach (var key in new[] { "SyncPairingMerge", "SyncPairingCloud", "SyncPairingLocal" })
+                choices.Items.Add(AppStrings.GetString(key));
+            var content = new StackPanel { Spacing = 12 };
+            if (destination is not null)
+                content.Children.Add(new TextBlock
+                {
+                    Text = AppStrings.GetFormat("SyncPairingDestination", SyncOutcomeText.DestinationDetail(destination)),
+                    TextWrapping = TextWrapping.Wrap,
+                });
+            content.Children.Add(new TextBlock
+            {
+                Text = AppStrings.GetString("SyncPairingHint"), TextWrapping = TextWrapping.Wrap,
+            });
+            content.Children.Add(choices);
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot, RequestedTheme = ActualTheme,
+                Title = AppStrings.GetString("SyncPairingTitle"), Content = content,
+                PrimaryButtonText = AppStrings.GetString("SyncPairingApply"),
+                CloseButtonText = AppStrings.GetString("CancelButton"), DefaultButton = ContentDialogButton.Primary,
+            };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            {
+                _pairingPromptDismissed = true;
+                return null;
+            }
+            // Replacement may remove the source rows/images entirely. Finish the
+            // existing draft, then prevent a new one during this explicit operation.
+            _pairingSyncRunning = true;
+            TitleBox.IsEnabled = Editor.IsEnabled = EditorToolbar.IsEnabled = false;
+            try
+            {
+                await ViewModel.FlushAsync();
+                if (ViewModel.IsDirty)
+                    return null;
+                var choice = (SyncPairingChoice)choices.SelectedIndex;
+                var result = await Task.Run(() => _syncService.RunAsync(choice, pairingTarget: target));
+                if (result is not null)
+                    await ViewModel.RefreshAfterSyncAsync();
+                return result;
+            }
+            finally
+            {
+                _pairingSyncRunning = false;
+                TitleBox.IsEnabled = true;
+                Editor.IsEnabled = EditorToolbar.IsEnabled = _editorLoadTask.IsCompleted;
+            }
+        }
+        finally { _pairingPromptOpen = false; }
     }
 
     private void StartSyncSpin()
@@ -280,14 +416,34 @@ public sealed partial class NotesPage : Page
     // VM finished loading a note → render its Markdown into the editor (suppressed
     // inside the load path, so this never marks the note dirty). Async: image
     // references resolve to note_images display copies before the RTF load.
-    private async void OnContentReloadRequested()
+    private void OnContentReloadRequested() =>
+        _editorLoadTask = ReloadEditorAsync(++_editorLoadVersion);
+
+    private async Task ReloadEditorAsync(int version)
     {
-        await _editor.SetMarkdownAsync(ViewModel.EditingContent);
-        UpdatePlaceholder();
-        UpdateEditorStatus();
-        // A note switch swapped the document under an open find bar — keep its live
-        // highlight + "n/m" counter in step with the new content (no focus side-effects).
-        FindBar.Refresh();
+        Editor.IsEnabled = false;
+        EditorToolbar.IsEnabled = false;
+        try
+        {
+            await _editor.SetMarkdownAsync(ViewModel.EditingContent);
+            if (version != _editorLoadVersion)
+                return;
+            UpdatePlaceholder();
+            UpdateEditorStatus();
+            FindBar.Refresh();
+        }
+        catch (Exception ex)
+        {
+            App.Services.GetRequiredService<ILogger<NotesPage>>().LogError(ex, "Loading the editor document failed.");
+        }
+        finally
+        {
+            if (version == _editorLoadVersion)
+            {
+                Editor.IsEnabled = !_pairingSyncRunning;
+                EditorToolbar.IsEnabled = !_pairingSyncRunning;
+            }
+        }
     }
 
     private void OnEditorContentChanged()
@@ -433,7 +589,7 @@ public sealed partial class NotesPage : Page
 
         var error = await ViewModel.CreateCategoryAsync(dialog.CategoryName, dialog.ColorHex, dialog.IconKey);
         if (error is not null)
-            await ShowErrorDialogAsync(AppStrings.GetString("NewCategoryTitle"), error);
+            ShowErrorToast(AppStrings.GetString("NewCategoryTitle"), error);
     }
 
     private async void RenameCategoryMenu_Click(object sender, RoutedEventArgs e)
@@ -451,7 +607,7 @@ public sealed partial class NotesPage : Page
 
         var error = await ViewModel.UpdateCategoryAsync(item, dialog.CategoryName, dialog.ColorHex, dialog.IconKey);
         if (error is not null)
-            await ShowErrorDialogAsync(AppStrings.GetString("EditCategoryTitle"), error);
+            ShowErrorToast(AppStrings.GetString("EditCategoryTitle"), error);
     }
 
     private async void DeleteCategoryMenu_Click(object sender, RoutedEventArgs e)
@@ -478,7 +634,7 @@ public sealed partial class NotesPage : Page
 
         var error = await ViewModel.DeleteCategoryAsync(item);
         if (error is not null)
-            await ShowErrorDialogAsync(AppStrings.GetString("DeleteCategoryTitle"), error);
+            ShowErrorToast(AppStrings.GetString("DeleteCategoryTitle"), error);
     }
 
     private async void SettingsButton_Click(object sender, RoutedEventArgs e)
@@ -498,9 +654,8 @@ public sealed partial class NotesPage : Page
         try
         {
             var vm = App.Services.GetRequiredService<SettingsViewModel>();
-            await vm.InitializeAsync();
-
             var panel = new SettingsPanel(vm);
+            await vm.InitializeAsync();
             var dialog = new ContentDialog
             {
                 XamlRoot = XamlRoot,
@@ -544,6 +699,11 @@ public sealed partial class NotesPage : Page
                 ActualThemeChanged -= OnThemeChanged;
                 settingsDialogOpen = false;
             }
+        }
+        catch (Exception ex)
+        {
+            App.Services.GetRequiredService<ILogger<NotesPage>>().LogError(ex, "Opening settings failed.");
+            ResultTip.ShowError(AppStrings.GetString("SettingsOperationFailedTitle"), AppStrings.GetString("SettingsOpenFailed"));
         }
         finally
         {
@@ -632,9 +792,8 @@ public sealed partial class NotesPage : Page
     }
 
     /// <summary>
-    /// Update-check result dialog (设置 → 常规 → 检查更新, unpackaged only): newer →
-    /// link to the GitHub release page (Launcher); up-to-date → info; failure →
-    /// friendly zh message (the technical reason stays in the log).
+    /// A newer release requests a download decision. Routine update-check
+    /// outcomes stay in the settings panel's toast.
     /// </summary>
     private async Task ShowUpdateResultDialogAsync(UpdateCheckResult result)
     {
@@ -668,34 +827,6 @@ public sealed partial class NotesPage : Page
                     // Launch failure (no browser) has no meaningful in-dialog recovery — ignored.
                     await Launcher.LaunchUriAsync(releaseUri);
                 }
-            }
-            else if (result.Status == UpdateCheckStatus.UpToDate)
-            {
-                var dialog = new ContentDialog
-                {
-                    XamlRoot = XamlRoot,
-                    // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
-                    RequestedTheme = ActualTheme,
-                    Title = AppStrings.GetString("CheckUpdateTitle"),
-                    Content = AppStrings.GetString("UpToDateContent"),
-                    CloseButtonText = AppStrings.GetString("GotItButton"),
-                    DefaultButton = ContentDialogButton.Close,
-                };
-                await dialog.ShowAsync();
-            }
-            else
-            {
-                var dialog = new ContentDialog
-                {
-                    XamlRoot = XamlRoot,
-                    // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
-                    RequestedTheme = ActualTheme,
-                    Title = AppStrings.GetString("CheckUpdateTitle"),
-                    Content = AppStrings.GetString("CheckUpdateFailedContent"),
-                    CloseButtonText = AppStrings.GetString("GotItButton"),
-                    DefaultButton = ContentDialogButton.Close,
-                };
-                await dialog.ShowAsync();
             }
         }
         finally
@@ -774,34 +905,11 @@ public sealed partial class NotesPage : Page
     private void OnImageError(string message)
     {
         // Raised from import/launch paths that may be off the UI thread — marshal the
-        // dialog back to it.
+        // toast back to it.
         App.DispatcherQueue.TryEnqueue(
-            () => _ = ShowErrorDialogAsync(AppStrings.GetString("ImageErrorTitle"), message));
+            () => ShowErrorToast(AppStrings.GetString("ImageErrorTitle"), message));
     }
 
-    private async Task ShowErrorDialogAsync(string title, string message)
-    {
-        // Only one ContentDialog may be open at a time (a re-entrant ShowAsync throws).
-        if (_dialogOpen)
-            return;
-        _dialogOpen = true;
-        try
-        {
-            var dialog = new ContentDialog
-            {
-                XamlRoot = XamlRoot,
-                // Popups do not inherit the window root RequestedTheme — pin the dialog to it.
-                RequestedTheme = ActualTheme,
-                Title = title,
-                Content = message,
-                CloseButtonText = AppStrings.GetString("GotItButton"),
-            };
-            await dialog.ShowAsync();
-        }
-        finally
-        {
-            _dialogOpen = false;
-        }
-    }
+    private void ShowErrorToast(string title, string message) => ResultTip.ShowError(title, message);
 
 }

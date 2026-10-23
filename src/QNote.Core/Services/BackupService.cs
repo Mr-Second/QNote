@@ -126,6 +126,16 @@ public sealed class BackupService : IBackupService
         }
     }
 
+    public async Task<string> CreateAutoBackupAsync(CancellationToken ct = default)
+    {
+        Directory.CreateDirectory(_paths.BackupsDir);
+        var path = Path.Combine(_paths.BackupsDir,
+            $"auto-backup-{DateTime.Now:yyyyMMdd-HHmmss-fff}-{Guid.NewGuid():N}{IBackupService.ArchiveExtension}");
+        await BackupAsync(path, ct: ct);
+        PruneAutoBackups();
+        return path;
+    }
+
     /// <inheritdoc/>
     public async Task BackupAsync(
         string destinationPath,
@@ -358,13 +368,8 @@ public sealed class BackupService : IBackupService
     private async Task RestoreOverwriteAsync(string archivePath, string? password, IProgress<double>? progress, CancellationToken ct)
     {
         // D4: safety net before anything destructive — unencrypted, into backups\.
-        Directory.CreateDirectory(_paths.BackupsDir);
-        var autoPath = Path.Combine(_paths.BackupsDir,
-            $"auto-backup-{DateTime.Now:yyyyMMdd-HHmmss}{IBackupService.ArchiveExtension}");
-        await Task.Run(
-            () => BackupCore(autoPath, password: null,
-                new Progress<double>(p => progress?.Report(0.4 * p)), ct), ct);
-        PruneAutoBackups();
+        await CreateAutoBackupAsync(ct);
+        progress?.Report(0.4);
 
         var staging = await Task.Run(() => ExtractToStaging(archivePath, password), ct);
         try

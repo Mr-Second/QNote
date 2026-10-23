@@ -72,7 +72,14 @@ public sealed class WreEditorController
         _images = images;
         _notes = notes;
 
-        _editor.TextChanged += (_, _) => { if (!_loading) ContentChanged?.Invoke(); };
+        _editor.TextChanged += (_, _) =>
+        {
+            if (!_loading)
+            {
+                _loadGeneration++;
+                ContentChanged?.Invoke();
+            }
+        };
         _editor.SelectionChanged += (_, _) => SelectionChanged?.Invoke();
 
         // WRE has no host hook for image double-click / open-original (S2 investigation:
@@ -110,7 +117,7 @@ public sealed class WreEditorController
     public async Task SetMarkdownAsync(string? markdown)
     {
         var md = markdown ?? string.Empty;
-        _displayBytesSha.Clear();
+        Dictionary<string, string> displayShas = new(StringComparer.Ordinal);
 
         // Fast note switching: two loads can interleave at the image-row await;
         // the stale one must not overwrite the newer document.
@@ -139,7 +146,7 @@ public sealed class WreEditorController
             {
                 if (row.DisplayBytes is { } bytes)
                 {
-                    _displayBytesSha[Sha256Hex(bytes)] = row.Sha256;
+                    displayShas[Sha256Hex(bytes)] = row.Sha256;
                     displayBytes[row.Sha256] = bytes;
                 }
             }
@@ -153,6 +160,9 @@ public sealed class WreEditorController
         // that so a fresh load never reads as an edit; the baseline is captured right
         // after the swap so IsDirty() is false until real input. GetMarkdown() is
         // idempotent through a load.
+        _displayBytesSha.Clear();
+        foreach (var pair in displayShas)
+            _displayBytesSha[pair.Key] = pair.Value;
         _loading = true;
         try
         {
@@ -309,6 +319,7 @@ public sealed class WreEditorController
 
         _editor.Focus(FocusState.Programmatic);
         _editor.InsertInlineImage(imported.DisplayBytes, BlipToMime(imported.DisplayBlip));
+        _loadGeneration++;
         ContentChanged?.Invoke();
         return true;
     }

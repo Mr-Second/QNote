@@ -6,20 +6,25 @@ using QNote.Models;
 namespace QNote.Services;
 
 /// <summary>
-/// Note business logic. Owns creation identity (Uuid) and timestamp stamping;
-/// delegates all SQL to <see cref="INoteRepository"/>.
+/// Note business logic. Owns creation identity (Uuid) and plain-text projection;
+/// the repository advances persisted local edit clocks atomically.
 /// </summary>
 public sealed class NoteService : INoteService
 {
     private readonly INoteRepository _repo;
     private readonly IImageService _images;
     private readonly ILogger<NoteService> _log;
+    private readonly Action<SyncEntryKind, string>? _onLocalChange;
+    private readonly string _conflictCopyTitleSuffix;
 
-    public NoteService(INoteRepository repo, IImageService images, ILogger<NoteService> log)
+    public NoteService(INoteRepository repo, IImageService images, ILogger<NoteService> log,
+        Action<SyncEntryKind, string>? onLocalChange = null, string conflictCopyTitleSuffix = " (conflict)")
     {
         _repo = repo;
         _images = images;
         _log = log;
+        _onLocalChange = onLocalChange;
+        _conflictCopyTitleSuffix = conflictCopyTitleSuffix;
     }
 
     public Task<IReadOnlyList<Note>> GetAllAsync(CancellationToken ct = default) => _repo.GetAllAsync(ct);
@@ -44,6 +49,7 @@ public sealed class NoteService : INoteService
 
         var created = await _repo.CreateAsync(note, ct);
         _log.LogInformation("Created note {Id} (category '{Category}')", created.Id, category);
+        _onLocalChange?.Invoke(SyncEntryKind.Note, created.Uuid);
         return created;
     }
 
@@ -54,9 +60,9 @@ public sealed class NoteService : INoteService
         var updated = note with
         {
             PlainText = MarkdownText.ToPlainText(note.Content),
-            UpdatedAt = DateTimeOffset.UtcNow,
         };
-        await _repo.UpdateAsync(updated, ct);
+        updated = await _repo.UpdateAsync(updated, ct);
+        _onLocalChange?.Invoke(SyncEntryKind.Note, updated.Uuid);
         return updated;
     }
 
@@ -65,8 +71,19 @@ public sealed class NoteService : INoteService
         // Soft delete (schema v8): the row becomes a tombstone and its images stay
         // on disk. No orphan prune here — the tombstone still holds the references,
         // and the note must stay restorable until the tombstone is purged.
+        var existing = _onLocalChange is null ? null : await _repo.GetByIdAsync(id, ct);
         await _repo.DeleteAsync(id, ct);
+        if (existing is not null)
+            _onLocalChange?.Invoke(SyncEntryKind.Note, existing.Uuid);
         _log.LogInformation("Soft-deleted note {Id}", id);
+    }
+
+    public async Task<Note> SaveDraftAsync(Note draft, Note baseline, CancellationToken ct = default)
+    {
+        var saved = await _repo.SaveDraftAsync(draft with { PlainText = MarkdownText.ToPlainText(draft.Content) },
+            baseline, _conflictCopyTitleSuffix, ct);
+        _onLocalChange?.Invoke(SyncEntryKind.Note, saved.Uuid);
+        return saved;
     }
 
     public Task AddNoteImagesAsync(long noteId, IReadOnlyList<NoteImage> images, CancellationToken ct = default) =>

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <UserControl
     x:Class="QNote.Controls.SettingsPanel"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -250,19 +250,21 @@
                             BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                             BorderThickness="0,1,0,0" />
                         <Grid Padding="10,3" ColumnSpacing="4">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
                             <TextBlock x:Uid="SettingsHotkeyLabel" VerticalAlignment="Center" Text="隐藏/显示快捷键" />
-                            <StackPanel
-                                Grid.Column="1"
-                                VerticalAlignment="Center"
-                                Spacing="2">
                                 <Button
                                     x:Name="HotkeyButton"
                                     x:Uid="SettingsHotkeyButton"
+                                    Grid.Column="1"
                                     HorizontalAlignment="Stretch"
+                                    VerticalAlignment="Center"
                                     HorizontalContentAlignment="Center"
                                     AutomationProperties.AutomationId="SettingsHotkeyButton"
                                     Click="Hotkey_Click"
@@ -273,12 +275,6 @@
                                         Text="{x:Bind ViewModel.HotkeyDisplay, Mode=OneWay}"
                                         TextWrapping="Wrap" />
                                 </Button>
-                                <TextBlock
-                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind ViewModel.HotkeyError, Mode=OneWay}"
-                                    TextWrapping="Wrap" />
-                            </StackPanel>
                         </Grid>
                         <Border
                             Margin="10,0"
@@ -500,11 +496,7 @@
             </StackPanel>
 
             <!-- ============ 同步 ============ -->
-            <!-- L2 OneDrive (task 10-06): account management ONLY — the ONE
-                 toggle button 登录 (signed out) / 注销 (signed in, tooltip
-                 carries the account). Sign-in binds the WAM picker to the app
-                 window. Manual sync lives on the main page's header (a spinning
-                 icon button) — NOT here, per user ruling 2026-10-23. -->
+            <!-- Provider/account configuration only. Manual sync stays in the main header. -->
             <StackPanel Spacing="2">
                 <TextBlock
                     x:Uid="SettingsSyncSection"
@@ -516,77 +508,135 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="8">
-                    <Grid Padding="10,3" ColumnSpacing="4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="152" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Uid="SettingsSyncAccountLabel" VerticalAlignment="Center" Text="OneDrive 账号" />
-                        <StackPanel
-                            Grid.Column="1"
-                            VerticalAlignment="Center"
-                            Spacing="2">
-                            <!-- Two STATIC buttons instead of one restyled button: the
-                                 default template resolves ButtonBackground & co. through
-                                 {ThemeResource} ONCE at template load, so mutating the
-                                 element-level Resources afterwards repaints NOTHING
-                                 (live-verified 2026-10-23 — the red never appeared while
-                                 the text flipped). Declaring the brushes in XAML here means
-                                 they are in place BEFORE the template instantiates. Same
-                                 mechanism as NewNoteButton. Compact width: a two-character
-                                 label does not need a full row-column control (user ruling
-                                 2026-10-23, twice narrowed — 152 → 101 → 56; 56 fits
-                                 「登录/注销」 plus button padding without looking stretched). -->
-                            <Button
-                                x:Name="SignInButton"
-                                x:Uid="SettingsSyncAuthButton"
-                                Width="56"
-                                HorizontalAlignment="Left"
-                                HorizontalContentAlignment="Center"
-                                AutomationProperties.AutomationId="SettingsSyncAuthButton"
-                                Command="{x:Bind ViewModel.SyncAuthCommand, Mode=OneWay}"
-                                Content="{x:Bind ViewModel.SyncSignInText, Mode=OneTime}"
-                                ToolTipService.ToolTip="{x:Bind ViewModel.SyncAccountDisplay, Mode=OneWay}"
-                                Visibility="{x:Bind ViewModel.SyncSignedIn, Converter={StaticResource BoolToVisibility}, ConverterParameter=Invert, Mode=OneWay}" />
-                            <Button
-                                x:Name="SignOutButton"
-                                x:Uid="SettingsSyncAuthButton"
-                                Width="56"
-                                HorizontalAlignment="Left"
-                                HorizontalContentAlignment="Center"
-                                AutomationProperties.AutomationId="SettingsSyncSignOutButton"
-                                Command="{x:Bind ViewModel.SyncAuthCommand, Mode=OneWay}"
-                                Content="{x:Bind ViewModel.SyncSignOutText, Mode=OneTime}"
-                                ToolTipService.ToolTip="{x:Bind ViewModel.SyncAccountDisplay, Mode=OneWay}"
-                                Visibility="{x:Bind ViewModel.SyncSignedIn, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
-                                <!-- Destructive 注销 = solid red + white label for every
-                                     state (user ruling 2026-10-23: a critical-tint
-                                     background with red text read as "broken"). -->
-                                <Button.Resources>
-                                    <ResourceDictionary>
-                                        <SolidColorBrush x:Key="ButtonBackground" Color="#C42B1C" />
-                                        <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#D13438" />
-                                        <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#A7221A" />
-                                        <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="#C42B1C" />
-                                        <SolidColorBrush x:Key="ButtonForeground" Color="White" />
-                                        <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="White" />
-                                        <SolidColorBrush x:Key="ButtonForegroundPressed" Color="White" />
-                                        <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="#80FFFFFF" />
-                                        <SolidColorBrush x:Key="ButtonBorderBrush" Color="#C42B1C" />
-                                        <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#D13438" />
-                                        <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#A7221A" />
-                                        <SolidColorBrush x:Key="ButtonBorderBrushDisabled" Color="#C42B1C" />
-                                    </ResourceDictionary>
-                                </Button.Resources>
-                            </Button>
-                            <TextBlock
-                                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind ViewModel.SyncError, Mode=OneWay}"
-                                TextWrapping="Wrap"
-                                Visibility="{x:Bind ViewModel.SyncHasError, Converter={StaticResource BoolToVisibility}, Mode=OneWay}" />
+                    <StackPanel>
+                        <Grid Padding="10,3" ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="152" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Uid="SettingsSyncProviderLabel" Text="同步方式" VerticalAlignment="Center" />
+                            <ComboBox x:Uid="SettingsSyncProvider" Grid.Column="1"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                                      IsEnabled="{x:Bind ViewModel.SyncConfigurationEnabled, Mode=OneWay}"
+                                      AutomationProperties.Name="同步方式"
+                                      AutomationProperties.AutomationId="SettingsSyncProvider"
+                                      SelectedIndex="{x:Bind ViewModel.SyncProviderIndex, Mode=TwoWay}">
+                                <ComboBoxItem Content="{x:Bind ViewModel.SyncOneDriveOptionText, Mode=OneWay}"
+                                              AutomationProperties.Name="{x:Bind ViewModel.SyncOneDriveOptionName, Mode=OneWay}"
+                                              AutomationProperties.AutomationId="SettingsSyncOneDrive" />
+                                <ComboBoxItem Content="{x:Bind ViewModel.SyncWebDavOptionText, Mode=OneWay}"
+                                              AutomationProperties.Name="{x:Bind ViewModel.SyncWebDavOptionName, Mode=OneWay}"
+                                              AutomationProperties.AutomationId="SettingsSyncWebDav" />
+                            </ComboBox>
+                        </Grid>
+                        <Border Margin="10,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                BorderThickness="0,1,0,0" />
+                        <StackPanel Padding="10,12" Spacing="12"
+                                    Visibility="{x:Bind ViewModel.SyncWebDavSelected, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
+                            <TextBox x:Uid="SettingsWebDavUrl" Header="同步文件夹地址（HTTP / HTTPS）"
+                                     IsEnabled="{x:Bind ViewModel.SyncConfigurationEnabled, Mode=OneWay}"
+                                     PlaceholderText="https://dav.example.com/QNote/"
+                                     AutomationProperties.AutomationId="SettingsWebDavUrl"
+                                     Text="{x:Bind ViewModel.WebDavFolderUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock x:Uid="SettingsWebDavHttpWarning"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                       TextWrapping="Wrap"
+                                       Visibility="{x:Bind ViewModel.ShowWebDavHttpWarning, Converter={StaticResource BoolToVisibility}, Mode=OneWay}"
+                                       Text="连接未加密：用户名、应用密码和笔记内容可能被监听。请仅在你信任的网络中使用 HTTP。" />
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Uid="SettingsWebDavUsername" PlaceholderText="用户名"
+                                         IsEnabled="{x:Bind ViewModel.SyncConfigurationEnabled, Mode=OneWay}"
+                                         AutomationProperties.Name="用户名"
+                                         AutomationProperties.AutomationId="SettingsWebDavUsername"
+                                         Text="{x:Bind ViewModel.WebDavUsername, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <PasswordBox x:Uid="SettingsWebDavPassword" Grid.Column="1" PlaceholderText="应用密码"
+                                             IsEnabled="{x:Bind ViewModel.SyncConfigurationEnabled, Mode=OneWay}"
+                                             AutomationProperties.Name="应用密码"
+                                             AutomationProperties.AutomationId="SettingsWebDavPassword"
+                                             Password="{x:Bind ViewModel.WebDavPassword, Mode=TwoWay}" />
+                            </Grid>
+                            <TextBlock x:Uid="SettingsWebDavHint" TextWrapping="Wrap"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       Text="请填写专用于 QNote 的文件夹地址。地址和用户名不变时，密码留空会保留已保存的密码。" />
                         </StackPanel>
-                    </Grid>
+                        <Grid Padding="10,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <!-- Match the provider's 152px right column: 56 + 8 + 88. -->
+                                <ColumnDefinition Width="56" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="88" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                        Visibility="{x:Bind ViewModel.SyncOneDriveSelected, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
+                                <Button
+                                    x:Name="SignInButton"
+                                    x:Uid="SettingsSyncAuthButton"
+                                    Width="56"
+                                    HorizontalAlignment="Left"
+                                    HorizontalContentAlignment="Center"
+                                    AutomationProperties.AutomationId="SettingsSyncAuthButton"
+                                    Command="{x:Bind ViewModel.SyncAuthCommand, Mode=OneWay}"
+                                    Content="{x:Bind ViewModel.SyncSignInText, Mode=OneTime}"
+                                    ToolTipService.ToolTip="{x:Bind ViewModel.SyncAccountDisplay, Mode=OneWay}"
+                                    Visibility="{x:Bind ViewModel.SyncSignedIn, Converter={StaticResource BoolToVisibility}, ConverterParameter=Invert, Mode=OneWay}" />
+                                <Button
+                                    x:Name="SignOutButton"
+                                    x:Uid="SettingsSyncAuthButton"
+                                    Width="56"
+                                    HorizontalAlignment="Left"
+                                    HorizontalContentAlignment="Center"
+                                    AutomationProperties.AutomationId="SettingsSyncSignOutButton"
+                                    Command="{x:Bind ViewModel.SyncAuthCommand, Mode=OneWay}"
+                                    Content="{x:Bind ViewModel.SyncSignOutText, Mode=OneTime}"
+                                    ToolTipService.ToolTip="{x:Bind ViewModel.SyncAccountDisplay, Mode=OneWay}"
+                                    Visibility="{x:Bind ViewModel.SyncSignedIn, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
+                                    <!-- Destructive 注销 = solid red + white label for every
+                                         state (user ruling 2026-10-23: a critical-tint
+                                         background with red text read as "broken"). -->
+                                    <Button.Resources>
+                                        <ResourceDictionary>
+                                            <SolidColorBrush x:Key="ButtonBackground" Color="#C42B1C" />
+                                            <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#D13438" />
+                                            <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#A7221A" />
+                                            <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="#C42B1C" />
+                                            <SolidColorBrush x:Key="ButtonForeground" Color="White" />
+                                            <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="White" />
+                                            <SolidColorBrush x:Key="ButtonForegroundPressed" Color="White" />
+                                            <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="#80FFFFFF" />
+                                            <SolidColorBrush x:Key="ButtonBorderBrush" Color="#C42B1C" />
+                                            <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#D13438" />
+                                            <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#A7221A" />
+                                            <SolidColorBrush x:Key="ButtonBorderBrushDisabled" Color="#C42B1C" />
+                                        </ResourceDictionary>
+                                    </Button.Resources>
+                                </Button>
+                            </StackPanel>
+                            <StackPanel Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="8"
+                                        Visibility="{x:Bind ViewModel.SyncWebDavSelected, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
+                            <Button x:Uid="SettingsWebDavTest" Content="测试连接" Height="32" Padding="8,4" HorizontalAlignment="Left"
+                                    IsEnabled="{x:Bind ViewModel.SyncConfigurationEnabled, Mode=OneWay}"
+                                    AutomationProperties.AutomationId="SettingsWebDavTest"
+                                    Command="{x:Bind ViewModel.TestWebDavCommand, Mode=OneTime}" />
+                            <Button x:Uid="SettingsWebDavForget" Content="清除 WebDAV 配置" Height="32" Padding="8,4"
+                                    ToolTipService.ToolTip="清除此设备保存的 WebDAV 文件夹地址、用户名和应用密码，并切换到 OneDrive。不会删除云端内容。"
+                                    IsEnabled="{x:Bind ViewModel.SyncConfigurationEnabled, Mode=OneWay}"
+                                    AutomationProperties.AutomationId="SettingsWebDavForget"
+                                    Command="{x:Bind ViewModel.ForgetWebDavCommand, Mode=OneTime}" />
+                            </StackPanel>
+                            <Button x:Uid="SettingsSyncSave" Grid.Column="3" Content="保存并启用" Height="32" Padding="8,4" HorizontalAlignment="Stretch"
+                                    IsEnabled="{x:Bind ViewModel.SyncConfigurationEnabled, Mode=OneWay}"
+                                    AutomationProperties.Name="保存并启用同步"
+                                    AutomationProperties.AutomationId="SettingsSyncSave"
+                                    Command="{x:Bind ViewModel.SaveSyncConfigurationCommand, Mode=OneTime}" />
+                        </Grid>
+                    </StackPanel>
                 </Border>
             </StackPanel>
 

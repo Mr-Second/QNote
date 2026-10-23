@@ -1266,4 +1266,52 @@ They will be saved here instead:
   <data name="SwatchTeal.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
     <value>Teal</value>
   </data>
+  <data name="SettingsSyncProviderLabel.Text" xml:space="preserve"><value>Sync method</value></data>
+  <data name="SettingsSyncProvider.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Sync method</value></data>
+  <data name="SyncActiveProviderOption" xml:space="preserve"><value>✓ {0}</value></data>
+  <data name="SyncActiveProviderName" xml:space="preserve"><value>{0} (currently active)</value></data>
+  <data name="SyncConfigurationSaved" xml:space="preserve"><value>Saved and enabled.</value></data>
+  <data name="SettingsSavedTitle" xml:space="preserve"><value>Saved</value></data>
+  <data name="SettingsClearedTitle" xml:space="preserve"><value>Configuration cleared</value></data>
+  <data name="SettingsOperationFailedTitle" xml:space="preserve"><value>Action failed</value></data>
+  <data name="SettingsSaveFailed" xml:space="preserve"><value>Couldn't save settings. Check write access to the data folder and try again.</value></data>
+  <data name="SettingsOpenFailed" xml:space="preserve"><value>Couldn't open settings. Try opening them again or check the logs.</value></data>
+  <data name="StartupOperationFailed" xml:space="preserve"><value>Couldn't change launch at startup. Check your system permissions and try again.</value></data>
+  <data name="SyncAccountReadFailed" xml:space="preserve"><value>Couldn't read the OneDrive account. Reopen settings and try again.</value></data>
+  <data name="SyncConfigurationSaveFailed" xml:space="preserve"><value>Couldn't save this device's sync configuration. Check data folder permissions and try again.</value></data>
+  <data name="SyncNowTarget" xml:space="preserve"><value>Sync now: {0}</value></data>
+  <data name="SyncDestinationOneDrive" xml:space="preserve"><value>OneDrive · {0}</value></data>
+  <data name="SyncDestinationOneDriveSignedOut" xml:space="preserve"><value>OneDrive (signed out)</value></data>
+  <data name="SyncDestinationWebDav" xml:space="preserve"><value>WebDAV · {0}
+{1}</value></data>
+  <data name="SyncToastDoneAtTarget" xml:space="preserve"><value>Synced with {0}</value></data>
+  <data name="SyncToastFailedAtTarget" xml:space="preserve"><value>Sync with {0} failed</value></data>
+  <data name="SyncPairingDestination" xml:space="preserve"><value>Sync location: {0}</value></data>
+  <data name="SettingsWebDavUrl.Header" xml:space="preserve"><value>Sync folder address (HTTP / HTTPS)</value></data>
+  <data name="SettingsWebDavHttpWarning.Text" xml:space="preserve"><value>This connection is not encrypted. Your username, app password and note contents may be observed. Use HTTP only on networks you trust.</value></data>
+  <data name="SettingsWebDavUsername.PlaceholderText" xml:space="preserve"><value>Username</value></data>
+  <data name="SettingsWebDavUsername.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Username</value></data>
+  <data name="SettingsWebDavPassword.PlaceholderText" xml:space="preserve"><value>App password</value></data>
+  <data name="SettingsWebDavPassword.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>App password</value></data>
+  <data name="SettingsWebDavHint.Text" xml:space="preserve"><value>Use a folder dedicated to QNote. Leave the password blank to keep the saved password when the address and username are unchanged.</value></data>
+  <data name="SettingsWebDavTest.Content" xml:space="preserve"><value>Test</value></data>
+  <data name="SettingsWebDavForget.Content" xml:space="preserve"><value>Clear WebDAV</value></data>
+  <data name="SettingsWebDavForget.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Clear this device's saved WebDAV folder URL, username and application password, then switch to OneDrive. Nothing is deleted from the remote service.</value></data>
+  <data name="SettingsSyncSave.Content" xml:space="preserve"><value>Apply</value></data>
+  <data name="SettingsSyncSave.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Save and enable synchronization</value></data>
+  <data name="SyncConfigurationUnreadable" xml:space="preserve"><value>The saved sync configuration could not be read on this device. Enter it again and save.</value></data>
+  <data name="SyncWebDavTestSucceededTitle" xml:space="preserve"><value>Connected</value></data>
+  <data name="SyncWebDavTestFailedTitle" xml:space="preserve"><value>Connection failed</value></data>
+  <data name="SyncWebDavTestSucceeded" xml:space="preserve"><value>Save and enable to sync with this folder.</value></data>
+  <data name="SyncWebDavRemoved" xml:space="preserve"><value>Cleared this device's WebDAV configuration and switched to OneDrive. Cloud content is unchanged.</value></data>
+  <data name="SyncWebDavInvalid" xml:space="preserve"><value>Enter an HTTP or HTTPS folder address, username, and app password.</value></data>
+  <data name="SyncWebDavAuthFailed" xml:space="preserve"><value>The service rejected your credentials. Check the username, app password, and folder permissions.</value></data>
+  <data name="SyncWebDavOperationFailed" xml:space="preserve"><value>The operation could not be completed. Check your network and folder address, then try again.</value></data>
+  <data name="SyncPairingTitle" xml:space="preserve"><value>How should existing content sync?</value></data>
+  <data name="SyncPairingHint" xml:space="preserve"><value>This device and the cloud both contain data. Merging keeps different versions. Replacing overwrites all notes and categories at the selected location; to-do data is unchanged.</value></data>
+  <data name="SyncPairingMerge" xml:space="preserve"><value>Merge (recommended)</value></data>
+  <data name="SyncPairingCloud" xml:space="preserve"><value>Replace this device with cloud content</value></data>
+  <data name="SyncPairingLocal" xml:space="preserve"><value>Replace cloud content with this device</value></data>
+  <data name="SyncPairingApply" xml:space="preserve"><value>Sync using this choice</value></data>
+  <data name="SyncPairingRequired" xml:space="preserve"><value>Choose how to sync this device's existing content with the cloud on the main page.</value></data>
 </root>

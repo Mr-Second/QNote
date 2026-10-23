@@ -1,3 +1,4 @@
+using System.Data;
 using Microsoft.Data.Sqlite;
 using QNote.Data;
 using QNote.Models;
@@ -203,6 +204,126 @@ public sealed class SyncRepositoryTests
 
         await Assert.ThrowsAsync<ArgumentException>(() => repo.ImportNoteTombstoneAsync("", Unix(1)));
         await Assert.ThrowsAsync<ArgumentException>(() => repo.ImportCategoryTombstoneAsync("", Unix(1)));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NoteImportAndTombstone_RejectStaleFullSnapshotWithoutRecordingAgreement(bool tombstone)
+    {
+        using var db = new TestDatabase();
+        var repo = db.NewRepository();
+        var note = await repo.ImportNoteAsync(Note("original", 100));
+        var stamp = Assert.Single(await repo.GetAllUuidTimestampsAsync());
+        var expected = new SyncImportSnapshot<Note>(stamp, note);
+        await repo.ImportNoteAsync(note with { Content = "same-ms edit" });
+        var state = new SyncStateEntry
+        {
+            EntryKind = SyncEntryKind.Note, EntryUuid = note.Uuid, RemoteId = "", Etag = "cloud", LastSyncedAtMs = 200,
+        };
+
+        if (tombstone)
+            await Assert.ThrowsAsync<DBConcurrencyException>(() => repo.ImportNoteTombstoneAsync(
+                note.Uuid, Unix(200), state, expected: expected));
+        else
+            await Assert.ThrowsAsync<DBConcurrencyException>(() => repo.ImportNoteAsync(
+                note with { Content = "remote", UpdatedAt = Unix(200) }, syncState: state, expected: expected));
+
+        Assert.Equal("same-ms edit", (await repo.GetByIdAsync(note.Id))!.Content);
+        Assert.Null(await new SyncStateStore(db.Factory).GetAsync(SyncEntryKind.Note, note.Uuid));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CategoryImportAndTombstone_RejectSameMillisecondEditsWithoutRecordingAgreement(bool tombstone)
+    {
+        using var db = new TestDatabase();
+        ClearBuiltInCategories(db);
+        var repo = db.NewRepository();
+        var category = await repo.ImportCategoryAsync(Category("original", 100));
+        var stamp = Assert.Single(await repo.GetAllCategoryUuidTimestampsAsync());
+        var expected = new SyncImportSnapshot<Category>(stamp, category);
+        await repo.ImportCategoryAsync(category with { Color = "#112233" });
+        var state = new SyncStateEntry
+        {
+            EntryKind = SyncEntryKind.Category, EntryUuid = category.Uuid, RemoteId = "", Etag = "cloud", LastSyncedAtMs = 200,
+        };
+
+        if (tombstone)
+            await Assert.ThrowsAsync<DBConcurrencyException>(() => repo.ImportCategoryTombstoneAsync(
+                category.Uuid, Unix(200), state, expected: expected));
+        else
+            await Assert.ThrowsAsync<DBConcurrencyException>(() => repo.ImportCategoryAsync(
+                category with { Color = "#FFFFFF", UpdatedAt = Unix(200) }, state, expected: expected));
+
+        Assert.Equal("#112233", Assert.Single(await repo.GetCategoriesAsync()).Color);
+        Assert.Null(await new SyncStateStore(db.Factory).GetAsync(SyncEntryKind.Category, category.Uuid));
+    }
+
+    [Fact]
+    public async Task Guard_DistinguishesAbsentAndDeletedRows()
+    {
+        using var db = new TestDatabase();
+        var repo = db.NewRepository();
+        var note = Note("new", 100);
+        await repo.ImportNoteAsync(note, expected: new SyncImportSnapshot<Note>(null, null));
+        var stored = Assert.Single(await repo.GetAllAsync());
+        await Assert.ThrowsAsync<DBConcurrencyException>(() => repo.ImportNoteAsync(note,
+            expected: new SyncImportSnapshot<Note>(null, null)));
+        await repo.DeleteAsync(stored.Id);
+        var deleted = Assert.Single(await repo.GetAllUuidTimestampsAsync());
+        await repo.ImportNoteAsync(stored);
+
+        await Assert.ThrowsAsync<DBConcurrencyException>(() => repo.ImportNoteTombstoneAsync(
+            stored.Uuid, Unix(200), expected: new SyncImportSnapshot<Note>(deleted, null)));
+        Assert.NotNull(await repo.GetByIdAsync(stored.Id));
+    }
+
+    [Fact]
+    public async Task LocalNoteSaveAndDelete_AdvancePastPersistedFutureClock()
+    {
+        using var db = new TestDatabase();
+        var repo = db.NewRepository();
+        var future = DateTimeOffset.UtcNow.AddDays(1).ToUnixTimeMilliseconds();
+        var note = await repo.ImportNoteAsync(Note("future", future));
+
+        var saved = await db.NewNoteService().UpdateAsync(note with { Content = "first" });
+        // A stale caller must still advance from the actual stored version.
+        var second = await db.NewNoteService().UpdateAsync(note with { Content = "second" });
+        await repo.DeleteAsync(note.Id);
+
+        Assert.Equal(Unix(future + 1), saved.UpdatedAt);
+        Assert.Equal(Unix(future + 2), second.UpdatedAt);
+        var deleted = Assert.Single(await repo.GetAllUuidTimestampsAsync());
+        Assert.Equal(Unix(future + 3), deleted.UpdatedAt);
+        Assert.Equal(deleted.UpdatedAt, deleted.DeletedAt);
+    }
+
+    [Fact]
+    public async Task LocalCategoryRenameReorderAndCascadeDelete_AdvanceAllAffectedClocks()
+    {
+        using var db = new TestDatabase();
+        ClearBuiltInCategories(db);
+        var repo = db.NewRepository();
+        var future = DateTimeOffset.UtcNow.AddDays(1).ToUnixTimeMilliseconds();
+        var category = await repo.ImportCategoryAsync(Category("future", future));
+        var note = await repo.ImportNoteAsync(Note("linked", future + 10, category: category.Name));
+
+        await repo.UpdateCategoryAsync(category with { Name = "renamed" });
+        var renamed = Assert.Single(await repo.GetCategoriesAsync());
+        Assert.Equal(Unix(future + 1), renamed.UpdatedAt);
+        Assert.Equal(Unix(future + 11), (await repo.GetByIdAsync(note.Id))!.UpdatedAt);
+        await repo.ReorderCategoriesAsync([category.Id]);
+        Assert.Equal(Unix(future + 2), Assert.Single(await repo.GetCategoriesAsync()).UpdatedAt);
+        await repo.DeleteCategoryAsync(category.Id);
+
+        var deletedNote = Assert.Single(await repo.GetAllUuidTimestampsAsync());
+        var deletedCategory = Assert.Single(await repo.GetAllCategoryUuidTimestampsAsync());
+        Assert.Equal(Unix(future + 12), deletedNote.DeletedAt);
+        Assert.Equal(deletedNote.DeletedAt, deletedNote.UpdatedAt);
+        Assert.Equal(deletedNote.DeletedAt, deletedCategory.DeletedAt);
+        Assert.Equal(deletedCategory.DeletedAt, deletedCategory.UpdatedAt);
     }
 
     // ---------- fixtures ----------

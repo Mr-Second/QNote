@@ -374,7 +374,7 @@ public sealed partial class TodoPage : Page
 
         var error = await ViewModel.CreateListAsync(dialog.ListName, dialog.ColorHex);
         if (error is not null)
-            await ShowErrorDialogAsync(AppStrings.GetString("TodoNewListTitle"), AppStrings.GetString(error));
+            ShowErrorToast(AppStrings.GetString("TodoNewListTitle"), AppStrings.GetString(error));
     }
 
     private async void RenameListMenu_Click(object sender, RoutedEventArgs e)
@@ -393,7 +393,7 @@ public sealed partial class TodoPage : Page
 
         var error = await ViewModel.RenameListAsync(nav, dialog.ListName);
         if (error is not null)
-            await ShowErrorDialogAsync(AppStrings.GetString("TodoRenameListTitle"), AppStrings.GetString(error));
+            ShowErrorToast(AppStrings.GetString("TodoRenameListTitle"), AppStrings.GetString(error));
     }
 
     private async void DeleteListMenu_Click(object sender, RoutedEventArgs e)
@@ -417,7 +417,7 @@ public sealed partial class TodoPage : Page
 
         var error = await ViewModel.DeleteListAsync(nav);
         if (error is not null)
-            await ShowErrorDialogAsync(AppStrings.GetString("TodoDeleteListTitle"), AppStrings.GetString(error));
+            ShowErrorToast(AppStrings.GetString("TodoDeleteListTitle"), AppStrings.GetString(error));
     }
 
     // ---------- task cards: independent click targets (checkbox / star / body) ----------
@@ -999,9 +999,8 @@ public sealed partial class TodoPage : Page
         try
         {
             var vm = App.Services.GetRequiredService<SettingsViewModel>();
-            await vm.InitializeAsync();
-
             var panel = new SettingsPanel(vm);
+            await vm.InitializeAsync();
             var dialog = new ContentDialog
             {
                 XamlRoot = XamlRoot,
@@ -1044,6 +1043,11 @@ public sealed partial class TodoPage : Page
                 ActualThemeChanged -= OnThemeChanged;
                 settingsDialogOpen = false;
             }
+        }
+        catch (Exception ex)
+        {
+            App.Services.GetRequiredService<ILogger<TodoPage>>().LogError(ex, "Opening settings failed.");
+            ResultTip.ShowError(AppStrings.GetString("SettingsOperationFailedTitle"), AppStrings.GetString("SettingsOpenFailed"));
         }
         finally
         {
@@ -1160,32 +1164,6 @@ public sealed partial class TodoPage : Page
                     await Launcher.LaunchUriAsync(releaseUri);
                 }
             }
-            else if (result.Status == UpdateCheckStatus.UpToDate)
-            {
-                var dialog = new ContentDialog
-                {
-                    XamlRoot = XamlRoot,
-                    RequestedTheme = ActualTheme,
-                    Title = AppStrings.GetString("CheckUpdateTitle"),
-                    Content = AppStrings.GetString("UpToDateContent"),
-                    CloseButtonText = AppStrings.GetString("GotItButton"),
-                    DefaultButton = ContentDialogButton.Close,
-                };
-                await dialog.ShowAsync();
-            }
-            else
-            {
-                var dialog = new ContentDialog
-                {
-                    XamlRoot = XamlRoot,
-                    RequestedTheme = ActualTheme,
-                    Title = AppStrings.GetString("CheckUpdateTitle"),
-                    Content = AppStrings.GetString("CheckUpdateFailedContent"),
-                    CloseButtonText = AppStrings.GetString("GotItButton"),
-                    DefaultButton = ContentDialogButton.Close,
-                };
-                await dialog.ShowAsync();
-            }
         }
         finally
         {
@@ -1254,27 +1232,5 @@ public sealed partial class TodoPage : Page
             ResultTip.ShowError(result.Title, result.Message);
     }
 
-    private async Task ShowErrorDialogAsync(string title, string message)
-    {
-        // Only one ContentDialog may be open at a time (a re-entrant ShowAsync throws).
-        if (_dialogOpen)
-            return;
-        _dialogOpen = true;
-        try
-        {
-            var dialog = new ContentDialog
-            {
-                XamlRoot = XamlRoot,
-                RequestedTheme = ActualTheme,
-                Title = title,
-                Content = message,
-                CloseButtonText = AppStrings.GetString("GotItButton"),
-            };
-            await dialog.ShowAsync();
-        }
-        finally
-        {
-            _dialogOpen = false;
-        }
-    }
+    private void ShowErrorToast(string title, string message) => ResultTip.ShowError(title, message);
 }

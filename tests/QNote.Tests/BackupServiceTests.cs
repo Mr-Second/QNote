@@ -295,7 +295,7 @@ public sealed class BackupServiceTests
         await host.Backup.BackupAsync(dest);
 
         // Current becomes NEWER than the backup → merge must keep the current content.
-        await host.Repo.UpdateAsync(note with
+        await host.Repo.ImportNoteAsync(note with
         {
             Content = "新内容",
             PlainText = "新内容",
@@ -305,7 +305,7 @@ public sealed class BackupServiceTests
         Assert.Equal("新内容", (await host.Repo.GetByIdAsync(note.Id))!.Content);
 
         // Current becomes OLDER than the backup → merge takes the backup's version.
-        await host.Repo.UpdateAsync(note with
+        await host.Repo.ImportNoteAsync(note with
         {
             Content = "过期内容",
             PlainText = "过期内容",
@@ -370,7 +370,7 @@ public sealed class BackupServiceTests
         await host.Backup.BackupAsync(dest);
 
         // The current DB has a NEWER version of the same uuid — import-new must not touch it.
-        await host.Repo.UpdateAsync(note with
+        await host.Repo.ImportNoteAsync(note with
         {
             Content = "当前的新内容",
             PlainText = "当前的新内容",

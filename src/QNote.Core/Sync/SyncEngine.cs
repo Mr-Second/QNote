@@ -511,7 +511,7 @@ public sealed class SyncEngine
                 await _notes.ImportNoteAsync(
                     tombstoned,
                     syncState: State(SyncEntryKind.Note, uuid, string.Empty, tombstoneFile.Etag, deletedMs),
-                    ct: ct);
+                    ct: ct, expected: ExpectedNote(ctx, uuid));
                 ctx.TombstonesApplied++;
                 if (container is not null)
                 {
@@ -546,7 +546,8 @@ public sealed class SyncEngine
             // The peer deleted later: re-stamp the local tombstone verbatim (content untouched).
             await _notes.ImportNoteTombstoneAsync(
                 uuid, FromMs(deletedMs),
-                State(SyncEntryKind.Note, uuid, string.Empty, tombstoneFile.Etag, deletedMs), ct);
+                State(SyncEntryKind.Note, uuid, string.Empty, tombstoneFile.Etag, deletedMs), ct,
+                expected: ExpectedNote(ctx, uuid));
             ctx.TombstonesApplied++;
         }
         else
@@ -665,7 +666,9 @@ public sealed class SyncEngine
         byte[]? knownBytes, bool allowRetry, CancellationToken ct)
     {
         var l = ToMs(live.UpdatedAt);
-        var drifted = state is not null && state.Etag.Length > 0 && container.Etag != state.Etag;
+        // An absent validator (WebDAV degradation) or first pairing cannot
+        // prove agreement merely because both clocks happen to be equal.
+        var drifted = state is null || state.Etag.Length == 0 || container.Etag != state.Etag;
         if (!drifted)
         {
             await RecordStateAsync(ctx, SyncEntryKind.Note, uuid, string.Empty,
@@ -835,7 +838,8 @@ public sealed class SyncEngine
             {
                 await _notes.ImportCategoryTombstoneAsync(
                     uuid, deletedAt,
-                    State(SyncEntryKind.Category, uuid, string.Empty, tombstoneFile.Etag, deletedMs), ct);
+                    State(SyncEntryKind.Category, uuid, string.Empty, tombstoneFile.Etag, deletedMs), ct,
+                    expected: ExpectedCategory(ctx, uuid));
                 ctx.TombstonesApplied++;
                 if (container is not null)
                 {
@@ -865,7 +869,8 @@ public sealed class SyncEngine
         {
             await _notes.ImportCategoryTombstoneAsync(
                 uuid, FromMs(deletedMs),
-                State(SyncEntryKind.Category, uuid, string.Empty, tombstoneFile.Etag, deletedMs), ct);
+                State(SyncEntryKind.Category, uuid, string.Empty, tombstoneFile.Etag, deletedMs), ct,
+                expected: ExpectedCategory(ctx, uuid));
             ctx.TombstonesApplied++;
         }
         else
@@ -951,7 +956,7 @@ public sealed class SyncEngine
         bool allowRetry, CancellationToken ct)
     {
         var l = ToMs(local.UpdatedAt);
-        var drifted = state is not null && state.Etag.Length > 0 && container.Etag != state.Etag;
+        var drifted = state is null || state.Etag.Length == 0 || container.Etag != state.Etag;
         if (!drifted)
         {
             await RecordStateAsync(ctx, SyncEntryKind.Category, uuid, string.Empty,
@@ -1030,7 +1035,8 @@ public sealed class SyncEngine
         // the note row + FTS + note_images + sync state atomic (PRD decision 11).
         await _notes.ImportNoteAsync(
             note, images,
-            State(SyncEntryKind.Note, uuid, string.Empty, container.Etag, ToMs(note.UpdatedAt)), ct);
+            State(SyncEntryKind.Note, uuid, string.Empty, container.Etag, ToMs(note.UpdatedAt)), ct,
+            expected: ExpectedNote(ctx, uuid));
         ctx.Downloaded++;
     }
 
@@ -1109,9 +1115,16 @@ public sealed class SyncEngine
         };
         await _notes.ImportCategoryAsync(
             category,
-            State(SyncEntryKind.Category, uuid, string.Empty, container.Etag, file.UpdatedAtMs), ct);
+            State(SyncEntryKind.Category, uuid, string.Empty, container.Etag, file.UpdatedAtMs), ct,
+            expected: ExpectedCategory(ctx, uuid));
         ctx.Downloaded++;
     }
+
+    private static SyncImportSnapshot<Note> ExpectedNote(CycleContext ctx, string uuid) =>
+        new(ctx.NoteStamps.GetValueOrDefault(uuid), ctx.LiveNotes.GetValueOrDefault(uuid));
+
+    private static SyncImportSnapshot<Category> ExpectedCategory(CycleContext ctx, string uuid) =>
+        new(ctx.CategoryStamps.GetValueOrDefault(uuid), ctx.LiveCategories.GetValueOrDefault(uuid));
 
     // ---------- uploads ----------
 

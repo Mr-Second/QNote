@@ -3,6 +3,8 @@
 # Excluded from version control at the project owner's request.
 # ============================================================
 .trellis/
+.agents/
+.codex/
 .opencode/
 .claude/
 AGENTS.md
@@ -27,6 +29,10 @@ x86/
 [Bb]uild/
 [Oo]ut/
 msbuild.*.log
+
+# Generated test reports and crash dumps (keep test source tracked)
+[Tt]est[Rr]esults/
+[Tt]est[Rr]esult/
 
 # WinUI 3 / MSIX packaging & signing
 AppPackages/

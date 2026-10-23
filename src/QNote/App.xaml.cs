@@ -202,8 +202,16 @@ public partial class App : Application
 
         // Services — ports of the Qt "managers"
         services.AddSingleton<ISettingsService, SettingsService>();
-        services.AddSingleton<ICategoryService, CategoryService>();
-        services.AddSingleton<INoteService, NoteService>();
+        services.AddSingleton<ICategoryService>(sp => new CategoryService(
+            sp.GetRequiredService<INoteRepository>(),
+            sp.GetRequiredService<ILogger<CategoryService>>(),
+            sp.GetRequiredService<PushQueue>().Enqueue));
+        services.AddSingleton<INoteService>(sp => new NoteService(
+            sp.GetRequiredService<INoteRepository>(),
+            sp.GetRequiredService<IImageService>(),
+            sp.GetRequiredService<ILogger<NoteService>>(),
+            sp.GetRequiredService<PushQueue>().Enqueue,
+            AppStrings.GetString("SyncConflictCopySuffix")));
         services.AddSingleton<ISearchService, SearchService>();
         services.AddSingleton<IBackupService, BackupService>();
         services.AddSingleton<IImageService, ImageService>();
@@ -248,7 +256,8 @@ public partial class App : Application
 
         // ---------- Sync (task 10-06 L2): OneDrive driver + engine + scheduling ----------
         // Per-entry sync bookkeeping over the v8 sync_state table (decision 11).
-        services.AddSingleton<ISyncStateStore, SyncStateStore>();
+        services.AddSingleton<SyncStateStore>();
+        services.AddSingleton<ISyncStateStore>(sp => sp.GetRequiredService<SyncStateStore>());
         // The OneDrive request budget. OneDrive's real limits sit far above this
         // conservative envelope (the 坚果云 default); the gate only defers work,
         // so it costs nothing while remaining the 429 Retry-After pause channel.
@@ -261,17 +270,20 @@ public partial class App : Application
             sp.GetRequiredService<ILogger<MsalTokenProvider>>(),
             sp.GetRequiredService<AppPaths>(),
             () => App.WindowHandle));
-        services.AddSingleton<ISyncDriver, OneDriveDriver>();
         // The engine stays Core-only: the display-copy callback bridges to the
         // Presentation WIC pipeline (decision 19), the conflict-copy suffix is
         // the localized resw injection (decision 18). E2EE key passes null —
         // the opt-in toggle is a later acceptance step.
-        services.AddSingleton<SyncEngine>(sp => new SyncEngine(
+        services.AddSingleton<SyncConfigurationStore>();
+        services.AddSingleton<SyncService>(sp => new SyncService(
+            sp.GetRequiredService<SyncConfigurationStore>(),
+            sp.GetRequiredService<ITokenProvider>(),
             sp.GetRequiredService<INoteRepository>(),
-            sp.GetRequiredService<ISyncStateStore>(),
-            sp.GetRequiredService<ISyncDriver>(),
+            sp.GetRequiredService<SyncStateStore>(),
             sp.GetRequiredService<AppPaths>(),
-            sp.GetRequiredService<ILogger<SyncEngine>>(),
+            sp.GetRequiredService<ILoggerFactory>(),
+            sp.GetRequiredService<ThrottleGate>(),
+            sp.GetRequiredService<IBackupService>(),
             WicDisplayImageGenerator.Generate,
             AppStrings.GetString("SyncConflictCopySuffix")));
         services.AddSingleton<PushQueue>();
@@ -283,12 +295,7 @@ public partial class App : Application
         services.AddSingleton<SyncPollingScheduler>(sp =>
         {
             var scheduler = new SyncPollingScheduler(
-                async ct =>
-                {
-                    if (await sp.GetRequiredService<ITokenProvider>().GetSignedInAccountAsync(ct) is null)
-                        return null;
-                    return await sp.GetRequiredService<SyncEngine>().RunAsync(ct: ct);
-                },
+                ct => Task.Run(() => sp.GetRequiredService<SyncService>().RunAsync(ct: ct), ct),
                 log: sp.GetRequiredService<ILogger<SyncPollingScheduler>>());
             sp.GetRequiredService<PushQueue>().SyncDue += _ => scheduler.TriggerNow(bypassThrottle: true);
             return scheduler;
@@ -308,6 +315,7 @@ public partial class App : Application
             sp.GetRequiredService<IStartupTaskService>(),
             sp.GetRequiredService<IGitHubUpdateService>(),
             sp.GetRequiredService<ITokenProvider>(),
+            sp.GetRequiredService<SyncService>(),
             isPackaged,
             sp.GetRequiredService<ILogger<SettingsViewModel>>()));
 

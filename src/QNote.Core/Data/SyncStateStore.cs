@@ -17,6 +17,71 @@ public sealed class SyncStateStore : ISyncStateStore
 
     public SyncStateStore(DbConnectionFactory factory) => _factory = factory;
 
+    /// <summary>One active target shares the table. A switch invalidates its old ETags atomically.</summary>
+    public async Task<bool> PrepareTargetAsync(string target, CancellationToken ct = default)
+    {
+        await using var conn = _factory.OpenWrite();
+        await using var tx = conn.BeginTransaction();
+        await using var read = conn.CreateCommand();
+        read.Transaction = tx;
+        read.CommandText = "SELECT Value FROM settings WHERE Key = 'sync.activeTarget';";
+        var previous = await read.ExecuteScalarAsync(ct) as string;
+        if (!string.Equals(previous, target, StringComparison.Ordinal))
+        {
+            await using var reset = conn.CreateCommand();
+            reset.Transaction = tx;
+            reset.CommandText = "DELETE FROM sync_state; DELETE FROM settings WHERE Key = 'sync.pairedTarget'; " +
+                "INSERT INTO settings (Key, Value) VALUES ('sync.activeTarget', $target) " +
+                "ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value;";
+            reset.Parameters.AddWithValue("$target", target);
+            await reset.ExecuteNonQueryAsync(ct);
+        }
+        await using var paired = conn.CreateCommand();
+        paired.Transaction = tx;
+        paired.CommandText = "SELECT Value FROM settings WHERE Key = 'sync.pairedTarget';";
+        var pairedTarget = await paired.ExecuteScalarAsync(ct) as string;
+        await tx.CommitAsync(ct);
+        return !string.Equals(pairedTarget, target, StringComparison.Ordinal);
+    }
+
+    public async Task MarkTargetPairedAsync(string target, CancellationToken ct = default)
+    {
+        await using var conn = _factory.OpenWrite();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "INSERT INTO settings (Key, Value) VALUES ('sync.pairedTarget', $target) " +
+            "ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value;";
+        cmd.Parameters.AddWithValue("$target", target);
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    /// <summary>Explicit local replacement must be newer than the cloud versions it supersedes.</summary>
+    public async Task RestampLocalNotesAsync(long updatedMs, CancellationToken ct = default)
+    {
+        await using var conn = _factory.OpenWrite();
+        await using var tx = conn.BeginTransaction();
+        await using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "UPDATE notes SET UpdatedAt = MAX(UpdatedAt, $updated) WHERE DeletedAt IS NULL; " +
+            "UPDATE categories SET UpdatedAt = MAX(UpdatedAt, $updated) WHERE DeletedAt IS NULL;";
+        cmd.Parameters.AddWithValue("$updated", updatedMs);
+        await cmd.ExecuteNonQueryAsync(ct);
+        await tx.CommitAsync(ct);
+    }
+
+    /// <summary>Only an explicit first-pairing choice may discard the local note domain.</summary>
+    public async Task ReplaceLocalNotesAsync(CancellationToken ct = default)
+    {
+        await using var conn = _factory.OpenWrite();
+        await using var tx = conn.BeginTransaction();
+        await using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        // Keep content-addressed image files: todo and other notes may share them.
+        cmd.CommandText = "DELETE FROM notes_fts; DELETE FROM note_images; DELETE FROM notes; " +
+            "DELETE FROM categories; DELETE FROM sync_state;";
+        await cmd.ExecuteNonQueryAsync(ct);
+        await tx.CommitAsync(ct);
+    }
+
     public async Task<SyncStateEntry?> GetAsync(SyncEntryKind kind, string entryUuid, CancellationToken ct = default)
     {
         ValidateKind(kind);

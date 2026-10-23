@@ -16,12 +16,12 @@ namespace QNote.Controls;
 /// The settings surface hosted inside the settings <see cref="ContentDialog"/>.
 /// Grouped layout (显示 / 常规 / 数据 / 关于) — new groups append as siblings;
 /// state lives in <see cref="SettingsViewModel"/> (changes save + apply live).
-/// Local mechanics: the hotkey CAPTURE mode (ADR D6) and the sync section's
-/// sign-in/out feedback (ResultTip toast + the destructive-red 注销 state).
+/// Local mechanics: hotkey capture (ADR D6) and shared settings operation toasts.
 /// </summary>
 public sealed partial class SettingsPanel : UserControl
 {
     private bool _capturingHotkey;
+    private SettingsOperationOutcome? _pendingOutcome;
 
     public SettingsPanel(SettingsViewModel viewModel)
     {
@@ -35,16 +35,26 @@ public sealed partial class SettingsPanel : UserControl
         // dialog is still open — an unhook there killed the toast subscription for
         // good (live-caught 2026-10-23: sign-in and sign-out both succeeded, no
         // toast ever appeared, and no later Loaded re-hooked it).
-        ViewModel.SyncAuthCompleted += OnSyncAuthCompleted;
+        ViewModel.OperationCompleted += OnOperationCompleted;
+        Loaded += (_, _) =>
+        {
+            if (_pendingOutcome is not { } outcome)
+                return;
+            _pendingOutcome = null;
+            OnOperationCompleted(outcome);
+        };
         Unloaded += (_, _) => ResultTip.Dismiss();
     }
 
     public SettingsViewModel ViewModel { get; }
 
-    private void OnSyncAuthCompleted(SyncAuthOutcome outcome)
+    private void OnOperationCompleted(SettingsOperationOutcome outcome)
     {
-        // The button state is already flipped by the VM from the operation
-        // outcome (two static buttons, so no runtime restyling is needed).
+        if (!IsLoaded)
+        {
+            _pendingOutcome = outcome;
+            return;
+        }
         if (outcome.Success)
             ResultTip.ShowSuccess(outcome.Title, outcome.Message, TimeSpan.FromSeconds(6));
         else
@@ -78,7 +88,7 @@ public sealed partial class SettingsPanel : UserControl
         HotkeyButton.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
     }
 
-    private void Hotkey_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    private async void Hotkey_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (!_capturingHotkey)
             return;
@@ -95,7 +105,7 @@ public sealed partial class SettingsPanel : UserControl
         if (key is VirtualKey.Back or VirtualKey.Delete)
         {
             _capturingHotkey = false;
-            ViewModel.ClearHotkey();
+            await ViewModel.ClearHotkeyAsync();
             return;
         }
 
@@ -113,12 +123,12 @@ public sealed partial class SettingsPanel : UserControl
         // allow it only with a modifier — function keys (F1–F24) are safe alone.
         if (modifiers == 0 && vk is < HotkeyFormat.VkF1 or > HotkeyFormat.VkF24)
         {
-            ViewModel.HotkeyError = AppStrings.GetString("HotkeyNeedsModifier");
+            ViewModel.RejectHotkeyCapture();
             return; // stay in capture mode
         }
 
         _capturingHotkey = false;
-        ViewModel.CommitHotkey(modifiers, vk);
+        await ViewModel.CommitHotkeyAsync(modifiers, vk);
     }
 
     private static int CurrentModifiers()

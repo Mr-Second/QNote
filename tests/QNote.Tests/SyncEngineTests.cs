@@ -767,6 +767,133 @@ public sealed class SyncEngineTests
         Assert.Null(image.DisplayBytes);
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task NoteTie_WithoutReliableAgreement_ComparesContent(bool hasState, bool hasEtag)
+    {
+        using var db = new TestDatabase();
+        var (engine, driver) = NewEngine(db);
+        var uuid = NewUuid();
+        await SeedNoteAsync(db, uuid, "local", "", "local body", updatedAtMs: 1000);
+        var path = $"notes/{uuid}.qnote";
+        driver.Seed(path, Container(uuid, "cloud", "", "cloud body", 1, 1000));
+        if (!hasEtag)
+            driver.Etags[path] = "";
+        if (hasState)
+            await SeedStateAsync(db, SyncEntryKind.Note, uuid, "", 1000);
+
+        var result = await engine.RunAsync();
+
+        Assert.True(result.Ok);
+        Assert.Equal(1, result.ConflictCopies);
+        var notes = await db.NewRepository().GetAllAsync();
+        Assert.Equal(2, notes.Count);
+        Assert.Contains(notes, n => n.Content == "local body");
+        Assert.Contains(notes, n => n.Content == "cloud body");
+        var expected = string.CompareOrdinal(DigestOf("local", "", "local body"),
+            DigestOf("cloud", "", "cloud body")) > 0 ? "local body" : "cloud body";
+        Assert.Equal(expected, notes.Single(n => n.Uuid == uuid).Content);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task CategoryTie_WithoutReliableAgreement_ComparesContent(bool hasState, bool hasEtag)
+    {
+        using var db = new TestDatabase();
+        var (engine, driver) = NewEngine(db);
+        var uuid = NewUuid();
+        await SeedCategoryAsync(db, uuid, "local", updatedAtMs: 1000);
+        var path = $"categories/{uuid}.json";
+        driver.SeedText(path, CategoryJson(uuid, "cloud", 1, 1000));
+        if (!hasEtag)
+            driver.Etags[path] = "";
+        if (hasState)
+            await SeedStateAsync(db, SyncEntryKind.Category, uuid, "", 1000);
+        var localWins = string.CompareOrdinal(DigestJson(uuid, "local", 1000), DigestJson(uuid, "cloud", 1000)) > 0;
+
+        var result = await engine.RunAsync();
+
+        Assert.True(result.Ok);
+        var category = Assert.Single(await db.NewRepository().GetCategoriesAsync());
+        var wire = System.Text.Json.JsonSerializer.Deserialize(driver.Files[path],
+            SyncCategoryFileJsonContext.Default.SyncCategoryFile)!;
+        Assert.Equal(localWins ? "local" : "cloud", category.Name);
+        Assert.Equal(category.Name, wire.Name);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Download_DoesNotOverwriteLocalSaveOrDeleteCommittedDuringRead(bool delete)
+    {
+        using var db = new TestDatabase();
+        var (engine, driver) = NewEngine(db);
+        driver.SupportsRangeRead = false;
+        var uuid = NewUuid();
+        var local = await SeedNoteAsync(db, uuid, "original", "", "original", 1000);
+        var path = $"notes/{uuid}.qnote";
+        driver.Seed(path, Container(uuid, "cloud", "", "cloud body", 1, 2000));
+        await SeedStateAsync(db, SyncEntryKind.Note, uuid, "previous", 1000);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        driver.BeforeRead = async (file, ct) =>
+        {
+            if (file != path) return;
+            started.TrySetResult();
+            await release.Task.WaitAsync(ct);
+        };
+
+        var cycle = engine.RunAsync();
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        if (delete) await db.NewNoteService().DeleteAsync(local.Id);
+        else await db.NewNoteService().UpdateAsync(local with { Content = "local during read" });
+        release.SetResult();
+        var result = await cycle;
+
+        Assert.False(result.Ok);
+        Assert.Equal(0, result.Downloaded);
+        Assert.Equal(1000, (await State(db, SyncEntryKind.Note, uuid))!.LastSyncedAtMs);
+        if (delete) Assert.Null(await db.NewRepository().GetByIdAsync(local.Id));
+        else Assert.Equal("local during read", (await db.NewRepository().GetByIdAsync(local.Id))!.Content);
+        driver.BeforeRead = null;
+        Assert.True((await engine.RunAsync()).Ok);
+        if (delete)
+            Assert.Contains($"tombstones/{uuid}", driver.Files.Keys);
+        else
+        {
+            Assert.Equal("local during read", SyncNoteBody.Decode(QnoteContainerCodec.Decode(driver.Files[path]).Body).Content);
+            Assert.Contains(await db.NewRepository().GetAllAsync(), n => n.Content == "cloud body");
+        }
+    }
+
+    [Fact]
+    public async Task Download_SameMillisecondLocalEdit_CannotPassTheSnapshotGuard()
+    {
+        using var db = new TestDatabase();
+        var (engine, driver) = NewEngine(db);
+        driver.SupportsRangeRead = false;
+        var uuid = NewUuid();
+        var local = await SeedNoteAsync(db, uuid, "original", "", "original", 1000);
+        var path = $"notes/{uuid}.qnote";
+        driver.Seed(path, Container(uuid, "cloud", "", "cloud body", 1, 2000));
+        await SeedStateAsync(db, SyncEntryKind.Note, uuid, "previous", 1000);
+        driver.BeforeRead = async (file, ct) =>
+        {
+            if (file == path)
+                await db.NewRepository().ImportNoteAsync(local with { Content = "same ms edit" }, ct: ct);
+        };
+
+        var result = await engine.RunAsync();
+
+        Assert.False(result.Ok);
+        Assert.Equal("same ms edit", (await db.NewRepository().GetByIdAsync(local.Id))!.Content);
+        Assert.Equal(1000, (await State(db, SyncEntryKind.Note, uuid))!.LastSyncedAtMs);
+    }
+
     // ---------- fixtures ----------
 
     private const string PlainManifest = """{"formatVersion":1,"e2eeEnabled":false,"e2eeSalt":null}""";

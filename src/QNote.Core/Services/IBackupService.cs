@@ -28,6 +28,9 @@ public interface IBackupService
     /// </summary>
     IReadOnlyList<string> ListAutoBackups();
 
+    /// <summary>Creates a recoverable snapshot before a destructive data replacement.</summary>
+    Task<string> CreateAutoBackupAsync(CancellationToken ct = default);
+
     /// <summary>
     /// Writes a full backup to <paramref name="destinationPath"> (created or
     /// overwritten). When <paramref name="password"/> is non-empty the archive is

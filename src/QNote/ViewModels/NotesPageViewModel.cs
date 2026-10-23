@@ -38,6 +38,15 @@ public partial class NotesPageViewModel : ObservableObject
     private bool _suppressDirty;  // true while loading editor fields programmatically
     private bool _initializing;   // true during LoadAsync (category selection must not double-reload)
     private bool _loadingSettings; // true while applying a settings snapshot (no echo-save)
+    private readonly SemaphoreSlim _saveGate = new(1, 1);
+    private long _editRevision;
+    private long _selectionRevision;
+    private bool _syncRefreshPending;
+    private long _syncRefreshVersion;
+    private Task? _syncRefreshTask;
+    private bool _applyingSyncRefresh;
+    private bool _selectSavedCopy;
+    private bool _detached;
 
     private AppSettings _settingsSnapshot = new();
 
@@ -65,7 +74,12 @@ public partial class NotesPageViewModel : ObservableObject
     /// <see cref="ISettingsService.Changed"/> would otherwise accumulate a dead
     /// VM (and its page, via the VM's events) on every switch.
     /// </summary>
-    public void Detach() => _settings.Changed -= OnSettingsChanged;
+    public void Detach()
+    {
+        _detached = true;
+        _searchCts?.Cancel();
+        _settings.Changed -= OnSettingsChanged;
+    }
 
     /// <summary>Raised when a freshly created note wants keyboard focus in the title box.</summary>
     public event Action? FocusTitleRequested;
@@ -186,7 +200,11 @@ public partial class NotesPageViewModel : ObservableObject
         : AppStrings.GetString("NotesEmptyText");
 
     /// <summary>Marks the note dirty — called by the view on editor text changes.</summary>
-    public void NotifyContentEdited() => IsDirty = true;
+    public void NotifyContentEdited()
+    {
+        _editRevision++;
+        IsDirty = true;
+    }
 
     /// <summary>Current auto-save debounce (milliseconds); 0 = off. Live via settings Changed.</summary>
     public int AutoSaveMilliseconds => _settingsSnapshot.AutoSaveMilliseconds;
@@ -222,6 +240,82 @@ public partial class NotesPageViewModel : ObservableObject
         SetEditor(null, string.Empty, string.Empty);
         SearchText = string.Empty;
         await LoadAsync();
+    }
+
+    /// <summary>Refreshes replicated data when the current draft is safe to replace.</summary>
+    public Task RefreshAfterSyncAsync()
+    {
+        _syncRefreshPending = true;
+        _syncRefreshVersion++;
+        return RefreshPendingSyncAsync();
+    }
+
+    private Task RefreshPendingSyncAsync()
+    {
+        if (_detached || !_syncRefreshPending || IsDirty)
+            return Task.CompletedTask;
+        if (_syncRefreshTask is { } running)
+            return running;
+        var task = ReadAndApplySyncRefreshAsync();
+        if (!task.IsCompleted)
+            _syncRefreshTask = task;
+        return task;
+    }
+
+    private async Task ReadAndApplySyncRefreshAsync()
+    {
+        try
+        {
+            while (_syncRefreshPending && !IsDirty && !_detached)
+            {
+                var request = _syncRefreshVersion;
+                var revision = _editRevision;
+                var selection = _selectionRevision;
+                var loaded = _loaded;
+                var categoryId = SelectedCategory?.Id;
+                var categoryName = CurrentCategoryName;
+                var query = SearchText;
+                var sort = _settingsSnapshot.SearchSortOrder;
+                var selectedUuid = _selectSavedCopy ? loaded?.Uuid : SelectedNote?.Uuid ?? loaded?.Uuid;
+                var categories = await _categories.GetAllAsync();
+                var counts = await _categories.CountNotesAsync();
+                var scope = categories.FirstOrDefault(c => c.Id == categoryId)?.Name;
+                var summaries = string.IsNullOrWhiteSpace(query)
+                    ? await _notes.GetSummariesAsync(scope)
+                    : await _search.SearchAsync(query, scope, sort);
+                var selectedSummary = summaries.FirstOrDefault(n => n.Uuid == selectedUuid);
+                var full = selectedSummary is null ? null : await _notes.GetByIdAsync(selectedSummary.Id);
+                // Any await may admit typing, navigation or a new search. Leave
+                // the draft and pending refresh intact rather than apply stale reads.
+                if (_detached || IsDirty || revision != _editRevision || selection != _selectionRevision
+                    || !ReferenceEquals(loaded, _loaded) || categoryId != SelectedCategory?.Id
+                    || categoryName != CurrentCategoryName || query != SearchText || sort != _settingsSnapshot.SearchSortOrder)
+                    return;
+
+                _applyingSyncRefresh = true;
+                _searchCts?.Cancel();
+                try
+                {
+                    Categories.Clear();
+                    Categories.Add(CategoryItemViewModel.CreateAll(counts.Values.Sum()));
+                    foreach (var category in categories)
+                        Categories.Add(new CategoryItemViewModel(category, _categories.IsBuiltIn(category.Name),
+                            counts.GetValueOrDefault(category.Name)));
+                    SelectedCategory = Categories.FirstOrDefault(c => c.Id == categoryId) ?? Categories[0];
+                    Notes.Clear();
+                    foreach (var summary in string.IsNullOrWhiteSpace(query) ? SortSummaries(summaries) : summaries)
+                        Notes.Add(CreateItem(summary, query));
+                    SelectedNote = Notes.FirstOrDefault(n => n.Uuid == selectedUuid);
+                    if (full != _loaded)
+                        SetEditor(full, full?.Title ?? "", full?.Content ?? "");
+                    _selectSavedCopy = false;
+                    _syncRefreshPending = request != _syncRefreshVersion;
+                }
+                finally { _applyingSyncRefresh = false; }
+            }
+        }
+        catch (Exception ex) { _log.LogError(ex, "Refreshing synchronized notes failed."); }
+        finally { _syncRefreshTask = null; }
     }
 
     // ---------- Settings application ----------
@@ -316,9 +410,14 @@ public partial class NotesPageViewModel : ObservableObject
     /// <summary>On selection change: flush the previous note, then lazy-load the new one.</summary>
     public async Task OnSelectionChangedAsync()
     {
+        if (_applyingSyncRefresh || _detached)
+            return;
+        var selection = _selectionRevision;
         try
         {
             await FlushAsync();
+            if (selection != _selectionRevision || IsDirty || _detached)
+                return;
 
             var selected = SelectedNote;
 
@@ -344,8 +443,12 @@ public partial class NotesPageViewModel : ObservableObject
                 return;
             }
 
+            var revision = _editRevision;
             var full = await _notes.GetByIdAsync(selected.Id);
+            if (selection != _selectionRevision || revision != _editRevision || IsDirty || _detached)
+                return;
             SetEditor(full, full?.Title ?? string.Empty, full?.Content ?? string.Empty);
+            await RefreshPendingSyncAsync();
         }
         catch (Exception ex)
         {
@@ -356,14 +459,19 @@ public partial class NotesPageViewModel : ObservableObject
     /// <summary>Persist the current editor content if dirty (navigate-away / close / Ctrl+S).</summary>
     public async Task FlushAsync()
     {
-        if (_loaded is null || !IsDirty)
-            return;
-
+        await _saveGate.WaitAsync();
         try
         {
+            if (_loaded is not { } baseline || !IsDirty)
+                return;
+            var revision = _editRevision;
+            var title = EditingTitle;
+            var selectedAtStart = SelectedNote?.Id;
             var snapshot = EditorContentProvider is { } provider
                 ? await provider()
                 : new EditorSnapshot(EditingContent, false);
+            if (!ReferenceEquals(baseline, _loaded) || revision != _editRevision || _detached)
+                return;
 
             // No-op guard. Previously this compared only title + plain text, so a
             // format-only edit (bold/list — which leaves the plain text identical)
@@ -374,21 +482,35 @@ public partial class NotesPageViewModel : ObservableObject
             // The Markdown compare is the secondary guard (matches the baseline flag
             // because emitted Markdown is idempotent through a load).
             if (!NoteEditComparer.HasChanges(
-                    _loaded.Title, EditingTitle,
-                    _loaded.Content, snapshot.Markdown,
+                    baseline.Title, title,
+                    baseline.Content, snapshot.Markdown,
                     snapshot.Changed))
             {
                 IsDirty = false;
                 return;
             }
 
-            var saved = await _notes.UpdateAsync(_loaded with
+            var saved = await _notes.SaveDraftAsync(baseline with
             {
-                Title = EditingTitle,
+                Title = title,
                 Content = snapshot.Markdown,
-            });
-            _loaded = saved;
-            IsDirty = false;
+            }, baseline);
+            if (ReferenceEquals(baseline, _loaded))
+            {
+                _loaded = saved;
+                IsDirty = revision != _editRevision;
+                if (!IsDirty && saved.Title != title)
+                {
+                    _suppressDirty = true;
+                    try { EditingTitle = saved.Title; }
+                    finally { _suppressDirty = false; }
+                }
+                if (saved.Id != baseline.Id)
+                {
+                    _selectSavedCopy = selectedAtStart == baseline.Id && SelectedNote?.Id == baseline.Id;
+                    _syncRefreshPending = true;
+                }
+            }
 
             // Keep note_images in step with the images the note actually contains:
             // images dropped from the note are unlinked (and their originals pruned
@@ -428,6 +550,11 @@ public partial class NotesPageViewModel : ObservableObject
         catch (Exception ex)
         {
             _log.LogError(ex, "保存便签失败");
+        }
+        finally
+        {
+            _saveGate.Release();
+            await RefreshPendingSyncAsync();
         }
     }
 
@@ -634,7 +761,7 @@ public partial class NotesPageViewModel : ObservableObject
     partial void OnSelectedCategoryChanged(CategoryItemViewModel? value)
     {
         SyncCategorySelection();
-        if (_initializing)
+        if (_initializing || _applyingSyncRefresh)
             return;
         _ = OnScopeChangedAsync();
     }
@@ -684,9 +811,15 @@ public partial class NotesPageViewModel : ObservableObject
             return;
 
         _settingsSnapshot = _settingsSnapshot with { SearchSortOrder = (SearchSortOrder)value };
-        _ = _settings.SaveAsync(_settingsSnapshot);
+        _ = SaveSearchSortAsync(_settingsSnapshot);
         if (IsSearching)
             OnSearchTextChanged(SearchText); // re-debounce with the new ORDER BY
+    }
+
+    private async Task SaveSearchSortAsync(AppSettings settings)
+    {
+        try { await _settings.SaveAsync(settings); }
+        catch (Exception ex) { _log.LogError(ex, "Saving the search sort preference failed."); }
     }
 
     private async Task DebouncedSearchAsync(string query, CancellationToken ct)
@@ -726,6 +859,7 @@ public partial class NotesPageViewModel : ObservableObject
 
     private void SetEditor(Note? loaded, string title, string content)
     {
+        _editRevision++;
         _loaded = loaded;
         _suppressDirty = true;
         EditingTitle = title;
@@ -738,8 +872,10 @@ public partial class NotesPageViewModel : ObservableObject
     partial void OnEditingTitleChanged(string value)
     {
         if (!_suppressDirty)
-            IsDirty = true;
+            NotifyContentEdited();
     }
+
+    partial void OnSelectedNoteChanged(NoteItemViewModel? value) => _selectionRevision++;
 
     private static string MakePreview(string plainText)
     {

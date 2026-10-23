@@ -1,5 +1,8 @@
 namespace QNote.Sync;
 
+/// <summary>Immutable, non-secret identity of a cycle's destination.</summary>
+public sealed record SyncDestination(string Provider, string Account, string? FolderUrl = null, bool IsReady = true);
+
 /// <summary>Why a cycle stopped before touching anything. <see cref="None"/> = ran.</summary>
 public enum SyncCycleAbortKind
 {
@@ -17,6 +20,9 @@ public enum SyncCycleAbortKind
 
     /// <summary>The manifest's E2EE mode and the supplied key disagree.</summary>
     E2eeKeyMismatch,
+
+    /// <summary>Both targets contain data and need an explicit first-pairing choice.</summary>
+    PairingRequired,
 }
 
 /// <summary>
@@ -44,6 +50,12 @@ public sealed record SyncCycleResult
     public required int ConflictCopies { get; init; }
 
     public SyncCycleAbortKind AbortKind { get; init; } = SyncCycleAbortKind.None;
+
+    /// <summary>The immutable destination an explicit first-pairing choice applies to.</summary>
+    public string? PairingTarget { get; init; }
+
+    /// <summary>The actual destination, captured before the cycle starts.</summary>
+    public SyncDestination? Destination { get; init; }
 
     /// <summary>Per-entry English diagnostics; the cycle continues past them.</summary>
     public required IReadOnlyList<string> Errors { get; init; }

@@ -23,8 +23,11 @@ public interface INoteService
     /// </summary>
     Task<Note> CreateAsync(string category = "", CancellationToken ct = default);
 
-    /// <summary>Persists edits, stamping <see cref="Note.UpdatedAt"/> = now; returns the saved note.</summary>
+    /// <summary>Persists edits with a strictly advancing <see cref="Note.UpdatedAt"/>; returns the saved row.</summary>
     Task<Note> UpdateAsync(Note note, CancellationToken ct = default);
+
+    /// <summary>Saves editor changes against their loaded baseline; stale drafts become a separate version.</summary>
+    Task<Note> SaveDraftAsync(Note draft, Note baseline, CancellationToken ct = default);
 
     /// <summary>Deletes a note by id and prunes any original images no longer referenced.</summary>
     Task DeleteAsync(long id, CancellationToken ct = default);
