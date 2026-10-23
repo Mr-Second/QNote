@@ -117,6 +117,23 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.10" />
     <!--
+      MSAL.NET for sync auth (task 10-06 L2, WAM broker + ITokenProvider port —
+      Services/MsalTokenProvider.cs). Measured AOT cost: +5.64 MB publishable, of
+      which msalruntime.dll ≈ 2.92 MB (unmanaged, invisible to ilc — the PRD's
+      cost/rollback ruling). ⚠️ MSAL ships ZERO trim annotations, so a version
+      bump here is NOT semver-safe under NativeAOT: every bump must re-run the
+      win-x64-portable-aot publish + a startup smoke before release (PRD rule).
+    -->
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.91.1" NoWarn="NU1903" />
+    <!--
+      WAM broker support for sync auth (task 10-06 L2): the core MSAL package
+      ships no Win32 broker — WithBroker(BrokerOptions) / BrokerOptions live in
+      this satellite package. Keep its version aligned with the core package
+      above (4.91.x). ⚠️ Same zero-trim-annotations caveat as the core package.
+    -->
+    <PackageReference Include="Microsoft.Identity.Client.Broker" Version="4.91.1" />
+    <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.91.1" />
+    <!--
       Toast CONTENT generation for todo reminders (task 10-04, PRD Decision 3 —
       deviated 2026-10-10): ONLY ToastContentBuilder.GetXml() is used. The
       Toolkit's Compat scheduling/activation path (ToastNotificationManagerCompat)

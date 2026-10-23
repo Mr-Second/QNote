@@ -35,12 +35,12 @@
                     HorizontalAlignment="Center"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                     Style="{StaticResource CaptionTextBlockStyle}"
-                    Text="轻量 Windows 便签 · 数据纯本地" />
+                    Text="轻量 Windows 便签 · 本机保存，可选同步" />
             </StackPanel>
             <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" />
             <HyperlinkButton
                 x:Uid="AboutGitHubLink"
-                Content="GitHub 仓库（源码 · Releases · Issues）"
+                Content="项目主页、下载与反馈"
                 NavigateUri="https://github.com/Mr-Second/QNote"
                 Padding="0" />
             <HyperlinkButton
@@ -50,7 +50,7 @@
                 Padding="0" />
             <HyperlinkButton
                 x:Uid="AboutPrivacyLink"
-                Content="隐私政策（无账号 · 无遥测）"
+                Content="隐私政策"
                 NavigateUri="https://github.com/Mr-Second/QNote/blob/main/docs/privacy-policy.md"
                 Padding="0" />
             <HyperlinkButton

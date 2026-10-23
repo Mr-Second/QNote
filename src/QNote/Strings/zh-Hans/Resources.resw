@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!--
     QNote app strings — NEUTRAL file = ENGLISH (product source language is zh-Hans;
@@ -171,10 +171,10 @@
     <value>显示</value>
   </data>
   <data name="SettingsDensityLabel.Text" xml:space="preserve">
-    <value>列表密度</value>
+    <value>列表间距</value>
   </data>
   <data name="SettingsDensityBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
-    <value>列表密度</value>
+    <value>列表间距</value>
   </data>
   <data name="DensityCompact.Content" xml:space="preserve">
     <value>紧凑</value>
@@ -315,10 +315,10 @@
     <value>记住窗口位置和大小</value>
   </data>
   <data name="SettingsStartMinimizedLabel.Text" xml:space="preserve">
-    <value>启动时最小化到托盘</value>
+    <value>启动时不显示主窗口</value>
   </data>
   <data name="SettingsStartMinimizedSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
-    <value>启动时最小化到托盘</value>
+    <value>启动时不显示主窗口</value>
   </data>
   <data name="SettingsStartupUpdateCheckLabel.Text" xml:space="preserve">
     <value>启动时检查更新</value>
@@ -356,6 +356,75 @@
   <data name="SettingsRestoreButton.Content" xml:space="preserve">
     <value>恢复…</value>
   </data>
+  <data name="SettingsSyncSection.Text" xml:space="preserve">
+    <value>同步</value>
+  </data>
+  <data name="SettingsSyncAccountLabel.Text" xml:space="preserve">
+    <value>OneDrive 账号</value>
+  </data>
+  <data name="SettingsSyncAuthButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>登录或退出 OneDrive 同步</value>
+  </data>
+  <data name="SyncSignIn" xml:space="preserve">
+    <value>登录</value>
+  </data>
+  <data name="SyncSignOut" xml:space="preserve">
+    <value>注销</value>
+  </data>
+  <data name="SyncSignInSuccess" xml:space="preserve">
+    <value>登录成功</value>
+  </data>
+  <data name="SyncSignOutSuccess" xml:space="preserve">
+    <value>已退出登录</value>
+  </data>
+  <data name="SyncNowButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>立即同步</value>
+  </data>
+  <data name="SyncNowButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>立即同步</value>
+  </data>
+  <data name="SyncNotSignedIn" xml:space="preserve">
+    <value>未登录</value>
+  </data>
+  <data name="SyncSignInError" xml:space="preserve">
+    <value>暂时无法登录，请稍后重试。</value>
+  </data>
+  <data name="SyncSignOutError" xml:space="preserve">
+    <value>暂时无法退出登录，请重试。</value>
+  </data>
+  <data name="SyncNotStarted" xml:space="preserve">
+    <value>暂时无法同步</value>
+  </data>
+  <data name="SyncSkippedNotSignedIn" xml:space="preserve">
+    <value>请先在设置中登录 OneDrive，再进行同步。</value>
+  </data>
+  <data name="SyncUpToDate" xml:space="preserve">
+    <value>所有内容已是最新。</value>
+  </data>
+  <data name="SyncFinished" xml:space="preserve">
+    <value>已同步 {0} 项更改。</value>
+  </data>
+  <data name="SyncFinishedWithErrors" xml:space="preserve">
+    <value>有 {0} 项更改未能同步，请稍后重试。</value>
+  </data>
+  <data name="SyncToastDone" xml:space="preserve">
+    <value>同步完成</value>
+  </data>
+  <data name="SyncToastFailed" xml:space="preserve">
+    <value>同步失败</value>
+  </data>
+  <data name="SyncAbortListingIncomplete" xml:space="preserve">
+    <value>暂时无法读取完整的云端内容，请稍后重试。</value>
+  </data>
+  <data name="SyncAbortUnsupportedManifest" xml:space="preserve">
+    <value>请先更新 QNote，再读取云端便签。</value>
+  </data>
+  <data name="SyncAbortE2eeKeyMismatch" xml:space="preserve">
+    <value>无法解密云端便签，请检查同步密码是否与其他设备一致。</value>
+  </data>
+  <data name="SyncAbortGeneric" xml:space="preserve">
+    <value>同步未能完成，请稍后重试。</value>
+  </data>
   <!-- ===== Backup dialog ===== -->
   <data name="BackupDialog.Title" xml:space="preserve">
     <value>备份数据</value>
@@ -367,7 +436,7 @@
     <value>取消</value>
   </data>
   <data name="BackupDescription.Text" xml:space="preserve">
-    <value>包含全部便签、分类、设置和原始图片。备份为单个 .qns 文件（ZIP，可选 AES-256 加密）。</value>
+    <value>将便签、待办和相关设置、图片与附件保存为一个 .qns 备份文件，可以设置密码保护。</value>
   </data>
   <data name="BackupLocationLabel.Text" xml:space="preserve">
     <value>保存位置</value>
@@ -428,10 +497,10 @@
     <value>备份密码（该备份已加密）</value>
   </data>
   <data name="RestoreAnalyzeButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
-    <value>分析备份</value>
+    <value>查看备份内容</value>
   </data>
   <data name="RestoreAnalyzeButton.Content" xml:space="preserve">
-    <value>分析备份</value>
+    <value>查看备份内容</value>
   </data>
   <data name="RestoreModeRadios.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
     <value>恢复模式</value>
@@ -440,7 +509,7 @@
     <value>覆盖：完全替换当前数据（会先自动备份当前数据）</value>
   </data>
   <data name="RestoreModeMerge.Content" xml:space="preserve">
-    <value>合并：冲突便签保留较新版本，并导入新便签</value>
+    <value>合并：已有便签保留较新的版本，并添加其他便签</value>
   </data>
   <data name="RestoreModeImportNew.Content" xml:space="preserve">
     <value>仅导入新增：只导入当前不存在的便签</value>
@@ -586,13 +655,13 @@
   </data>
   <!-- ===== Category errors ===== -->
   <data name="CreateCategoryFailed" xml:space="preserve">
-    <value>新建分类失败，请查看日志</value>
+    <value>创建分类失败，请重试。</value>
   </data>
   <data name="UpdateCategoryFailed" xml:space="preserve">
-    <value>更新分类失败，请查看日志</value>
+    <value>保存分类失败，请重试。</value>
   </data>
   <data name="DeleteCategoryFailed" xml:space="preserve">
-    <value>删除分类失败，请查看日志</value>
+    <value>删除分类失败，请重试。</value>
   </data>
   <data name="CategoryErrorNameBlank" xml:space="preserve">
     <value>请输入分类名称</value>
@@ -610,10 +679,10 @@
     <value>内置分类「{0}」不能删除</value>
   </data>
   <data name="CategoryErrorInvalidColor" xml:space="preserve">
-    <value>颜色必须是 #RRGGBB 格式</value>
+    <value>请输入颜色代码，例如 #3B82F6。</value>
   </data>
   <data name="CategoryEditColorInvalidHint" xml:space="preserve">
-    <value>颜色必须是 #RRGGBB 格式（如 #3B82F6）</value>
+    <value>请输入颜色代码，例如 #3B82F6。</value>
   </data>
   <data name="CategoryEditIconRequired" xml:space="preserve">
     <value>请选择一个图标</value>
@@ -644,10 +713,10 @@
     <value>无法读取备份</value>
   </data>
   <data name="RestoreAnalyzeFailedTitle" xml:space="preserve">
-    <value>分析失败</value>
+    <value>无法查看备份内容</value>
   </data>
   <data name="RestoreAnalysisFormat" xml:space="preserve">
-    <value>备份包含 {0} 条便签{1}：与当前冲突 {2} 条，仅备份中存在 {3} 条，仅当前存在 {4} 条。</value>
+    <value>备份中有 {0} 条便签{1}：{2} 条在本机也有，{3} 条可以新增；本机另有 {4} 条不在备份中。</value>
   </data>
   <data name="RestoreAnalysisCreatedFormat" xml:space="preserve">
     <value>（创建于 {0}）</value>
@@ -675,22 +744,22 @@
     <value>密码错误，或备份文件已损坏。</value>
   </data>
   <data name="BackupErrorMissingDatabase" xml:space="preserve">
-    <value>备份中缺少 qnote.db。</value>
+    <value>备份缺少必要的数据文件，无法恢复。</value>
   </data>
   <data name="BackupErrorCorruptArchive" xml:space="preserve">
-    <value>备份文件已损坏，无法解包。</value>
+    <value>备份文件已损坏，无法恢复。</value>
   </data>
   <data name="BackupErrorNewerVersion" xml:space="preserve">
-    <value>备份由更新版本的 QNote 创建（数据库结构 v{0}，当前支持 v{1}），请升级应用后再恢复。</value>
+    <value>这份备份由较新版本的 QNote 创建，请更新应用后再恢复。</value>
   </data>
   <data name="BackupErrorTooOld" xml:space="preserve">
-    <value>备份的数据库结构过旧（v{0}），无法逐条合并；请改用覆盖恢复。</value>
+    <value>这份旧备份无法与当前便签合并，请选择「覆盖」恢复。</value>
   </data>
   <data name="BackupErrorUnsupportedVersion" xml:space="preserve">
     <value>备份版本不受支持。</value>
   </data>
   <data name="BackupErrorUnexpected" xml:space="preserve">
-    <value>操作失败，请查看日志。</value>
+    <value>操作未能完成，请重试。</value>
   </data>
   <!-- ===== Settings (hotkey / startup / update) ===== -->
   <data name="HotkeyCaptureHint" xml:space="preserve">
@@ -700,19 +769,19 @@
     <value>未设置</value>
   </data>
   <data name="HotkeyRegisterFailed" xml:space="preserve">
-    <value>热键注册失败：可能已被其他程序占用，请更换按键</value>
+    <value>无法使用这个快捷键，可能已被其他应用占用，请换一个组合键。</value>
   </data>
   <data name="HotkeyNeedsModifier" xml:space="preserve">
     <value>请同时按住 Win / Ctrl / Alt / Shift，或使用 F1–F12 功能键</value>
   </data>
   <data name="StartupEnabledByPolicy" xml:space="preserve">
-    <value>已由系统策略启用</value>
+    <value>系统设置要求开机启动，无法在此关闭。</value>
   </data>
   <data name="StartupDisabledByUser" xml:space="preserve">
     <value>已被系统禁用，请在任务管理器→启动应用 中重新启用</value>
   </data>
   <data name="StartupDisabledByPolicy" xml:space="preserve">
-    <value>已被系统策略禁用</value>
+    <value>系统设置不允许开机启动，无法在此开启。</value>
   </data>
   <data name="StartupUnavailable" xml:space="preserve">
     <value>当前环境不支持开机自启动</value>
@@ -744,8 +813,8 @@
     <value>数据目录提示</value>
   </data>
   <data name="PortableFallbackContent" xml:space="preserve">
-    <value>程序所在目录不可写，无法使用便携数据目录。
-便签数据将保存在：
+    <value>无法在程序所在的文件夹保存便签。
+便签将改为保存在：
 {0}</value>
   </data>
   <!-- ===== Editor image import ===== -->
@@ -753,28 +822,28 @@
     <value>不支持的图片格式：{0}</value>
   </data>
   <data name="ImageInsertFailed" xml:space="preserve">
-    <value>插入图片失败，请查看日志</value>
+    <value>插入图片失败，请重试。</value>
   </data>
   <data name="ImageServiceUnavailable" xml:space="preserve">
-    <value>图片服务不可用，无法插入图片</value>
+    <value>暂时无法插入图片，请稍后重试。</value>
   </data>
   <data name="ImageDecodeFailed" xml:space="preserve">
-    <value>无法解码该图片（可能是不支持的格式）</value>
+    <value>无法打开这张图片，文件可能损坏或格式不受支持。</value>
   </data>
   <data name="ImageSaveFailed" xml:space="preserve">
-    <value>保存图片失败，查看日志</value>
+    <value>图片未能保存，请重试。</value>
   </data>
   <data name="SettingsAboutSection.Text" xml:space="preserve">
     <value>关于</value>
   </data>
   <data name="AboutTagline.Text" xml:space="preserve">
-    <value>轻量 Windows 便签 · 数据纯本地</value>
+    <value>轻量 Windows 便签 · 本机保存，可选同步</value>
   </data>
   <data name="AboutGitHubLink.Content" xml:space="preserve">
-    <value>GitHub 仓库（源码 · Releases · Issues）</value>
+    <value>项目主页、下载与反馈</value>
   </data>
   <data name="AboutGitHubLink.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
-    <value>GitHub 仓库（源码 · Releases · Issues）</value>
+    <value>项目主页、下载与反馈</value>
   </data>
   <data name="AboutStoreLink.Content" xml:space="preserve">
     <value>在 Microsoft Store 评分</value>
@@ -783,10 +852,10 @@
     <value>在 Microsoft Store 评分</value>
   </data>
   <data name="AboutPrivacyLink.Content" xml:space="preserve">
-    <value>隐私政策（无账号 · 无遥测）</value>
+    <value>隐私政策</value>
   </data>
   <data name="AboutPrivacyLink.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
-    <value>隐私政策（无账号 · 无遥测）</value>
+    <value>隐私政策</value>
   </data>
   <data name="AboutLicenseLink.Content" xml:space="preserve">
     <value>开源许可与第三方致谢</value>
@@ -958,7 +1027,7 @@
     <value>附件超限</value>
   </data>
   <data name="SyncConflictCopySuffix" xml:space="preserve">
-    <value>（冲突副本）</value>
+    <value>（另一个版本）</value>
   </data>
   <data name="TodoAttachTooLargeMessage" xml:space="preserve">
     <value>{0}：附加到任务的所有文件的总大小不可超过 25 MB</value>
@@ -1103,13 +1172,13 @@
     <value>请输入清单名称</value>
   </data>
   <data name="TodoCreateListFailed" xml:space="preserve">
-    <value>新建清单失败，请查看日志</value>
+    <value>创建清单失败，请重试。</value>
   </data>
   <data name="TodoUpdateListFailed" xml:space="preserve">
-    <value>更新清单失败，请查看日志</value>
+    <value>保存清单失败，请重试。</value>
   </data>
   <data name="TodoDeleteListFailed" xml:space="preserve">
-    <value>删除清单失败，请查看日志</value>
+    <value>删除清单失败，请重试。</value>
   </data>
   <!-- ===== Todo reminder toasts (task 10-04, stage ③ — code keys) ===== -->
   <data name="TodoToastDueFormat" xml:space="preserve">

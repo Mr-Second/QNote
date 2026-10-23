@@ -8,6 +8,7 @@ using QNote.Data.Schema;
 using QNote.Infrastructure;
 using QNote.Infrastructure.Logging;
 using QNote.Services;
+using QNote.Sync;
 using QNote.ViewModels;
 using QNote.Views;
 
@@ -115,6 +116,13 @@ public partial class App : Application
 
         Window = new MainWindow();
         DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+
+        // Sync (L2): start the tiered polling loop once the window exists.
+        // StartMinimized launches seed the hidden tier (MainWindow's
+        // NotifyHiddenSinceLaunch feeds the same signal; a signed-out device's
+        // cycles skip inside the run delegate). Window activation, tray reveals
+        // and the Settings button reach the scheduler through MainWindow.
+        Services.GetRequiredService<SyncPollingScheduler>().Start(settings.StartMinimized);
 
         // Single-instance (guard in Program): a second launch redirects its
         // activation here; surface the window exactly like the tray "show" path.
@@ -238,6 +246,54 @@ public partial class App : Application
             isPackaged,
             sp.GetRequiredService<ILogger<StartupUpdateCheck>>()));
 
+        // ---------- Sync (task 10-06 L2): OneDrive driver + engine + scheduling ----------
+        // Per-entry sync bookkeeping over the v8 sync_state table (decision 11).
+        services.AddSingleton<ISyncStateStore, SyncStateStore>();
+        // The OneDrive request budget. OneDrive's real limits sit far above this
+        // conservative envelope (the 坚果云 default); the gate only defers work,
+        // so it costs nothing while remaining the 429 Retry-After pause channel.
+        services.AddSingleton(_ => new ThrottleGate(600, TimeSpan.FromMinutes(30)));
+        // Presentation-side MSAL + WAM broker. The parent-window delegate defers
+        // to the first INTERACTIVE call — Window does not exist at registration
+        // time (ConfigureServices runs in the App ctor), and silent acquisitions
+        // never need a handle.
+        services.AddSingleton<ITokenProvider>(sp => new MsalTokenProvider(
+            sp.GetRequiredService<ILogger<MsalTokenProvider>>(),
+            sp.GetRequiredService<AppPaths>(),
+            () => App.WindowHandle));
+        services.AddSingleton<ISyncDriver, OneDriveDriver>();
+        // The engine stays Core-only: the display-copy callback bridges to the
+        // Presentation WIC pipeline (decision 19), the conflict-copy suffix is
+        // the localized resw injection (decision 18). E2EE key passes null —
+        // the opt-in toggle is a later acceptance step.
+        services.AddSingleton<SyncEngine>(sp => new SyncEngine(
+            sp.GetRequiredService<INoteRepository>(),
+            sp.GetRequiredService<ISyncStateStore>(),
+            sp.GetRequiredService<ISyncDriver>(),
+            sp.GetRequiredService<AppPaths>(),
+            sp.GetRequiredService<ILogger<SyncEngine>>(),
+            WicDisplayImageGenerator.Generate,
+            AppStrings.GetString("SyncConflictCopySuffix")));
+        services.AddSingleton<PushQueue>();
+        // The tiered polling loop (decision 7): the composition root owns the
+        // run delegate — the account gate first (a signed-out device skips
+        // silently; MSAL's account probe is a local cache read), then the engine
+        // cycle. Push-queue debounces and the manual button BYPASS the
+        // opportunistic gap (explicit intent); window activations stay throttled.
+        services.AddSingleton<SyncPollingScheduler>(sp =>
+        {
+            var scheduler = new SyncPollingScheduler(
+                async ct =>
+                {
+                    if (await sp.GetRequiredService<ITokenProvider>().GetSignedInAccountAsync(ct) is null)
+                        return null;
+                    return await sp.GetRequiredService<SyncEngine>().RunAsync(ct: ct);
+                },
+                log: sp.GetRequiredService<ILogger<SyncPollingScheduler>>());
+            sp.GetRequiredService<PushQueue>().SyncDue += _ => scheduler.TriggerNow(bypassThrottle: true);
+            return scheduler;
+        });
+
         // ViewModels
         services.AddTransient<NotesPageViewModel>();
         // Todo page VM (task 10-04 stage ②): optional ctor params (clock /
@@ -251,6 +307,7 @@ public partial class App : Application
             sp.GetRequiredService<IGlobalHotkey>(),
             sp.GetRequiredService<IStartupTaskService>(),
             sp.GetRequiredService<IGitHubUpdateService>(),
+            sp.GetRequiredService<ITokenProvider>(),
             isPackaged,
             sp.GetRequiredService<ILogger<SettingsViewModel>>()));
 

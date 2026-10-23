@@ -1,6 +1,9 @@
+using Microsoft.UI;
 using Microsoft.UI.Input;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using QNote.EdgeHide;
 using QNote.Services;
 using QNote.ViewModels;
@@ -13,8 +16,8 @@ namespace QNote.Controls;
 /// The settings surface hosted inside the settings <see cref="ContentDialog"/>.
 /// Grouped layout (显示 / 常规 / 数据 / 关于) — new groups append as siblings;
 /// state lives in <see cref="SettingsViewModel"/> (changes save + apply live).
-/// The only local mechanics here is the hotkey CAPTURE mode (ADR D6: click the
-/// button, press a combo; Esc cancels, Backspace/Delete clears).
+/// Local mechanics: the hotkey CAPTURE mode (ADR D6) and the sync section's
+/// sign-in/out feedback (ResultTip toast + the destructive-red 注销 state).
 /// </summary>
 public sealed partial class SettingsPanel : UserControl
 {
@@ -24,9 +27,29 @@ public sealed partial class SettingsPanel : UserControl
     {
         ViewModel = viewModel;
         InitializeComponent();
+
+        // Subscribe ONCE here and never unsubscribe. The VM is transient (one per
+        // settings-dialog open, App.Services AddTransient) and outlives only this
+        // panel, so there is nothing to leak. ⚠️ Do NOT unhook in Unloaded: the
+        // hosting ContentDialog REPARENTS its content, so Unloaded fires while the
+        // dialog is still open — an unhook there killed the toast subscription for
+        // good (live-caught 2026-10-23: sign-in and sign-out both succeeded, no
+        // toast ever appeared, and no later Loaded re-hooked it).
+        ViewModel.SyncAuthCompleted += OnSyncAuthCompleted;
+        Unloaded += (_, _) => ResultTip.Dismiss();
     }
 
     public SettingsViewModel ViewModel { get; }
+
+    private void OnSyncAuthCompleted(SyncAuthOutcome outcome)
+    {
+        // The button state is already flipped by the VM from the operation
+        // outcome (two static buttons, so no runtime restyling is needed).
+        if (outcome.Success)
+            ResultTip.ShowSuccess(outcome.Title, outcome.Message, TimeSpan.FromSeconds(6));
+        else
+            ResultTip.ShowError(outcome.Title, outcome.Message);
+    }
 
     /// <summary>
     /// Raised when the user picks 备份/恢复/关于. The hosting dialog must close

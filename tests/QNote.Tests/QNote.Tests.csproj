@@ -11,8 +11,17 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="Microsoft.Identity.Client.Broker" Version="4.91.1" />
+    <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.91.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Authentication stays WinUI-free, so persistence can be exercised with
+         fresh MSAL clients without a real account or an interactive sign-in. -->
+    <Compile Include="..\..\src\QNote\Services\MsalCachePersistence.cs" Link="Presentation\MsalCachePersistence.cs" />
+    <Compile Include="..\..\src\QNote\Services\MsalTokenProvider.cs" Link="Presentation\MsalTokenProvider.cs" />
   </ItemGroup>
 
   <ItemGroup>

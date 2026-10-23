@@ -82,7 +82,7 @@
             x:Uid="RestoreAnalyzeButton"
             AutomationProperties.AutomationId="RestoreAnalyzeButton"
             Click="Analyze_Click"
-            Content="分析备份"
+            Content="查看备份内容"
             Visibility="Collapsed" />
 
         <!-- Step 3: conflict analysis + mode. The mode items are RadioButtons
@@ -100,7 +100,7 @@
                 SelectedIndex="1"
                 SelectionChanged="ModeRadios_SelectionChanged">
                 <RadioButton x:Uid="RestoreModeOverwrite" Content="覆盖：完全替换当前数据（会先自动备份当前数据）" />
-                <RadioButton x:Uid="RestoreModeMerge" Content="合并：冲突便签保留较新版本，并导入新便签" />
+                <RadioButton x:Uid="RestoreModeMerge" Content="合并：已有便签保留较新的版本，并添加其他便签" />
                 <RadioButton x:Uid="RestoreModeImportNew" Content="仅导入新增：只导入当前不存在的便签" />
             </RadioButtons>
             <TextBlock

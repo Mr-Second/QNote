@@ -8,9 +8,8 @@ namespace QNote.Views;
 /// <see cref="BackupDialog"/> and <see cref="RestoreDialog"/> so both report
 /// identical wording. Core's <see cref="BackupException"/> messages are English
 /// diagnostics for the log — user-visible text NEVER passes through
-/// <see cref="Exception.Message"/>: every kind resolves here, with the version
-/// numbers interpolated through <see cref="BackupException.SchemaFound"/> /
-/// <see cref="BackupException.SchemaSupported"/> for UnsupportedVersion.
+/// <see cref="Exception.Message"/>: every kind resolves here. Schema versions
+/// select the recovery advice; implementation details stay in diagnostic logs.
 /// </summary>
 internal static class BackupErrorText
 {
@@ -25,9 +24,7 @@ internal static class BackupErrorText
             BackupErrorKind.MissingDatabase => AppStrings.GetString("BackupErrorMissingDatabase"),
             BackupErrorKind.CorruptArchive => AppStrings.GetString("BackupErrorCorruptArchive"),
             BackupErrorKind.UnsupportedVersion when be.SchemaFound is { } found && be.SchemaSupported is { } supported
-                => AppStrings.GetFormat(
-                    found > supported ? "BackupErrorNewerVersion" : "BackupErrorTooOld",
-                    found, supported),
+                => AppStrings.GetString(found > supported ? "BackupErrorNewerVersion" : "BackupErrorTooOld"),
             BackupErrorKind.UnsupportedVersion => AppStrings.GetString("BackupErrorUnsupportedVersion"),
             _ => AppStrings.GetString("BackupErrorUnexpected"),
         },

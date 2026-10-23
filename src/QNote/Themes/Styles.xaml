@@ -25,18 +25,17 @@
     <!-- Editor-toolbar AppBar button styles moved to Themes/EditorToolbar.xaml
          (custom template — icon centered by construction). -->
 
-    <!-- New-note button (Qt parity: soft accent tint circle, "+" in accent, never
-         a solid accent fill in any state). PointerOver/Pressed theme-resource
-         overrides live inline on NewNoteButton in NotesPage.xaml (Resources is
-         not a DependencyProperty and cannot ride a Style setter). -->
-    <Style x:Key="NewNoteButtonStyle" TargetType="Button">
-        <Setter Property="MinWidth" Value="0" />
-        <Setter Property="MinHeight" Value="0" />
+    <!-- Fluent subtle actions: transparent at rest, with native hover/press fills. -->
+    <Style x:Key="NoteHeaderActionButtonStyle" TargetType="Button" BasedOn="{StaticResource SubtleButtonStyle}">
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="MinWidth" Value="32" />
+        <Setter Property="MinHeight" Value="32" />
         <Setter Property="Padding" Value="0" />
-        <Setter Property="Background" Value="{ThemeResource BrandAccentSubtleFillBrush}" />
-        <Setter Property="BorderBrush" Value="{ThemeResource BrandAccentSubtleBorderBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Foreground" Value="{ThemeResource BrandAccentBrush}" />
+        <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
 
     <!-- Note-list item hover delete badge (Qt parity: 24px warm-tinted circle).

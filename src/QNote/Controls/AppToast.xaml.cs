@@ -20,6 +20,11 @@ public sealed partial class AppToast : UserControl
     public void ShowSuccess(string title, string message) =>
         Show(success: true, title, message, TimeSpan.FromSeconds(4), actionLabel: null, action: null);
 
+    /// <summary>Success toast with an explicit duration — auth-style feedback wants a
+    /// longer window (the user returns from the system account picker first).</summary>
+    public void ShowSuccess(string title, string message, TimeSpan duration) =>
+        Show(success: true, title, message, duration, actionLabel: null, action: null);
+
     public void ShowError(string title, string message) =>
         Show(success: false, title, message, TimeSpan.FromSeconds(6), actionLabel: null, action: null);
 
@@ -50,6 +55,11 @@ public sealed partial class AppToast : UserControl
         IconGlyph.Glyph = success ? "\uE8FB" : "\uE783";
         TitleText.Text = title;
         MessageText.Text = message;
+        // An empty message must COLLAPSE, not render as a blank line: the
+        // StackPanel would still reserve the line box + its 2px spacing, which
+        // reads as a stray empty row under a one-line toast (user report
+        // 2026-10-23, the sign-out toast has no message text).
+        MessageText.Visibility = message.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
 
         _action = action;
         ActionButton.Content = actionLabel;

@@ -3,8 +3,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media.Animation;
 using QNote.Controls;
 using QNote.Services;
+using QNote.Sync;
 using QNote.ViewModels;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.System;
@@ -14,22 +16,30 @@ namespace QNote.Views;
 /// <summary>
 /// The three-pane notes screen. Code-behind is UI wiring only: it resolves the VM
 /// from DI, forwards the ListView selection / Loaded / Ctrl+S to the VM, hosts the
-/// delete-confirmation dialog (UI types stay out of the VM), and glues the
+/// delete-confirmation dialog (UI types stay out of the VM), glues the
 /// <see cref="WreEditorController"/> (view-side WinUIRichEditor wrapper) to the
-/// VM's Markdown data flow.
+/// VM's Markdown data flow, and drives the header's manual-sync button
+/// (readiness + spin + result toast — UI orchestration stays out of the VM).
 /// </summary>
 public sealed partial class NotesPage : Page
 {
     private readonly WreEditorController _editor;
+    private readonly SyncPollingScheduler _syncPolling;
+    private readonly ITokenProvider _syncTokens;
     private bool _settingsOpen;
     private bool _dialogOpen;
     private bool _dataDialogOpen;
+    private bool _syncReady;
+    private bool _syncSpinning;
+    private Storyboard? _syncSpinStoryboard;
 
     public NotesPageViewModel ViewModel { get; }
 
     public NotesPage()
     {
         ViewModel = App.Services.GetRequiredService<NotesPageViewModel>();
+        _syncPolling = App.Services.GetRequiredService<SyncPollingScheduler>();
+        _syncTokens = App.Services.GetRequiredService<ITokenProvider>();
         InitializeComponent();
 
         _editor = new WreEditorController(
@@ -96,6 +106,7 @@ public sealed partial class NotesPage : Page
     private void OnPageUnloaded(object sender, RoutedEventArgs e)
     {
         _autoSaveTimer?.Stop();
+        StopSyncSpin();
         ViewModel.Detach();
     }
 
@@ -121,7 +132,89 @@ public sealed partial class NotesPage : Page
         EditorToolbar.RequestedTheme = ActualTheme;
     }
 
-    private async void OnLoaded(object sender, RoutedEventArgs e) => await ViewModel.LoadAsync();
+    private async void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        // Sync readiness (local MSAL cache probe, no network) before the VM load.
+        await RefreshSyncButtonStateAsync();
+        await ViewModel.LoadAsync();
+    }
+
+    // ---------- manual sync (header icon button, task 10-06) ----------
+
+    /// <summary>
+    /// Refreshes the header sync button's readiness: enabled iff a sync account is
+    /// configured (OneDrive signed in; the future WebDAV L3 target extends this
+    /// check). MSAL account enumeration is a local-cache read, no network. The
+    /// churn point is the settings dialog (sign-in/out), so this also runs when it
+    /// closes; sign-in from TodoPage's settings is picked up on the next page load.
+    /// </summary>
+    private async Task RefreshSyncButtonStateAsync()
+    {
+        try
+        {
+            _syncReady = await _syncTokens.GetSignedInAccountAsync() is not null;
+        }
+        catch
+        {
+            // Same call the settings VM logs; here a failure just means "not ready".
+            _syncReady = false;
+        }
+        SyncNowButton.IsEnabled = _syncReady;
+    }
+
+    private async void SyncNow_Click(object sender, RoutedEventArgs e)
+    {
+        if (_syncSpinning)
+            return;
+        _syncSpinning = true;
+        SyncNowButton.IsEnabled = false;
+        StartSyncSpin();
+        try
+        {
+            // bypass: explicit user intent. The scheduler single-flights — clicking
+            // while a background cycle runs awaits THAT cycle.
+            var cycle = _syncPolling.TriggerNow(bypassThrottle: true);
+            if (cycle is null)
+            {
+                ResultTip.ShowError(AppStrings.GetString("SyncNotStarted"), "");
+                return;
+            }
+            var outcome = SyncOutcomeText.Describe(await cycle);
+            if (outcome.Success)
+                ResultTip.ShowSuccess(outcome.Title, outcome.Message);
+            else
+                ResultTip.ShowError(outcome.Title, outcome.Message);
+        }
+        finally
+        {
+            StopSyncSpin();
+            _syncSpinning = false;
+            await RefreshSyncButtonStateAsync();
+        }
+    }
+
+    private void StartSyncSpin()
+    {
+        var spin = new DoubleAnimation
+        {
+            From = 0,
+            To = 360,
+            Duration = new Duration(TimeSpan.FromSeconds(1)),
+        };
+        Storyboard.SetTarget(spin, SyncNowRotate);
+        Storyboard.SetTargetProperty(spin, "Angle");
+        var sb = new Storyboard { RepeatBehavior = RepeatBehavior.Forever };
+        sb.Children.Add(spin);
+        sb.Begin();
+        _syncSpinStoryboard = sb;
+    }
+
+    private void StopSyncSpin()
+    {
+        _syncSpinStoryboard?.Stop();
+        _syncSpinStoryboard = null;
+        SyncNowRotate.Angle = 0;
+    }
 
     /// <summary>
     /// Toolbar image-button hook: multi-select file picker routed through the
@@ -456,6 +549,10 @@ public sealed partial class NotesPage : Page
         {
             _settingsOpen = false;
         }
+
+        // The dialog is where sign-in/out happens — re-read the sync button's
+        // readiness whatever way it closed (follow-up dialogs run after this).
+        await RefreshSyncButtonStateAsync();
 
         if (pending == PendingDataDialog.Backup)
             await ShowBackupDialogAsync();

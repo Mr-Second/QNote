@@ -12,6 +12,7 @@ using QNote.Controls;
 using QNote.Memory;
 using QNote.Models;
 using QNote.Services;
+using QNote.Sync;
 using Windows.Graphics;
 using Windows.UI;
 
@@ -33,6 +34,7 @@ public sealed partial class MainWindow : Window
     private readonly DispatcherQueueTimer _geometrySaveTimer;
     private readonly EdgeHideController _edgeHide;
     private readonly WorkingSetTrimController _workingSetTrim;
+    private readonly SyncPollingScheduler _syncPolling;
     private readonly IGlobalHotkey _hotkey;
     private int _hotkeyModifiers;
     private int _hotkeyKey;
@@ -79,6 +81,13 @@ public sealed partial class MainWindow : Window
             new WorkingSetInterop(),
             new ThreadingOneShotTimer(),
             App.Services.GetRequiredService<ILogger<WorkingSetTrimController>>());
+
+        // Sync polling (L2, decision 7): the SAME visibility signals feed the
+        // tiered cadence — visible ≈ 2 min, any invisible-to-user state ≈ 10 min
+        // (the 2026-10-04 uniform-invisibility ruling applies). Activations also
+        // fire a throttled opportunistic cycle.
+        _syncPolling = App.Services.GetRequiredService<SyncPollingScheduler>();
+        Activated += OnActivatedForSync;
 
         // Startup milestone (perf R1): one-shot window-activated timestamp.
         Activated += OnFirstActivated;
@@ -337,9 +346,15 @@ public sealed partial class MainWindow : Window
     private void OnEdgeHideHiddenChanged(bool hidden)
     {
         if (hidden)
+        {
             _workingSetTrim.OnHidden();
+            _syncPolling.OnHidden();
+        }
         else
+        {
             _workingSetTrim.OnShown();
+            _syncPolling.OnShown();
+        }
     }
 
     private void OnSettingsChanged(AppSettings s) => Apply(s, restoreGeometry: false);
@@ -443,9 +458,15 @@ public sealed partial class MainWindow : Window
         {
             _wasMinimized = minimized;
             if (minimized)
+            {
                 _workingSetTrim.OnHidden();
+                _syncPolling.OnHidden();
+            }
             else
+            {
                 _workingSetTrim.OnShown();
+                _syncPolling.OnShown();
+            }
         }
 
         if (!_snapshot.RememberWindowGeometry)
@@ -500,6 +521,7 @@ public sealed partial class MainWindow : Window
 
         AppWindow.Hide();
         _workingSetTrim.OnHidden();
+        _syncPolling.OnHidden();
     }
 
     /// <summary>
@@ -531,6 +553,19 @@ public sealed partial class MainWindow : Window
             return;
         Activated -= OnFirstActivatedForUpdateCheck;
         _ = RunStartupUpdateCheckAsync();
+    }
+
+    /// <summary>
+    /// Sync opportunistic trigger (L2, decision 7): every (non-deactivated)
+    /// activation requests a cycle — the scheduler's opportunistic gap keeps a
+    /// focus flicker from hammering the cloud. Fire-and-forget; the engine logs
+    /// its own outcome.
+    /// </summary>
+    private void OnActivatedForSync(object sender, WindowActivatedEventArgs args)
+    {
+        if (args.WindowActivationState == WindowActivationState.Deactivated)
+            return;
+        _ = _syncPolling.TriggerNow();
     }
 
     /// <summary>
@@ -590,6 +625,7 @@ public sealed partial class MainWindow : Window
     {
         Activated -= OnFirstActivated;
         _workingSetTrim.OnHidden();
+        _syncPolling.OnHidden();
     }
 
     private void TrayShow_Click(object sender, RoutedEventArgs e) => ShowFromTray();
@@ -644,6 +680,8 @@ public sealed partial class MainWindow : Window
     {
         // Cancel any pending deep working-set trim — the window is coming back.
         _workingSetTrim.OnShown();
+        // Reveal = visible tier + a throttled opportunistic sync (decision 7).
+        _syncPolling.OnShown();
 
         // An edge-hidden window slides back first (ADR D5); SW_RESTORE alone would
         // foreground it at its off-screen position.

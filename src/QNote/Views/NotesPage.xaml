@@ -202,6 +202,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Spacing="1">
                         <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind ViewModel.CurrentCategoryTitle, Mode=OneWay}" />
@@ -211,52 +212,34 @@
                             Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                             Text="便签摘要" />
                     </StackPanel>
+                    <!-- Manual sync (task 10-06): enabled only with a sync account
+                         configured (readiness refreshed on page load + after the
+                         settings dialog closes); while the awaited cycle runs the
+                         glyph spins and the button is disabled. -->
+                    <Button
+                        x:Name="SyncNowButton"
+                        x:Uid="SyncNowButton"
+                        Grid.Column="1"
+                        AutomationProperties.AutomationId="SyncNowButton"
+                        Click="SyncNow_Click"
+                        IsEnabled="False"
+                        Style="{StaticResource NoteHeaderActionButtonStyle}"
+                        ToolTipService.ToolTip="立即同步">
+                        <FontIcon FontSize="16" Glyph="&#xE72C;">
+                            <FontIcon.RenderTransform>
+                                <RotateTransform x:Name="SyncNowRotate" Angle="0" CenterX="8" CenterY="8" />
+                            </FontIcon.RenderTransform>
+                        </FontIcon>
+                    </Button>
                     <Button
                         x:Name="NewNoteButton"
                         x:Uid="NewNoteButton"
-                        Grid.Column="1"
-                        Width="34"
-                        Height="34"
-                        Padding="0"
-                        VerticalAlignment="Center"
+                        Grid.Column="2"
+                        AutomationProperties.AutomationId="NewNoteButton"
                         Command="{x:Bind ViewModel.NewNoteCommand}"
-                        CornerRadius="17"
-                        Style="{StaticResource NewNoteButtonStyle}"
+                        Style="{StaticResource NoteHeaderActionButtonStyle}"
                         ToolTipService.ToolTip="新建便签">
-                        <!-- Per-state overrides ride the default Button template's theme
-                             resources; inline per-theme so runtime theme switches stay
-                             correct and no state shows a solid accent fill. -->
-                        <Button.Resources>
-                            <ResourceDictionary>
-                                <ResourceDictionary.ThemeDictionaries>
-                                    <ResourceDictionary x:Key="Light">
-                                        <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="BrandAccentSubtleFillHoverBrush" />
-                                        <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="BrandAccentSubtleFillPressedBrush" />
-                                        <StaticResource x:Key="ButtonBorderBrushPointerOver" ResourceKey="BrandAccentSubtleBorderBrush" />
-                                        <StaticResource x:Key="ButtonBorderBrushPressed" ResourceKey="BrandAccentSubtleBorderBrush" />
-                                        <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="BrandAccentBrush" />
-                                        <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="BrandAccentBrush" />
-                                    </ResourceDictionary>
-                                    <ResourceDictionary x:Key="Dark">
-                                        <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="BrandAccentSubtleFillHoverBrush" />
-                                        <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="BrandAccentSubtleFillPressedBrush" />
-                                        <StaticResource x:Key="ButtonBorderBrushPointerOver" ResourceKey="BrandAccentSubtleBorderBrush" />
-                                        <StaticResource x:Key="ButtonBorderBrushPressed" ResourceKey="BrandAccentSubtleBorderBrush" />
-                                        <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="BrandAccentBrush" />
-                                        <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="BrandAccentBrush" />
-                                    </ResourceDictionary>
-                                    <ResourceDictionary x:Key="HighContrast">
-                                        <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="BrandAccentSubtleFillHoverBrush" />
-                                        <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="BrandAccentSubtleFillPressedBrush" />
-                                        <StaticResource x:Key="ButtonBorderBrushPointerOver" ResourceKey="BrandAccentSubtleBorderBrush" />
-                                        <StaticResource x:Key="ButtonBorderBrushPressed" ResourceKey="BrandAccentSubtleBorderBrush" />
-                                        <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="BrandAccentBrush" />
-                                        <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="BrandAccentBrush" />
-                                    </ResourceDictionary>
-                                </ResourceDictionary.ThemeDictionaries>
-                            </ResourceDictionary>
-                        </Button.Resources>
-                        <TextBlock FontSize="18" FontWeight="Medium" Text="+" />
+                        <FontIcon FontSize="16" Glyph="&#xE710;" />
                     </Button>
                 </Grid>
 

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using QNote.EdgeHide;
 using QNote.Models;
 using QNote.Services;
+using QNote.Sync;
 
 namespace QNote.ViewModels;
 
@@ -20,6 +21,7 @@ public partial class SettingsViewModel : ObservableObject
     private readonly IGlobalHotkey _hotkey;
     private readonly IStartupTaskService _startup;
     private readonly IGitHubUpdateService _update;
+    private readonly ITokenProvider _syncTokens;
     private readonly ILogger<SettingsViewModel> _log;
 
     private bool _loading = true;
@@ -31,6 +33,7 @@ public partial class SettingsViewModel : ObservableObject
         IGlobalHotkey hotkey,
         IStartupTaskService startup,
         IGitHubUpdateService update,
+        ITokenProvider syncTokens,
         bool isPackaged,
         ILogger<SettingsViewModel> log)
     {
@@ -38,6 +41,7 @@ public partial class SettingsViewModel : ObservableObject
         _hotkey = hotkey;
         _startup = startup;
         _update = update;
+        _syncTokens = syncTokens;
         _log = log;
 
         // 检查更新入口仅解包（portable）模式显示：Store 渠道自带自动更新。
@@ -170,6 +174,8 @@ public partial class SettingsViewModel : ObservableObject
         _loading = false;
 
         await RefreshStartupStateAsync();
+        // 同步账号（MSAL 本地账号枚举，无网络）随面板打开一起刷新。
+        await RefreshSyncAccountAsync();
     }
 
     partial void OnDensityIndexChanged(int value) => Save(_snapshot with { ListDensity = (NoteListDensity)value });
@@ -360,6 +366,110 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    // ---------- 同步（L2 OneDrive，task 10-06） ----------
+
+    /// <summary>登录账号显示（未登录显示「未登录」）；作为登录/注销按钮的 ToolTip.</summary>
+    [ObservableProperty]
+    public partial string SyncAccountDisplay { get; set; } = "";
+
+    /// <summary>是否已登录（驱动单个 登录/注销 按钮的文本与行为）.</summary>
+    [ObservableProperty]
+    public partial bool SyncSignedIn { get; set; }
+
+    /// <summary>未登录按钮文本（视图绑定；语言切换会重建 UI 树）.</summary>
+    public string SyncSignInText => AppStrings.GetString("SyncSignIn");
+
+    /// <summary>已登录按钮文本.</summary>
+    public string SyncSignOutText => AppStrings.GetString("SyncSignOut");
+
+    /// <summary>登录/登出失败提示；空串 = 无错误.</summary>
+    [ObservableProperty]
+    public partial string SyncError { get; set; } = "";
+
+    /// <summary>SyncError 非空 → 显示错误行（空串时收起，否则空行把按钮顶离垂直居中）.</summary>
+    public bool SyncHasError => SyncError.Length > 0;
+
+    partial void OnSyncErrorChanged(string value) => OnPropertyChanged(nameof(SyncHasError));
+
+    /// <summary>
+    /// 登录/注销成功。弹窗编排归视图：SettingsPanel 据此弹 ResultTip toast
+    /// （成功=绿卡，自动消失）。失败不经过此事件 — 走内联 SyncError。
+    /// </summary>
+    public event Action<SyncAuthOutcome>? SyncAuthCompleted;
+
+    /// <summary>SettingsPanel 打开时拉取当前账号（MSAL 账号枚举 = 本地缓存读取，无网络）.</summary>
+    public async Task RefreshSyncAccountAsync()
+    {
+        try
+        {
+            var account = await _syncTokens.GetSignedInAccountAsync();
+            SyncSignedIn = account is not null;
+            SyncAccountDisplay = account?.Username is { Length: > 0 } username
+                ? username
+                : AppStrings.GetString("SyncNotSignedIn");
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "读取同步账号失败");
+            SyncSignedIn = false;
+            SyncAccountDisplay = AppStrings.GetString("SyncNotSignedIn");
+        }
+    }
+
+    /// <summary>
+    /// 登录/注销切换按钮：未登录 → 交互式登录（WAM 账号选择器，必须已在 UI 线程上）；
+    /// 已登录 → 注销并清空本地账号缓存。
+    /// </summary>
+    [RelayCommand]
+    private async Task SyncAuthAsync()
+    {
+        SyncError = "";
+        var wasSignedIn = SyncSignedIn; // pre-command state (same rule as the error mapping)
+        try
+        {
+            // The button state flips from the OPERATION outcome, never from the
+            // follow-up enumeration: WAM broker enumeration lags seconds or comes
+            // back empty right after an interactive sign-in (live-caught), which
+            // left the button reading 登录 until the panel was reopened.
+            // RefreshSyncAccountAsync still reconciles afterwards.
+            if (wasSignedIn)
+            {
+                await _syncTokens.SignOutAsync();
+                SyncSignedIn = false;
+                SyncAccountDisplay = AppStrings.GetString("SyncNotSignedIn");
+                SyncAuthCompleted?.Invoke(new SyncAuthOutcome(
+                    Success: true, SignedIn: false,
+                    Title: AppStrings.GetString("SyncSignOutSuccess"),
+                    Message: ""));
+            }
+            else
+            {
+                var result = await _syncTokens.AcquireInteractiveAsync();
+                SyncSignedIn = true;
+                SyncAccountDisplay = result.Account?.Username is { Length: > 0 } username
+                    ? username
+                    : AppStrings.GetString("SyncNotSignedIn");
+                SyncAuthCompleted?.Invoke(new SyncAuthOutcome(
+                    Success: true, SignedIn: true,
+                    Title: AppStrings.GetString("SyncSignInSuccess"),
+                    Message: result.Account?.Username ?? ""));
+            }
+            _log.LogInformation("同步账号状态切换成功（nowSignedIn={SignedIn}）", !wasSignedIn);
+            await RefreshSyncAccountAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            // 用户关闭了系统账号选择器 — 正常路径，不是错误。（WAM 取消已在
+            // MsalTokenProvider 归一化为 OCE；这里无 ct，勿加 when 过滤。）
+        }
+        catch (Exception ex)
+        {
+            // wasSignedIn: true = a sign-out was attempted, false = a sign-in.
+            _log.LogWarning(ex, wasSignedIn ? "退出同步账号失败" : "交互式同步登录失败");
+            SyncError = AppStrings.GetString(wasSignedIn ? "SyncSignOutError" : "SyncSignInError");
+        }
+    }
+
     private void Save(AppSettings next)
     {
         if (_loading)
@@ -381,3 +491,7 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 }
+
+/// <summary>登录/注销成功的 toast 载荷（失败走内联 SyncError，不弹 toast）.
+/// SignedIn = 命令完成后的状态，视图据此立即重涂按钮（不等账号重枚举）.</summary>
+public sealed record SyncAuthOutcome(bool Success, bool SignedIn, string Title, string Message);

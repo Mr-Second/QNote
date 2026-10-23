@@ -3,6 +3,7 @@
     x:Class="QNote.Controls.SettingsPanel"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:QNote.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
@@ -10,8 +11,10 @@
     <!-- Compact dialog (half height) + scrollbar. Right padding reserves the
          scrollbar gutter: WinUI overlays the scrollbar ON the content, so
          without it the thumb clips the ComboBox chevrons / ToggleSwitch labels
-         when scrolling. -->
-    <ScrollViewer MaxHeight="315" VerticalScrollBarVisibility="Auto">
+         when scrolling. The toast is a SIBLING of the ScrollViewer (not inside
+         it) so it floats over the panel instead of scrolling/clipping. -->
+    <Grid>
+        <ScrollViewer MaxHeight="315" VerticalScrollBarVisibility="Auto">
         <StackPanel Width="400" Padding="0,0,8,0" Spacing="16">
 
             <!-- ============ 显示 ============ -->
@@ -36,7 +39,7 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock x:Uid="SettingsDensityLabel" VerticalAlignment="Center" Text="列表密度" />
+                            <TextBlock x:Uid="SettingsDensityLabel" VerticalAlignment="Center" Text="列表间距" />
                             <ComboBox
                                 x:Uid="SettingsDensityBox"
                                 Grid.Column="1"
@@ -303,7 +306,7 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="152" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock x:Uid="SettingsStartMinimizedLabel" VerticalAlignment="Center" Text="启动时最小化到托盘" />
+                            <TextBlock x:Uid="SettingsStartMinimizedLabel" VerticalAlignment="Center" Text="启动时不显示主窗口" />
                             <ToggleSwitch
                                 x:Uid="SettingsStartMinimizedSwitch"
                                 Grid.Column="1"
@@ -496,6 +499,97 @@
                 </Border>
             </StackPanel>
 
+            <!-- ============ 同步 ============ -->
+            <!-- L2 OneDrive (task 10-06): account management ONLY — the ONE
+                 toggle button 登录 (signed out) / 注销 (signed in, tooltip
+                 carries the account). Sign-in binds the WAM picker to the app
+                 window. Manual sync lives on the main page's header (a spinning
+                 icon button) — NOT here, per user ruling 2026-10-23. -->
+            <StackPanel Spacing="2">
+                <TextBlock
+                    x:Uid="SettingsSyncSection"
+                    Margin="4,0,0,0"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="同步" />
+                <Border
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                    <Grid Padding="10,3" ColumnSpacing="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="152" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Uid="SettingsSyncAccountLabel" VerticalAlignment="Center" Text="OneDrive 账号" />
+                        <StackPanel
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Spacing="2">
+                            <!-- Two STATIC buttons instead of one restyled button: the
+                                 default template resolves ButtonBackground & co. through
+                                 {ThemeResource} ONCE at template load, so mutating the
+                                 element-level Resources afterwards repaints NOTHING
+                                 (live-verified 2026-10-23 — the red never appeared while
+                                 the text flipped). Declaring the brushes in XAML here means
+                                 they are in place BEFORE the template instantiates. Same
+                                 mechanism as NewNoteButton. Compact width: a two-character
+                                 label does not need a full row-column control (user ruling
+                                 2026-10-23, twice narrowed — 152 → 101 → 56; 56 fits
+                                 「登录/注销」 plus button padding without looking stretched). -->
+                            <Button
+                                x:Name="SignInButton"
+                                x:Uid="SettingsSyncAuthButton"
+                                Width="56"
+                                HorizontalAlignment="Left"
+                                HorizontalContentAlignment="Center"
+                                AutomationProperties.AutomationId="SettingsSyncAuthButton"
+                                Command="{x:Bind ViewModel.SyncAuthCommand, Mode=OneWay}"
+                                Content="{x:Bind ViewModel.SyncSignInText, Mode=OneTime}"
+                                ToolTipService.ToolTip="{x:Bind ViewModel.SyncAccountDisplay, Mode=OneWay}"
+                                Visibility="{x:Bind ViewModel.SyncSignedIn, Converter={StaticResource BoolToVisibility}, ConverterParameter=Invert, Mode=OneWay}" />
+                            <Button
+                                x:Name="SignOutButton"
+                                x:Uid="SettingsSyncAuthButton"
+                                Width="56"
+                                HorizontalAlignment="Left"
+                                HorizontalContentAlignment="Center"
+                                AutomationProperties.AutomationId="SettingsSyncSignOutButton"
+                                Command="{x:Bind ViewModel.SyncAuthCommand, Mode=OneWay}"
+                                Content="{x:Bind ViewModel.SyncSignOutText, Mode=OneTime}"
+                                ToolTipService.ToolTip="{x:Bind ViewModel.SyncAccountDisplay, Mode=OneWay}"
+                                Visibility="{x:Bind ViewModel.SyncSignedIn, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
+                                <!-- Destructive 注销 = solid red + white label for every
+                                     state (user ruling 2026-10-23: a critical-tint
+                                     background with red text read as "broken"). -->
+                                <Button.Resources>
+                                    <ResourceDictionary>
+                                        <SolidColorBrush x:Key="ButtonBackground" Color="#C42B1C" />
+                                        <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#D13438" />
+                                        <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#A7221A" />
+                                        <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="#C42B1C" />
+                                        <SolidColorBrush x:Key="ButtonForeground" Color="White" />
+                                        <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="White" />
+                                        <SolidColorBrush x:Key="ButtonForegroundPressed" Color="White" />
+                                        <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="#80FFFFFF" />
+                                        <SolidColorBrush x:Key="ButtonBorderBrush" Color="#C42B1C" />
+                                        <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#D13438" />
+                                        <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#A7221A" />
+                                        <SolidColorBrush x:Key="ButtonBorderBrushDisabled" Color="#C42B1C" />
+                                    </ResourceDictionary>
+                                </Button.Resources>
+                            </Button>
+                            <TextBlock
+                                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.SyncError, Mode=OneWay}"
+                                TextWrapping="Wrap"
+                                Visibility="{x:Bind ViewModel.SyncHasError, Converter={StaticResource BoolToVisibility}, Mode=OneWay}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </StackPanel>
+
             <!-- ============ 关于 ============ -->
             <StackPanel Spacing="2">
                 <TextBlock
@@ -549,5 +643,13 @@
                 </Border>
             </StackPanel>
         </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+
+        <!-- Floating toast for the sign-in/out outcome (auto-dismiss). -->
+        <controls:AppToast
+            x:Name="ResultTip"
+            Margin="0,2,0,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top" />
+    </Grid>
 </UserControl>

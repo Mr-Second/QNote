@@ -18,7 +18,7 @@
          taking layout space. Fixed compact width (same reason as CategoryEditDialog). -->
     <Grid Width="400">
         <StackPanel x:Name="ContentRoot" Spacing="10">
-        <TextBlock x:Uid="BackupDescription" Text="包含全部便签、分类、设置和原始图片。备份为单个 .qns 文件（ZIP，可选 AES-256 加密）。" TextWrapping="Wrap" />
+        <TextBlock x:Uid="BackupDescription" Text="将便签、待办和相关设置、图片与附件保存为一个 .qns 备份文件，可以设置密码保护。" TextWrapping="Wrap" />
 
         <StackPanel Spacing="4">
             <TextBlock x:Uid="BackupLocationLabel" Text="保存位置" />
