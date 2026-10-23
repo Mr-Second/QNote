@@ -68,7 +68,7 @@ public sealed partial class TodoPage : Page
 
         // List-options ⋯ menu (user 2026-10-16): swatch grid + sort rows are
         // built in code-behind (15 tiny cells beat a templated ItemsRepeater;
-        // their active-checks sync at flyout-open time).
+        // their active checks follow the VM and initialize when the flyout opens).
         BuildThemeSwatchGrid();
         BuildSortRows();
 
@@ -91,7 +91,7 @@ public sealed partial class TodoPage : Page
     }
 
     /// <summary>主题 grid: the default-gradient cell + the catalog (5 per row).
-    /// Ids ride the button Tag; the active-check syncs in Opening.</summary>
+    /// Ids ride the button Tag; active checks follow ActiveThemeId changes.</summary>
     private void BuildThemeSwatchGrid()
     {
         var options = new[] { new TodoTheme.ThemeOption(0, string.Empty, null) }
@@ -138,6 +138,7 @@ public sealed partial class TodoPage : Page
                     },
                 },
             };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(cell, $"TodoTheme{option.Id}");
             cell.Click += ThemeCell_Click;
             Grid.SetRow(cell, index / perRow);
             Grid.SetColumn(cell, index % perRow);
@@ -214,6 +215,9 @@ public sealed partial class TodoPage : Page
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(TodoPageViewModel.ActiveThemeId))
+            RefreshThemeChecks();
+
         if (e.PropertyName != nameof(TodoPageViewModel.HasSelectedTask))
             return;
         if (ViewModel.HasSelectedTask)
@@ -466,7 +470,9 @@ public sealed partial class TodoPage : Page
         ViewModel.SelectListByUuid(listUuid);
     }
 
-    private void ListOptionsFlyout_Opening(object sender, object e)
+    private void ListOptionsFlyout_Opening(object sender, object e) => RefreshThemeChecks();
+
+    private void RefreshThemeChecks()
     {
         foreach (var (id, check) in _themeChecks)
             check.Visibility = id == ViewModel.ActiveThemeId ? Visibility.Visible : Visibility.Collapsed;

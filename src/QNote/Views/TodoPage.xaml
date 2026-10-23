@@ -2335,7 +2335,7 @@
                                                         VerticalAlignment="Center"
                                                         FontSize="13"
                                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                        Glyph="{x:Bind conv:TodoText.AttachmentGlyph(FileName)}"/>
+                                                        Glyph="{x:Bind conv:TodoText.AttachmentGlyph(FileName), Mode=OneTime}"/>
                                                 </Grid>
                                                 <Button
                                                     Grid.Column="1"
