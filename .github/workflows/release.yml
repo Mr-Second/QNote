@@ -308,16 +308,20 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Store publish failed ($LASTEXITCODE)" }
 
       - name: Verify package and archive matching symbols
+        id: store-package
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $packages = @(Get-ChildItem store-packages -Recurse -Filter '*.msix')
+          $version = '${{ needs.resolve-version.outputs.version }}'
+          # Dependencies also contain MSIX files; select only the application.
+          $packages = @(Get-ChildItem store-packages -Recurse -File -Filter "QNote_${version}_x64.msix")
           if ($packages.Count -ne 1) { throw "expected one Store MSIX, got $($packages.Count)" }
           ./scripts/Export-QNoteSymbols.ps1 `
             -PublishDirectory 'src/QNote/bin/Release/net10.0-windows10.0.26100.0/win-x64/publish-store-aot' `
             -PackagePath $packages[0].FullName -Channel store-aot `
             -Version '${{ needs.resolve-version.outputs.version }}' `
             -OutputDirectory dist
+          "path=$($packages[0].FullName)" | Out-File $env:GITHUB_OUTPUT -Append
 
       # Upload this exact MSIX to Partner Center so Store dumps match the PDB.
       # It is unsigned for Store intake and is not a public GitHub download.
@@ -325,7 +329,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: store-msix
-          path: store-packages/**/*.msix
+          path: ${{ steps.store-package.outputs.path }}
           if-no-files-found: error
           retention-days: 90
 
