@@ -14,8 +14,8 @@
 # Flow (the variant is its own job via the matrix — wtq lesson):
 #   resolve-version → [portable native-aot]
 #     → patch manifest + csproj versions (working copy only, never committed)
-#     → dotnet publish → zip (publish output + LICENSE + third-party notices,
-#        no *.pdb / vendor *.xml) → .sha256 sidecar → smoke test → artifact
+#     → dotnet publish → app zip + verified native PDB zip → checksums → smoke
+#   → store: matching Store MSIX + native PDB zip; MSIX stays in Actions artifacts
 #   → release: SHA256SUMS.txt + prepared zh notes (auto-generated changelog
 #     is appended below them by --generate-notes) + gh release create.
 #
@@ -25,7 +25,7 @@
 # win-x64-portable-selfcontained.pubxml stays in the repo as the fallback
 # if a runner/toolchain change ever breaks the AOT path. The AOT exe keeps
 # VERSIONINFO (update-check reads FileVersion — verified 2026-10-01); the
-# 88.6MB native QNote.pdb is excluded by the existing /XF *.pdb filter.
+# native QNote.pdb is excluded from the app zip and archived separately.
 #
 # Smoke-test caveat: this workflow installs the .NET SDK itself
 # (actions/setup-dotnet), so the runner is NOT a clean machine. The native-aot
@@ -146,8 +146,17 @@ jobs:
         shell: pwsh
         run: |
           dotnet publish src/QNote/QNote.csproj -c Release -p:Platform=x64 `
-            -p:PublishProfile=${{ matrix.profile }}.pubxml --nologo
+            -p:PublishProfile=${{ matrix.profile }}.pubxml -p:DebugSymbols=true --nologo
           if ($LASTEXITCODE -ne 0) { throw "publish failed ($LASTEXITCODE)" }
+
+      - name: Archive matching native symbols
+        shell: pwsh
+        run: |
+          ./scripts/Export-QNoteSymbols.ps1 `
+            -PublishDirectory 'src/QNote/bin/Release/net10.0-windows10.0.26100.0/win-x64/${{ matrix.publish-dir }}' `
+            -Channel '${{ matrix.variant }}' `
+            -Version '${{ needs.resolve-version.outputs.version }}' `
+            -OutputDirectory dist
 
       # Zip layout (research portable-builds.md §3): publish output at the
       # zip root + LICENSE + docs/third-party-notices.md. *.pdb and vendor
@@ -165,8 +174,11 @@ jobs:
           $stage = Join-Path $env:RUNNER_TEMP "stage-${{ matrix.variant }}"
           if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
           New-Item -ItemType Directory -Path $stage | Out-Null
-          robocopy $publishDir $stage /E /XF *.pdb *.xml /NFL /NDL /NJH /NJS | Out-Null
+          robocopy $publishDir $stage /E /XD (Join-Path $publishDir 'data') /XF *.pdb *.xml /NFL /NDL /NJH /NJS | Out-Null
           if ($LASTEXITCODE -ge 8) { throw "robocopy failed ($LASTEXITCODE)" }
+          # A locally smoke-tested publish can contain a portable data root.
+          # Never include it when packaging, even outside a clean CI runner.
+          if (Test-Path (Join-Path $stage 'data')) { throw 'Portable user data leaked into the release staging directory' }
           # AOT payload guard: QNote.runtimeconfig.json is a CoreCLR-only
           # file (the native exe never reads it); its presence here means the
           # csproj TrimRuntimeConfigFromAotPublish filter stopped firing
@@ -247,10 +259,87 @@ jobs:
           path: |
             ${{ steps.zip.outputs.zip }}
             ${{ steps.zip.outputs.zip }}.sha256
+            dist/*_native-aot_symbols.zip
+            dist/*_native-aot_symbols.zip.sha256
+          if-no-files-found: error
+
+  store:
+    needs: resolve-version
+    name: Store MSIX and matching symbols
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: NuGet cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Apply Store identity and version
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ./scripts/Bump-QNoteVersion.ps1 -Version '${{ needs.resolve-version.outputs.version }}'
+          $manifestPath = 'src/QNote/Package.appxmanifest'
+          [xml]$manifest = Get-Content $manifestPath -Raw
+          $manifest.Package.Identity.Name = 'kenneth.k.zheng.QNote-StickyNotes'
+          $manifest.Package.Identity.Publisher = 'CN=440D55E5-A274-4A35-A962-AC06CA512DA3'
+          $manifest.Package.Properties.PublisherDisplayName = 'kenneth.k.zheng'
+          $manifest.Package.Properties.DisplayName = 'QNote - Sticky Notes'
+          $manifest.Save((Resolve-Path $manifestPath).Path)
+
+      - name: Publish Store MSIX
+        shell: pwsh
+        run: |
+          dotnet publish src/QNote/QNote.csproj -c Release -p:Platform=x64 `
+            -p:PublishProfile=win-x64-store-aot.pubxml -p:DebugSymbols=true `
+            -p:PublishAppxPackage=true -p:GenerateAppxPackageOnBuild=true `
+            -p:AppxPackageSigningEnabled=false `
+            "-p:AppxPackageDir=$env:GITHUB_WORKSPACE/store-packages/" --nologo
+          if ($LASTEXITCODE -ne 0) { throw "Store publish failed ($LASTEXITCODE)" }
+
+      - name: Verify package and archive matching symbols
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $packages = @(Get-ChildItem store-packages -Recurse -Filter '*.msix')
+          if ($packages.Count -ne 1) { throw "expected one Store MSIX, got $($packages.Count)" }
+          ./scripts/Export-QNoteSymbols.ps1 `
+            -PublishDirectory 'src/QNote/bin/Release/net10.0-windows10.0.26100.0/win-x64/publish-store-aot' `
+            -PackagePath $packages[0].FullName -Channel store-aot `
+            -Version '${{ needs.resolve-version.outputs.version }}' `
+            -OutputDirectory dist
+
+      # Upload this exact MSIX to Partner Center so Store dumps match the PDB.
+      # It is unsigned for Store intake and is not a public GitHub download.
+      - name: Keep Store upload package
+        uses: actions/upload-artifact@v7
+        with:
+          name: store-msix
+          path: store-packages/**/*.msix
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload Store symbols
+        uses: actions/upload-artifact@v7
+        with:
+          name: symbols-store-aot
+          path: |
+            dist/*_store-aot_symbols.zip
+            dist/*_store-aot_symbols.zip.sha256
           if-no-files-found: error
 
   release:
-    needs: [resolve-version, portable]
+    needs: [resolve-version, portable, store]
     runs-on: windows-latest
     timeout-minutes: 15
     # The job ALWAYS runs (a dry-run validates the artifact download,
@@ -274,12 +363,10 @@ jobs:
           $ErrorActionPreference = 'Stop'
           # Concatenate the per-zip sidecars (already computed in the variant
           # job; artifact transport preserves bytes) into one checksum file.
-          # @() keeps the guard correct when only one sidecar exists
-          # (ForEach-Object output collapses to a scalar string, and $null
-          # if the artifact download failed — .Count would lie in both).
+          # One app ZIP and two channel-specific symbol ZIPs.
           $sums = @(Get-ChildItem dist -Recurse -Filter '*.sha256' | Sort-Object Name |
             ForEach-Object { (Get-Content $_.FullName -Raw).TrimEnd("`r", "`n") })
-          if ($sums.Count -ne 1) { throw "expected 1 sidecar, got $($sums.Count)" }
+          if ($sums.Count -ne 3) { throw "expected 3 sidecars, got $($sums.Count)" }
           $sums | Set-Content dist/SHA256SUMS.txt -Encoding utf8
           Get-Content dist/SHA256SUMS.txt
 
