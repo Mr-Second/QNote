@@ -29,6 +29,13 @@ internal sealed class FakeSyncDriver : ISyncDriver
     public bool SupportsRangeRead { get; set; } = true;
 
     public Func<string, CancellationToken, Task>? BeforeRead { get; set; }
+    public Func<string, Exception?>? WriteFailure { get; set; }
+
+    public async Task<DriverReadResult?> ReadFileWithEtagAsync(string path, CancellationToken ct = default)
+    {
+        var bytes = await ReadFileAsync(path, ct);
+        return bytes is null ? null : new DriverReadResult(bytes, Etags.GetValueOrDefault(path, ""));
+    }
 
     public FakeSyncDriver Seed(string path, byte[] content)
     {
@@ -70,6 +77,7 @@ internal sealed class FakeSyncDriver : ISyncDriver
     public Task<DriverWriteResult> WriteFileAsync(
         string path, byte[] content, string? ifMatchEtag = null, CancellationToken ct = default)
     {
+        if (WriteFailure?.Invoke(path) is { } failure) throw failure;
         if (ThrowPreconditionOnNextWrite)
         {
             ThrowPreconditionOnNextWrite = false;

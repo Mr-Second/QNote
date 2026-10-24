@@ -21,6 +21,9 @@ public enum SyncCycleAbortKind
     /// <summary>The manifest's E2EE mode and the supplied key disagree.</summary>
     E2eeKeyMismatch,
 
+    /// <summary>An interrupted cloud encryption conversion must finish first.</summary>
+    EncryptionConversionRequired,
+
     /// <summary>Both targets contain data and need an explicit first-pairing choice.</summary>
     PairingRequired,
 }
@@ -53,6 +56,8 @@ public sealed record SyncCycleResult
 
     /// <summary>The immutable destination an explicit first-pairing choice applies to.</summary>
     public string? PairingTarget { get; init; }
+
+    public string? EncryptionTarget { get; init; }
 
     /// <summary>The actual destination, captured before the cycle starts.</summary>
     public SyncDestination? Destination { get; init; }

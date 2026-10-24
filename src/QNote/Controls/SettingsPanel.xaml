@@ -636,6 +636,25 @@
                                     AutomationProperties.AutomationId="SettingsSyncSave"
                                     Command="{x:Bind ViewModel.SaveSyncConfigurationCommand, Mode=OneTime}" />
                         </Grid>
+                        <Border Margin="10,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" />
+                        <Grid Padding="10,8" ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="152" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Uid="SettingsEncryptionLabel" Text="加密存储" VerticalAlignment="Center" />
+                            <Button x:Uid="SettingsEncryptionSetup" Grid.Column="1" Content="设置加密" Height="32" Width="88"
+                                    Padding="8,4" HorizontalAlignment="Right" AutomationProperties.AutomationId="SettingsEncryptionSetup"
+                                    IsEnabled="{x:Bind ViewModel.EncryptionConfigurationEnabled, Mode=OneWay}"
+                                    Visibility="{x:Bind ViewModel.EncryptionEnabled, Converter={StaticResource BoolToVisibility}, ConverterParameter=Invert, Mode=OneWay}"
+                                    Command="{x:Bind ViewModel.ConfigureEncryptionCommand, Mode=OneTime}" />
+                            <Button x:Name="DisableEncryptionButton" x:Uid="SettingsEncryptionDisable" Grid.Column="1"
+                                    Content="关闭加密" Height="32" Width="88" Padding="8,4" HorizontalAlignment="Right"
+                                    AutomationProperties.AutomationId="SettingsEncryptionDisable"
+                                    IsEnabled="{x:Bind ViewModel.EncryptionConfigurationEnabled, Mode=OneWay}"
+                                    Visibility="{x:Bind ViewModel.EncryptionEnabled, Converter={StaticResource BoolToVisibility}, Mode=OneWay}"
+                                    Command="{x:Bind ViewModel.ConfigureEncryptionCommand, Mode=OneTime}" />
+                        </Grid>
                     </StackPanel>
                 </Border>
             </StackPanel>

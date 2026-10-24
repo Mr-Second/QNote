@@ -213,6 +213,9 @@ public sealed class SyncEngine
             var manifest = new SyncManifest
             {
                 E2eeEnabled = key is not null,
+                EncryptionVersion = key is not null ? 1 : null,
+                E2eeKdfIterations = key is not null ? SyncKeyDeriver.Iterations : null,
+                E2eeKeyCheck = key is not null ? SyncEncryptedFileCodec.CreateKeyCheck(key) : null,
                 E2eeSalt = key is not null
                     ? Convert.ToBase64String(RandomNumberGenerator.GetBytes(SyncKeyDeriver.SaltByteCount))
                     : null,

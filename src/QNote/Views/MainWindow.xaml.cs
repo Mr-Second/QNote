@@ -87,6 +87,9 @@ public sealed partial class MainWindow : Window
         // (the 2026-10-04 uniform-invisibility ruling applies). Activations also
         // fire a throttled opportunistic cycle.
         _syncPolling = App.Services.GetRequiredService<SyncPollingScheduler>();
+        _syncPolling.CycleCompleted += OnEncryptionCycleCompleted;
+        Activated += (_, _) => QueueEncryptionPrompt();
+        Closed += (_, _) => { _syncPolling.CycleCompleted -= OnEncryptionCycleCompleted; _encryptionPromptTimer?.Stop(); };
         Activated += OnActivatedForSync;
 
         // Startup milestone (perf R1): one-shot window-activated timestamp.

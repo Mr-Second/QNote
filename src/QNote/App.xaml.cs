@@ -279,8 +279,8 @@ public partial class App : Application
             () => App.WindowHandle));
         // The engine stays Core-only: the display-copy callback bridges to the
         // Presentation WIC pipeline (decision 19), the conflict-copy suffix is
-        // the localized resw injection (decision 18). E2EE key passes null —
-        // the opt-in toggle is a later acceptance step.
+        // the localized resw injection (decision 18). SyncService resolves the
+        // target's encryption key before constructing each engine cycle.
         services.AddSingleton<SyncConfigurationStore>();
         services.AddSingleton<SyncService>(sp => new SyncService(
             sp.GetRequiredService<SyncConfigurationStore>(),

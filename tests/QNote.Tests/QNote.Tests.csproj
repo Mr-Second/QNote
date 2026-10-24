@@ -24,7 +24,10 @@
     <Compile Include="..\..\src\QNote\Services\MsalTokenProvider.cs" Link="Presentation\MsalTokenProvider.cs" />
     <Compile Include="..\..\src\QNote\Services\SyncConfigurationStore.cs" Link="Presentation\SyncConfigurationStore.cs" />
     <Compile Include="..\..\src\QNote\Services\SyncService.cs" Link="Presentation\SyncService.cs" />
+    <Compile Include="..\..\src\QNote\Services\SyncService.Encryption.cs" Link="Presentation\SyncService.Encryption.cs" />
+    <Compile Include="..\..\src\QNote\Services\SyncEncryptionKeyStore.cs" Link="Presentation\SyncEncryptionKeyStore.cs" />
     <Compile Include="..\..\src\QNote\ViewModels\SettingsViewModel.cs" Link="Presentation\SettingsViewModel.cs" />
+    <Compile Include="..\..\src\QNote\ViewModels\SettingsViewModel.Encryption.cs" Link="Presentation\SettingsViewModel.Encryption.cs" />
   </ItemGroup>
 
   <ItemGroup>

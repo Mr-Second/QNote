@@ -53,13 +53,15 @@ public enum SyncDriverErrorKind
 /// </summary>
 public sealed class SyncDriverException : Exception
 {
-    public SyncDriverException(SyncDriverErrorKind kind, string message, Exception? inner = null)
+    public SyncDriverException(SyncDriverErrorKind kind, string message, Exception? inner = null, TimeSpan? retryAfter = null)
         : base(message, inner)
     {
         Kind = kind;
+        RetryAfter = retryAfter;
     }
 
     public SyncDriverErrorKind Kind { get; }
+    public TimeSpan? RetryAfter { get; }
 }
 
 /// <summary>
@@ -72,6 +74,12 @@ public sealed class SyncDriverException : Exception
 /// </summary>
 public interface ISyncDriver
 {
+    /// <summary>Content and an optimistic concurrency token for manifest transitions.</summary>
+    async Task<DriverReadResult?> ReadFileWithEtagAsync(string path, CancellationToken ct = default)
+    {
+        var bytes = await ReadFileAsync(path, ct);
+        return bytes is null ? null : new DriverReadResult(bytes, "");
+    }
     /// <summary>
     /// Lists every file under <paramref name="folderPath"/> (e.g. <c>notes</c>),
     /// resolving the driver's pagination internally.
@@ -113,3 +121,5 @@ public interface ISyncDriver
     /// <summary>Deletes a file. Idempotent: a missing file is success.</summary>
     Task DeleteFileAsync(string path, CancellationToken ct = default);
 }
+
+public sealed record DriverReadResult(byte[] Content, string Etag);

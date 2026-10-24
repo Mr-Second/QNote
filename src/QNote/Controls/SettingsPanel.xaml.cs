@@ -27,6 +27,10 @@ public sealed partial class SettingsPanel : UserControl
     {
         ViewModel = viewModel;
         InitializeComponent();
+        foreach (var resource in SignOutButton.Resources)
+            DisableEncryptionButton.Resources[resource.Key] = resource.Value;
+        ViewModel.EncryptionRequested += () => EncryptionRequested?.Invoke();
+        Loaded += async (_, _) => await ViewModel.RefreshEncryptionAsync();
 
         // Subscribe ONCE here and never unsubscribe. The VM is transient (one per
         // settings-dialog open, App.Services AddTransient) and outlives only this
@@ -71,6 +75,8 @@ public sealed partial class SettingsPanel : UserControl
     public event Action? RestoreRequested;
 
     public event Action? AboutRequested;
+
+    public event Action? EncryptionRequested;
 
     private void Backup_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) => BackupRequested?.Invoke();
 

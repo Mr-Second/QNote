@@ -204,6 +204,8 @@ public sealed partial class NotesPage : Page
                 return;
             }
             var result = await cycle;
+            if (result?.AbortKind is SyncCycleAbortKind.E2eeKeyMismatch or SyncCycleAbortKind.EncryptionConversionRequired)
+            { ((MainWindow)App.Window!).RequestEncryptionResolution(result, force: true); return; }
             if (result?.AbortKind == SyncCycleAbortKind.PairingRequired)
             {
                 result = await ShowSyncPairingAsync(result.PairingTarget, result.Destination);
@@ -645,6 +647,7 @@ public sealed partial class NotesPage : Page
             panel.BackupRequested += () => { pending = PendingDataDialog.Backup; dialog.Hide(); };
             panel.RestoreRequested += () => { pending = PendingDataDialog.Restore; dialog.Hide(); };
             panel.AboutRequested += () => { pending = PendingDataDialog.About; dialog.Hide(); };
+            panel.EncryptionRequested += () => { pending = PendingDataDialog.Encryption; dialog.Hide(); };
 
             // The manual update check runs while the settings dialog is open (the
             // row button shows 检查中… via the VM). When the result lands it replaces
@@ -695,11 +698,13 @@ public sealed partial class NotesPage : Page
             await ShowRestoreDialogAsync();
         else if (pending == PendingDataDialog.About)
             await ShowAboutDialogAsync();
+        else if (pending == PendingDataDialog.Encryption)
+            await ((MainWindow)App.Window!).ShowEncryptionSettingsAsync();
         else if (pendingUpdateResult is { } updateResult)
             await ShowUpdateResultDialogAsync(updateResult);
     }
 
-    private enum PendingDataDialog { None, Backup, Restore, About }
+    private enum PendingDataDialog { None, Backup, Restore, About, Encryption }
 
     /// <summary>Backup dialog (settings panel → 数据 → 备份). Flush first so the archive captures unsaved edits.</summary>
     private async Task ShowBackupDialogAsync()
@@ -886,5 +891,12 @@ public sealed partial class NotesPage : Page
     }
 
     private void ShowErrorToast(string title, string message) => ResultTip.ShowError(title, message);
+
+    internal void ShowEncryptionResult(bool success, string title, string message)
+    {
+        if (!IsLoaded) return;
+        if (success) ResultTip.ShowSuccess(title, message);
+        else ResultTip.ShowError(title, message);
+    }
 
 }

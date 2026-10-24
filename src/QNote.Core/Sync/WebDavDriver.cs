@@ -66,6 +66,8 @@ public sealed class WebDavDriver : ISyncDriver, IDisposable
         using var response = await PropFindAsync(folder, "1", ct);
         if (response.StatusCode == HttpStatusCode.NotFound)
             return new DriverListing([], false);
+        if (response.StatusCode == HttpStatusCode.Conflict && !await IsCollectionAsync(_root, ct))
+            return new DriverListing([], false);
         var resources = await ReadResourcesAsync(response, ct);
         var files = new List<DriverFile>();
         var foundCollection = false;
@@ -103,12 +105,23 @@ public sealed class WebDavDriver : ISyncDriver, IDisposable
     }
 
     public async Task<byte[]?> ReadFileAsync(string path, CancellationToken ct = default)
+        => (await ReadFileWithEtagAsync(path, ct))?.Content;
+
+    public async Task<DriverReadResult?> ReadFileWithEtagAsync(string path, CancellationToken ct = default)
     {
         using var response = await SendAsync(HttpMethod.Get, Resolve(path), ct: ct);
         if (response.StatusCode == HttpStatusCode.NotFound)
             return null;
+        // Some NAS servers return 409 for GET beneath a missing collection.
+        // Confirm the parent is absent; an ordinary conflict is still an error.
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            var slash = path.LastIndexOf('/');
+            var parent = slash < 0 ? _root : Resolve(path[..slash] + "/");
+            if (!await IsCollectionAsync(parent, ct)) return null;
+        }
         EnsureSuccess(response);
-        return await response.Content.ReadAsByteArrayAsync(ct);
+        return new DriverReadResult(await response.Content.ReadAsByteArrayAsync(ct), StrongEtag(response.Headers.ETag?.ToString()));
     }
 
     public async Task<byte[]?> ReadRangeAsync(string path, long offset, int count, CancellationToken ct = default)
@@ -212,7 +225,7 @@ public sealed class WebDavDriver : ISyncDriver, IDisposable
         ct.ThrowIfCancellationRequested();
         if (!_throttle.TryAcquire(out var delay))
             throw new SyncDriverException(SyncDriverErrorKind.ServiceError,
-                $"The WebDAV request budget is paused for {delay.TotalSeconds:F0} seconds.");
+                $"The WebDAV request budget is paused for {delay.TotalSeconds:F0} seconds.", retryAfter: delay);
         using var request = new HttpRequestMessage(method, uri) { Content = content };
         request.Headers.Authorization = _authorization;
         if (depth is not null)
@@ -236,11 +249,13 @@ public sealed class WebDavDriver : ISyncDriver, IDisposable
     {
         if (response.IsSuccessStatusCode)
             return;
+        TimeSpan? retryAfter = null;
         if ((int)response.StatusCode is 429 or 503)
         {
             var delay = response.Headers.RetryAfter?.Delta
                 ?? (response.Headers.RetryAfter?.Date is { } date ? date - DateTimeOffset.UtcNow : TimeSpan.FromMinutes(1));
             _throttle.Defer(delay > TimeSpan.Zero ? delay : TimeSpan.FromSeconds(1));
+            retryAfter = delay > TimeSpan.Zero ? delay : TimeSpan.FromSeconds(1);
         }
         var kind = (int)response.StatusCode switch
         {
@@ -250,7 +265,7 @@ public sealed class WebDavDriver : ISyncDriver, IDisposable
             _ => SyncDriverErrorKind.ServiceError,
         };
         // Never include server error bodies: they can echo credentials or data.
-        throw new SyncDriverException(kind, $"The WebDAV service returned HTTP {(int)response.StatusCode}.");
+        throw new SyncDriverException(kind, $"The WebDAV service returned HTTP {(int)response.StatusCode}.", retryAfter: retryAfter);
     }
 
     private async Task<List<XElement>> ReadResourcesAsync(HttpResponseMessage response, CancellationToken ct)

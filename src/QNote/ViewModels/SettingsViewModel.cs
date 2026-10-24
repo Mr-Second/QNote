@@ -408,6 +408,7 @@ public partial class SettingsViewModel : ObservableObject
 
     /// <summary>是否已登录（驱动单个 登录/注销 按钮的文本与行为）.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EncryptionConfigurationEnabled))]
     public partial bool SyncSignedIn { get; set; }
 
     /// <summary>未登录按钮文本（视图绑定；语言切换会重建 UI 树）.</summary>
@@ -478,6 +479,7 @@ public partial class SettingsViewModel : ObservableObject
                 ReportOperation(true, "SyncSignInSuccess", result.Account?.Username ?? "");
             }
             });
+            _ = RefreshEncryptionAsync();
             _log.LogInformation("同步账号状态切换成功（nowSignedIn={SignedIn}）", !wasSignedIn);
             try { await ReadSyncAccountAsync(); }
             catch (Exception ex) { _log.LogWarning(ex, "Account reconciliation failed after a successful auth operation."); }
@@ -500,6 +502,7 @@ public partial class SettingsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(SyncWebDavSelected))]
     [NotifyPropertyChangedFor(nameof(SyncOneDriveSelected))]
     [NotifyPropertyChangedFor(nameof(ShowWebDavHttpWarning))]
+    [NotifyPropertyChangedFor(nameof(EncryptionConfigurationEnabled))]
     public partial int SyncProviderIndex { get; set; }
 
     public bool SyncWebDavSelected => SyncProviderIndex == 1;
@@ -507,6 +510,7 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowWebDavHttpWarning))]
+    [NotifyPropertyChangedFor(nameof(EncryptionConfigurationEnabled))]
     public partial string WebDavFolderUrl { get; set; } = "";
 
     public bool ShowWebDavHttpWarning => SyncWebDavSelected
@@ -514,9 +518,11 @@ public partial class SettingsViewModel : ObservableObject
         && uri.Scheme == Uri.UriSchemeHttp && uri.Host.Length > 0;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EncryptionConfigurationEnabled))]
     public partial string WebDavUsername { get; set; } = "";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EncryptionConfigurationEnabled))]
     public partial string WebDavPassword { get; set; } = "";
 
     public string SyncOneDriveOptionText => SyncProviderOption(SyncProvider.OneDrive, "OneDrive");
@@ -526,6 +532,7 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SyncConfigurationEnabled))]
+    [NotifyPropertyChangedFor(nameof(EncryptionConfigurationEnabled))]
     public partial bool SyncConfigurationBusy { get; set; }
 
     public bool SyncConfigurationEnabled => !SyncConfigurationBusy;
@@ -594,6 +601,7 @@ public partial class SettingsViewModel : ObservableObject
     private void RefreshSyncProviderChecks(bool loaded = true)
     {
         _syncConfigurationLoaded = loaded;
+        OnPropertyChanged(nameof(EncryptionConfigurationEnabled));
         OnPropertyChanged(nameof(SyncOneDriveOptionText));
         OnPropertyChanged(nameof(SyncWebDavOptionText));
         OnPropertyChanged(nameof(SyncOneDriveOptionName));
@@ -625,6 +633,7 @@ public partial class SettingsViewModel : ObservableObject
                 : "SyncConfigurationSaveFailed";
         }
         finally { SyncConfigurationBusy = false; }
+        _ = RefreshEncryptionAsync();
         ReportOperation(success, success ? successTitleKey
             : successKey == "SyncWebDavTestSucceeded" ? "SyncWebDavTestFailedTitle" : "SettingsOperationFailedTitle",
             AppStrings.GetString(messageKey));

@@ -9,6 +9,33 @@ namespace QNote.Tests;
 public sealed class OneDriveDriverTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReadWithEtag_RejectsMetadataChangedDuringContentDownload(bool changes)
+    {
+        var metadata = 0;
+        using var handler = new Handler((request, _) =>
+        {
+            Assert.Equal("Bearer", request.Headers.Authorization?.Scheme);
+            if (request.RequestUri!.AbsoluteUri.EndsWith(":/content", StringComparison.Ordinal))
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent([1, 2, 3]) });
+            Assert.EndsWith(":/manifest.json?$select=eTag", request.RequestUri.AbsoluteUri);
+            metadata++;
+            var etag = changes && metadata > 1 ? "second" : "first";
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            { Content = new StringContent("{\"eTag\":\"" + etag + "\"}", Encoding.UTF8, "application/json") });
+        });
+        using var driver = new OneDriveDriver(new Tokens(), NullLogger<OneDriveDriver>.Instance, handler: handler);
+        if (changes) await Assert.ThrowsAsync<SyncDriverException>(() => driver.ReadFileWithEtagAsync("manifest.json"));
+        else
+        {
+            var read = await driver.ReadFileWithEtagAsync("manifest.json");
+            Assert.Equal("first", read!.Etag); Assert.Equal([1, 2, 3], read.Content);
+        }
+        Assert.Equal(2, metadata);
+    }
+
+    [Theory]
     [InlineData("notes", HttpStatusCode.Created)]
     [InlineData("categories", HttpStatusCode.Created)]
     [InlineData("tombstones", HttpStatusCode.Conflict)]

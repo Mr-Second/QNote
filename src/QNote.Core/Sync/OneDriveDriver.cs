@@ -129,6 +129,26 @@ public sealed class OneDriveDriver : ISyncDriver, IDisposable
     public async Task<byte[]?> ReadFileAsync(string path, CancellationToken ct = default)
         => await GetContentBytesAsync(path, rangeHeader: null, ct);
 
+    public async Task<DriverReadResult?> ReadFileWithEtagAsync(string path, CancellationToken ct = default)
+    {
+        var before = await ReadTagAsync();
+        if (before is null) return null;
+        var bytes = await ReadFileAsync(path, ct);
+        var after = await ReadTagAsync();
+        if (bytes is null || before != after)
+            throw new SyncDriverException(SyncDriverErrorKind.PreconditionFailed, "The cloud file changed while reading its version.");
+        return new DriverReadResult(bytes, after ?? "");
+
+        async Task<string?> ReadTagAsync()
+        {
+            using var response = await SendCommandAsync(HttpMethod.Get, $"{_baseUrl}:/{EscapePath(path)}?$select=eTag", null, null, ct);
+            if (response.StatusCode == HttpStatusCode.NotFound) return null;
+            await EnsureSuccessAsync(response, ct);
+            var item = await ReadJsonAsync(response, OneDriveGraphJsonContext.Default.OneDriveDriveItem, ct);
+            return item?.ETag ?? "";
+        }
+    }
+
     public async Task<byte[]?> ReadRangeAsync(string path, long offset, int count, CancellationToken ct = default)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(offset);
@@ -259,7 +279,7 @@ public sealed class OneDriveDriver : ISyncDriver, IDisposable
         if (countInBudget && _throttle is { } gate && !gate.TryAcquire(out var retryAfter))
             throw new SyncDriverException(
                 SyncDriverErrorKind.ServiceError,
-                $"The OneDrive request budget is exhausted; retry after {retryAfter.TotalSeconds:F0}s.");
+                $"The OneDrive request budget is exhausted; retry after {retryAfter.TotalSeconds:F0}s.", retryAfter: retryAfter);
 
         try
         {
@@ -371,7 +391,7 @@ public sealed class OneDriveDriver : ISyncDriver, IDisposable
             return new SyncDriverException(SyncDriverErrorKind.AuthRequired, description);
         if (code == 412)
             return new SyncDriverException(SyncDriverErrorKind.PreconditionFailed, description);
-        if (code == 429)
+        if (code is 429 or 503)
         {
             var retry = resp.Headers.RetryAfter?.Delta
                 ?? (resp.Headers.RetryAfter?.Date is { } date ? date - DateTimeOffset.UtcNow : null);
@@ -380,7 +400,7 @@ public sealed class OneDriveDriver : ISyncDriver, IDisposable
                 _throttle?.Defer(r);
                 description += $" (throttled; pausing the request budget for {r.TotalSeconds:F0}s)";
             }
-            return new SyncDriverException(SyncDriverErrorKind.ServiceError, description);
+            return new SyncDriverException(SyncDriverErrorKind.ServiceError, description, retryAfter: retry);
         }
         if (code == 507)
             return new SyncDriverException(SyncDriverErrorKind.QuotaExceeded, description);

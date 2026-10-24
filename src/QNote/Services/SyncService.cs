@@ -12,7 +12,7 @@ using QNote.Sync;
 namespace QNote.Services;
 
 /// <summary>Serializes target changes and cycles; a cycle never changes account or driver halfway.</summary>
-public sealed class SyncService : IDisposable
+public sealed partial class SyncService : IDisposable
 {
     private readonly SyncConfigurationStore _configuration;
     private readonly ITokenProvider _tokens;
@@ -27,6 +27,9 @@ public sealed class SyncService : IDisposable
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly Func<SyncConfiguration, ISyncDriver>? _driverFactory;
     private ISyncDriver? _driver;
+    private ISyncDriver? _rawDriver;
+    private readonly SyncEncryptionKeyStore _encryptionKeys;
+    private SyncEncryptionStatus? _encryptionStatus;
     private SyncEngine? _engine;
     private string? _target;
     private SyncConfiguration? _activeConfiguration;
@@ -42,6 +45,7 @@ public sealed class SyncService : IDisposable
         _configuration = configuration; _tokens = tokens; _notes = notes; _state = state;
         _paths = paths; _logs = logs; _throttle = throttle;
         _backups = backups;
+        _encryptionKeys = new SyncEncryptionKeyStore(paths, logs.CreateLogger<SyncEncryptionKeyStore>());
         _todos = todos; _reminders = reminders;
         _displayImages = displayImages; _conflictSuffix = conflictSuffix; _driverFactory = driverFactory;
     }
@@ -91,6 +95,7 @@ public sealed class SyncService : IDisposable
     {
         await _gate.WaitAsync(ct);
         SyncDestination? destination = null;
+        byte[]? cycleKey = null;
         SyncCycleResult Complete(SyncCycleResult result) => result with { Destination = destination };
         try
         {
@@ -100,23 +105,23 @@ public sealed class SyncService : IDisposable
             destination = DescribeDestination(configuration, account);
             if (configuration.Provider == SyncProvider.OneDrive && account is null)
                 return null;
-            var identity = configuration.Provider == SyncProvider.OneDrive
-                ? "onedrive\n" + account!.HomeAccountId
-                : "webdav\n" + configuration.FolderUrl + "\n" + configuration.Username;
-            var target = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)));
+            var target = TargetIdentity(configuration, account);
+            EnsureDriver(configuration, target);
+            var encryption = await SyncEncryptionManager.ReadManifestAsync(_rawDriver!, ct);
+            cycleKey = await LoadVerifiedKeyAsync(target, encryption.Manifest, ct);
+            var locallyPrepared = !encryption.Manifest.E2eeEnabled && await _encryptionKeys.IsPreparedAsync(target, ct);
+            UpdateEncryptionStatus(target, destination, encryption.Manifest, cycleKey is not null, locallyPrepared);
+            if (locallyPrepared)
+                return Complete(EncryptionBlocked(SyncCycleAbortKind.EncryptionConversionRequired, target));
+            if (encryption.Manifest.E2eeEnabled && cycleKey is null)
+                return Complete(EncryptionBlocked(SyncCycleAbortKind.E2eeKeyMismatch, target));
+            if (encryption.Manifest.EncryptionConversionTo is not null)
+                return Complete(EncryptionBlocked(SyncCycleAbortKind.EncryptionConversionRequired, target));
             if (pairingChoice is not null && !string.Equals(pairingTarget, target, StringComparison.Ordinal))
                 return Complete(PairingRequired(target));
-            if (_target != target || _activeConfiguration != configuration)
-            {
-                (_driver as IDisposable)?.Dispose();
-                _driver = _driverFactory?.Invoke(configuration) ?? (configuration.Provider == SyncProvider.OneDrive
-                    ? new OneDriveDriver(_tokens, _logs.CreateLogger<OneDriveDriver>(), _throttle)
-                    : new WebDavDriver(configuration.FolderUrl, configuration.Username, configuration.Password, _throttle));
-                _engine = new SyncEngine(_notes, _state, _driver, _paths,
-                    _logs.CreateLogger<SyncEngine>(), _displayImages, _conflictSuffix, _todos);
-                _target = target;
-                _activeConfiguration = configuration;
-            }
+            _driver = new SyncStorageDriver(_rawDriver!, cycleKey, encryption.Bytes);
+            _engine = new SyncEngine(_notes, _state, _driver, _paths,
+                _logs.CreateLogger<SyncEngine>(), _displayImages, _conflictSuffix, _todos);
 
             var needsPairing = await _state.PrepareTargetAsync(target, ct);
             if (needsPairing)
@@ -152,8 +157,7 @@ public sealed class SyncService : IDisposable
                         var manifest = JsonSerializer.Deserialize(bytes, SyncManifestJsonContext.Default.SyncManifest);
                         if (manifest?.FormatVersion != SyncManifest.CurrentFormatVersion)
                             return Complete(SyncCycleResult.Aborted(SyncCycleAbortKind.UnsupportedManifest, "The cloud manifest is unsupported."));
-                        if (manifest.E2eeEnabled)
-                            return Complete(SyncCycleResult.Aborted(SyncCycleAbortKind.E2eeKeyMismatch, "The cloud requires an encryption key."));
+
                     }
                     if (pairingChoice == SyncPairingChoice.CloudReplacesLocal)
                     {
@@ -168,7 +172,7 @@ public sealed class SyncService : IDisposable
                     }
                 }
             }
-            var result = await _engine!.RunAsync(ct: ct);
+            var result = await _engine!.RunAsync(cycleKey, ct);
             if (_reminders is not null && (result.Downloaded + result.TombstonesApplied + result.ConflictCopies > 0
                 || pairingChoice == SyncPairingChoice.CloudReplacesLocal))
             {
@@ -189,11 +193,15 @@ public sealed class SyncService : IDisposable
                 ConflictCopies = 0, Errors = [ex.Message],
             });
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or InvalidDataException)
         {
             return Complete(SyncCycleResult.Aborted(SyncCycleAbortKind.UnsupportedManifest, "The cloud manifest is unreadable."));
         }
-        finally { _gate.Release(); }
+        finally
+        {
+            if (cycleKey is not null) CryptographicOperations.ZeroMemory(cycleKey);
+            _gate.Release();
+        }
     }
 
     private static bool IsBuiltin(string uuid) => uuid is SchemaInitializer.WorkCategoryUuid
@@ -295,7 +303,7 @@ public sealed class SyncService : IDisposable
 
     public void Dispose()
     {
-        (_driver as IDisposable)?.Dispose();
+        (_rawDriver as IDisposable)?.Dispose();
         // A cancelled scheduler cycle may still be releasing the gate on shutdown.
     }
 }

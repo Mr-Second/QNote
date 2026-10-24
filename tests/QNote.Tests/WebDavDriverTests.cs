@@ -11,6 +11,19 @@ namespace QNote.Tests;
 public sealed class WebDavDriverTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task GetConflict_IsAbsentOnlyWhenTheParentCollectionIsProvenMissing(bool parentExists)
+    {
+        using var server = new WebDavTestServer();
+        if (parentExists) server.Folders.Add("/missing/");
+        server.ResponseOverride = request => request.Method == HttpMethod.Get ? new HttpResponseMessage(HttpStatusCode.Conflict) : null;
+        using var driver = Driver(server, folder: "missing");
+        if (parentExists) await Assert.ThrowsAsync<SyncDriverException>(() => driver.ReadFileWithEtagAsync("manifest.json"));
+        else Assert.Null(await driver.ReadFileWithEtagAsync("manifest.json"));
+    }
+
+    [Theory]
     [InlineData("ftp://example.com/QNote/")]
     [InlineData("https://user:password@example.com/QNote/")]
     [InlineData("http://user:password@nas.local:5005/QNote/")]

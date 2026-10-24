@@ -55,6 +55,8 @@ public sealed partial class TodoPage
             var cycle = _syncPolling.TriggerNow(bypassThrottle: true);
             if (cycle is null) { ResultTip.ShowError(AppStrings.GetString("SyncNotStarted"), ""); return; }
             var result = await cycle;
+            if (result?.AbortKind is SyncCycleAbortKind.E2eeKeyMismatch or SyncCycleAbortKind.EncryptionConversionRequired)
+            { ((MainWindow)App.Window!).RequestEncryptionResolution(result, force: true); return; }
             if (!IsLoaded) return;
             if (result?.AbortKind == SyncCycleAbortKind.PairingRequired)
             {
@@ -136,4 +138,11 @@ public sealed partial class TodoPage
         if (outcome.Success) ResultTip.ShowSuccess(outcome.Title, outcome.Message);
         else ResultTip.ShowError(outcome.Title, outcome.Message);
     }
+    internal void ShowEncryptionResult(bool success, string title, string message)
+    {
+        if (!IsLoaded) return;
+        if (success) ResultTip.ShowSuccess(title, message);
+        else ResultTip.ShowError(title, message);
+    }
+
 }

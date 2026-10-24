@@ -21,6 +21,11 @@ namespace QNote.Sync;
 /// </summary>
 public static class QnoteContainerCodec
 {
+    public static bool IsEncrypted(ReadOnlySpan<byte> bytes)
+    {
+        _ = ReadHeader(bytes);
+        return (bytes[FlagsOffset] & FlagsEncrypted) != 0;
+    }
     public const int HeaderByteCount = 48;
     public const ushort CurrentVersion = 1;
 

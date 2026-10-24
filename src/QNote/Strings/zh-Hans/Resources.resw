@@ -1314,4 +1314,35 @@
   <data name="SyncPairingLocal" xml:space="preserve"><value>用此设备内容覆盖云端</value></data>
   <data name="SyncPairingApply" xml:space="preserve"><value>按所选方式同步</value></data>
   <data name="SyncPairingRequired" xml:space="preserve"><value>请在主页面选择如何同步此设备与云端的已有内容。</value></data>
+  <data name="SettingsEncryptionLabel.Text" xml:space="preserve"><value>加密存储</value></data>
+  <data name="SettingsEncryptionSetup.Content" xml:space="preserve"><value>设置加密</value></data>
+  <data name="SettingsEncryptionDisable.Content" xml:space="preserve"><value>关闭加密</value></data>
+  <data name="SyncEncryptionSetupTitle" xml:space="preserve"><value>设置加密</value></data>
+  <data name="SyncEncryptionUnlockTitle" xml:space="preserve"><value>输入加密密码</value></data>
+  <data name="SyncEncryptionDisableTitle" xml:space="preserve"><value>关闭加密</value></data>
+  <data name="SyncEncryptionResumeTitle" xml:space="preserve"><value>继续数据转换</value></data>
+  <data name="SyncEncryptionPasswordLabel" xml:space="preserve"><value>加密密码</value></data>
+  <data name="SyncEncryptionConfirmPasswordLabel" xml:space="preserve"><value>确认密码</value></data>
+  <data name="SyncEncryptionUnlockAction" xml:space="preserve"><value>解锁</value></data>
+  <data name="SyncEncryptionEnableAction" xml:space="preserve"><value>启用加密</value></data>
+  <data name="SyncEncryptionDisableAction" xml:space="preserve"><value>关闭加密</value></data>
+  <data name="SyncEncryptionResumeAction" xml:space="preserve"><value>继续</value></data>
+  <data name="SyncEncryptionUnlockHint" xml:space="preserve"><value>此同步目标已加密，请输入之前设置的加密密码。</value></data>
+  <data name="SyncEncryptionSetupHint" xml:space="preserve"><value>请设置至少 8 个字符的加密密码，新设备同步时需要输入相同密码。密码丢失后，无法恢复云端加密内容。</value></data>
+  <data name="SyncEncryptionDisableHint" xml:space="preserve"><value>关闭后，云端同步内容将转换为未加密存储。转换期间会暂停普通同步，完成前请保持网络连接。是否继续？</value></data>
+  <data name="SyncEncryptionResumeHint" xml:space="preserve"><value>上次数据转换尚未完成。继续后将从未完成的位置处理，完成前暂停普通同步。</value></data>
+  <data name="SyncEncryptionWrongPassword" xml:space="preserve"><value>加密密码不正确，请重新输入。</value></data>
+  <data name="SyncEncryptionPasswordInvalid" xml:space="preserve"><value>密码至少需要 8 个字符，且两次输入必须一致。</value></data>
+  <data name="SyncEncryptionEncrypting" xml:space="preserve"><value>正在加密云端数据，请稍候…</value></data>
+  <data name="SyncEncryptionDecrypting" xml:space="preserve"><value>正在解密云端数据，请稍候…</value></data>
+  <data name="SyncEncryptionProgressCount" xml:space="preserve"><value>已处理 {0} / {1} 项</value></data>
+  <data name="SyncEncryptionEnabled" xml:space="preserve"><value>数据加密完成。</value></data>
+  <data name="SyncEncryptionDisabled" xml:space="preserve"><value>数据解密完成。</value></data>
+  <data name="SyncEncryptionCompletedTitle" xml:space="preserve"><value>操作完成</value></data>
+  <data name="SyncEncryptionOperationFailed" xml:space="preserve"><value>操作未完成，请检查网络后重试。未完成的数据转换会保留，以便下次继续。</value></data>
+  <data name="SyncEncryptionPasswordWarningTitle" xml:space="preserve"><value>请牢记加密密码</value></data>
+  <data name="SyncEncryptionPasswordWarning" xml:space="preserve"><value>QNote 将使用 AES-256-GCM 加密算法，对同步到云端的便签、待办及其附件进行加密。
+
+请牢记并妥善保存加密密码。QNote 无法找回密码；若密码遗失，且没有可用的已解锁设备或备份，云端加密数据将无法恢复。</value></data>
+  <data name="SyncEncryptionPasswordWarningContinue" xml:space="preserve"><value>我已了解，继续</value></data>
 </root>

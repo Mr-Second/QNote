@@ -776,6 +776,33 @@ public sealed class SyncServiceTests
         Assert.Empty(cloud.Writes); Assert.Empty(cloud.Deletes);
     }
 
+    [Fact]
+    public async Task EncryptionRow_UsesActiveTarget_AndRequiresSavingChangedDrafts()
+    {
+        using var db = new TestDatabase();
+        var store = new SyncConfigurationStore(db.Paths); await store.SaveAsync(WebDav());
+        var cloud = new FakeSyncDriver();
+        var key = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
+        cloud.Seed("manifest.json", System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new SyncManifest
+        {
+            E2eeEnabled = true, EncryptionVersion = 1, E2eeKdfIterations = SyncKeyDeriver.Iterations,
+            E2eeSalt = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)),
+            E2eeKeyCheck = SyncEncryptedFileCodec.CreateKeyCheck(key),
+        }, SyncManifestJsonContext.Default.SyncManifest));
+        var ports = new SettingsPorts(); var tokens = new TestTokens();
+        using var sync = Service(db, store, tokens, _ => cloud);
+        var vm = new SettingsViewModel(db.NewSettingsService(), ports, ports, ports, tokens, sync,
+            isPackaged: true, NullLogger<SettingsViewModel>.Instance);
+        await vm.InitializeAsync(); await vm.RefreshEncryptionAsync();
+        Assert.True(vm.EncryptionEnabled); Assert.True(vm.EncryptionConfigurationEnabled);
+        var requests = 0; vm.EncryptionRequested += () => requests++;
+        vm.ConfigureEncryptionCommand.Execute(null); Assert.Equal(1, requests);
+        vm.WebDavFolderUrl = "https://dav.example.com/unsaved/";
+        Assert.False(vm.EncryptionConfigurationEnabled);
+        vm.ConfigureEncryptionCommand.Execute(null); Assert.Equal(1, requests);
+        Assert.Equal(WebDav(), await store.LoadAsync());
+    }
+
     private static SyncConfiguration WebDav() => new()
     {
         Provider = SyncProvider.WebDav, FolderUrl = "https://dav.example.com/sync/",
