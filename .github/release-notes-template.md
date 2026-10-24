@@ -17,7 +17,13 @@ QNote {VERSION}：便签与待办，随处同步。本次新增完整待办清�
 - WebDAV 推荐 HTTPS。HTTP 不保护账号凭据；内容加密也不能替代 HTTPS。
 - 同步会传播删除操作，不能替代备份。迁移到新电脑或 Windows 用户后，需要重新登录 / 配置同步并输入加密密码。
 
-## 下载哪个变体？
+## Microsoft Store 商店版
+
+商店版支持一键安装和通过 Microsoft Store 自动更新，由微软签名分发，无需手动导入证书。商店可用版本以商店页面显示为准。
+
+[![从 Microsoft Store 获取 QNote](https://get.microsoft.com/images/zh-cn%20dark.svg)](https://apps.microsoft.com/detail/9NV57VJPTPCZ)
+
+## 便携版下载
 
 | 文件 | 说明 |
 |---|---|
