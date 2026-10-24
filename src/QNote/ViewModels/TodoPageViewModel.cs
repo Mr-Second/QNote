@@ -40,6 +40,9 @@ public partial class TodoPageViewModel : ObservableObject
     private bool _reloading;
     private bool _loadingDetail;
     private bool _suppressSearchReload;
+    private TodoTaskDetail? _detailBaseline;
+    private bool _syncRefreshPending;
+    private readonly SemaphoreSlim _detailSaveGate = new(1, 1);
     private TodoTask? _detailTask;                 // full record behind the detail pane
     private string _snapshotTitle = string.Empty;  // 取消 restore point: Title at selection time
     private string _snapshotNotes = string.Empty;  // 取消 restore point: Notes at selection time
@@ -494,6 +497,24 @@ public partial class TodoPageViewModel : ObservableObject
         }
     }
 
+    public bool HasPendingDetailEdits => _detailTask is { } task
+        && (DetailTitle.Trim() != task.Title || DetailNotes != task.Notes);
+
+    /// <summary>Preserves unsaved text while refreshing cloud changes and current selection.</summary>
+    public async Task RefreshAfterSyncAsync()
+    {
+        if (HasPendingDetailEdits) { _syncRefreshPending = true; return; }
+        _syncRefreshPending = false;
+        _initializing = true;
+        try { await RefreshListsAsync(); }
+        finally { _initializing = false; }
+        if (HasPendingDetailEdits) { _syncRefreshPending = true; return; }
+        await ReloadAsync();
+        if (HasPendingDetailEdits) { _syncRefreshPending = true; return; }
+        if (SelectedTask is null) ClearDetail();
+        else await LoadDetailAsync(SelectedTask);
+    }
+
     /// <summary>Drop all cached state and reload from disk (a restore swapped the DB).</summary>
     public async Task ReloadAfterRestoreAsync()
     {
@@ -703,10 +724,16 @@ public partial class TodoPageViewModel : ObservableObject
     /// </summary>
     public void RefreshTheme()
     {
+        foreach (var nav in NavItems)
+            nav.RefreshThemeBrushes();
         foreach (var t in Tasks)
             t.RefreshThemeBrushes();
         foreach (var t in CompletedTasks)
             t.RefreshThemeBrushes();
+        foreach (var step in DetailSteps)
+            step.RefreshThemeBrushes();
+        OnPropertyChanged(nameof(DetailIsCompleted));
+        OnPropertyChanged(nameof(DetailIsImportant));
     }
 
     // ---------- search ----------
@@ -904,6 +931,7 @@ public partial class TodoPageViewModel : ObservableObject
     /// <summary>Selection-load path: replace the steps + attachments collections.</summary>
     private void LoadDetailChildren(TodoTaskDetail detail)
     {
+        _detailBaseline = detail;
         DetailSteps.Clear();
         foreach (var step in detail.Steps)
             DetailSteps.Add(new(step));
@@ -958,6 +986,7 @@ public partial class TodoPageViewModel : ObservableObject
     {
         _loadingDetail = true;
         _detailTask = null;
+        _detailBaseline = null;
         _detailSaveCts?.Cancel();
         DetailTitle = string.Empty;
         DetailNotes = string.Empty;
@@ -1022,28 +1051,35 @@ public partial class TodoPageViewModel : ObservableObject
     public async Task SaveDetailNowAsync()
     {
         _detailSaveCts?.Cancel();
-        var task = _detailTask;
-        if (task is null || _loadingDetail)
-            return;
-        var title = DetailTitle.Trim();
-        if (title.Length == 0)
-            return; // the service rejects blank titles — keep it pending
-        if (title == task.Title && DetailNotes == task.Notes)
-            return;
-
+        string? conflictCopyUuid = null;
+        await _detailSaveGate.WaitAsync();
         try
         {
-            var saved = await _todo.UpdateTaskAsync(task.Id, title, DetailNotes);
-            if (saved is not null)
+            var task = _detailTask;
+            if (task is null || _loadingDetail) return;
+            var title = DetailTitle.Trim();
+            var notes = DetailNotes;
+            if (title.Length == 0 || title == task.Title && notes == task.Notes) return;
+            var baseline = _detailBaseline is { } detail
+                ? detail with { Task = task } : new TodoTaskDetail(task, [], []);
+            var saved = await _todo.SaveTaskDraftAsync(baseline, title, notes);
+            if (_detailTask?.Uuid != task.Uuid) return;
+            _detailTask = saved;
+            _detailBaseline = baseline with { Task = saved };
+            FindItem(saved.Id)?.Apply(saved);
+            if (DetailTitle.Trim() == title && DetailNotes == notes)
             {
-                _detailTask = saved;
-                FindItem(saved.Id)?.Apply(saved);
+                LoadDetailText(saved);
+                if (saved.Uuid != task.Uuid)
+                { _syncRefreshPending = true; conflictCopyUuid = saved.Uuid; }
             }
         }
-        catch (Exception ex)
-        {
-            _log.LogError(ex, "Failed to save the task detail.");
-        }
+        catch (Exception ex) { _log.LogError(ex, "Failed to save the task detail."); }
+        finally { _detailSaveGate.Release(); }
+        if (_syncRefreshPending && !HasPendingDetailEdits)
+            await RefreshAfterSyncAsync();
+        if (conflictCopyUuid is not null && !HasPendingDetailEdits)
+            await SelectTaskByUuidAsync(conflictCopyUuid);
     }
 
     partial void OnDetailReminderOnChanged(bool value)

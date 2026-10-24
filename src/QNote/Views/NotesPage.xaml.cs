@@ -275,30 +275,7 @@ public sealed partial class NotesPage : Page
         _pairingPromptOpen = true;
         try
         {
-            var choices = new RadioButtons { SelectedIndex = 0 };
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(choices, "SyncPairingChoices");
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(choices, AppStrings.GetString("SyncPairingTitle"));
-            foreach (var key in new[] { "SyncPairingMerge", "SyncPairingCloud", "SyncPairingLocal" })
-                choices.Items.Add(AppStrings.GetString(key));
-            var content = new StackPanel { Spacing = 12 };
-            if (destination is not null)
-                content.Children.Add(new TextBlock
-                {
-                    Text = AppStrings.GetFormat("SyncPairingDestination", SyncOutcomeText.DestinationDetail(destination)),
-                    TextWrapping = TextWrapping.Wrap,
-                });
-            content.Children.Add(new TextBlock
-            {
-                Text = AppStrings.GetString("SyncPairingHint"), TextWrapping = TextWrapping.Wrap,
-            });
-            content.Children.Add(choices);
-            var dialog = new ContentDialog
-            {
-                XamlRoot = XamlRoot, RequestedTheme = ActualTheme,
-                Title = AppStrings.GetString("SyncPairingTitle"), Content = content,
-                PrimaryButtonText = AppStrings.GetString("SyncPairingApply"),
-                CloseButtonText = AppStrings.GetString("CancelButton"), DefaultButton = ContentDialogButton.Primary,
-            };
+            var (dialog, choices) = SyncPairingDialog.Create(this, destination);
             if (await dialog.ShowAsync() != ContentDialogResult.Primary)
             {
                 _pairingPromptDismissed = true;
@@ -688,15 +665,13 @@ public sealed partial class NotesPage : Page
 
             // Live-follow theme switches while the dialog is open (the settings panel
             // is where the theme gets changed — reopening to see it would be silly).
-            void OnThemeChanged(FrameworkElement sender, object args) => dialog.RequestedTheme = ActualTheme;
-            ActualThemeChanged += OnThemeChanged;
+            using var dialogTheme = new DialogThemeScope(dialog, (FrameworkElement)XamlRoot.Content);
             try
             {
                 await dialog.ShowAsync();
             }
             finally
             {
-                ActualThemeChanged -= OnThemeChanged;
                 settingsDialogOpen = false;
             }
         }

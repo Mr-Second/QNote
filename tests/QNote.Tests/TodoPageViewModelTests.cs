@@ -13,6 +13,46 @@ namespace QNote.Tests;
 /// </summary>
 public sealed class TodoPageViewModelTests
 {
+    [Fact]
+    public async Task ThemeRefresh_RebindsNavigationAndDetailWithoutDiscardingDraftOrSelection()
+    {
+        var env = new Env(detailSaveDebounce: TimeSpan.FromHours(1));
+        var task = env.AddTask(FakeTodoService.WorkUuid, "theme test");
+        await env.Service.AddStepAsync(task.Id, "step");
+        await env.Vm.LoadAsync();
+        await env.Vm.SelectTaskByUuidAsync(task.Uuid);
+        var selectedNav = env.Vm.SelectedNav;
+        var selectedTask = env.Vm.SelectedTask;
+        env.Vm.DetailTitle = "unsaved draft";
+        var navChanges = new Dictionary<TodoNavItemViewModel, List<string?>>();
+        foreach (var nav in env.Vm.NavItems)
+        {
+            var changes = new List<string?>();
+            navChanges[nav] = changes;
+            nav.PropertyChanged += (_, args) => changes.Add(args.PropertyName);
+        }
+        var stepChanges = new List<string?>();
+        Assert.Single(env.Vm.DetailSteps).PropertyChanged += (_, args) => stepChanges.Add(args.PropertyName);
+        var detailChanges = new List<string?>();
+        env.Vm.PropertyChanged += (_, args) => detailChanges.Add(args.PropertyName);
+
+        env.Vm.RefreshTheme();
+
+        Assert.All(navChanges.Values, changes =>
+        {
+            Assert.Contains(nameof(TodoNavItemViewModel.IsSelected), changes);
+            Assert.Contains(nameof(TodoNavItemViewModel.ColorHex), changes);
+        });
+        Assert.Contains(nameof(TodoStepItemViewModel.IsCompleted), stepChanges);
+        Assert.Contains(nameof(TodoPageViewModel.DetailIsCompleted), detailChanges);
+        Assert.Contains(nameof(TodoPageViewModel.DetailIsImportant), detailChanges);
+        Assert.Same(selectedNav, env.Vm.SelectedNav);
+        Assert.Same(selectedTask, env.Vm.SelectedTask);
+        Assert.Equal("unsaved draft", env.Vm.DetailTitle);
+        Assert.Equal("theme test", (await env.Service.GetTaskAsync(task.Id))!.Title);
+        env.Vm.Detach();
+    }
+
     private static readonly DateTimeOffset Now = new(2026, 10, 9, 4, 30, 0, TimeSpan.Zero);
 
     /// <summary>Local-time instant relative to the pinned Now (timezone-independent, TodoServiceTests pattern).</summary>

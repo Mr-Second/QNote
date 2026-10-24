@@ -13,11 +13,10 @@ namespace QNote.Sync;
 /// <summary>
 /// The L1 sync engine (task 10-06): one engine, two driver plugs (OneDrive L2 /
 /// WebDAV L3 implement <see cref="ISyncDriver"/>). Owns the FULL delta matrix —
-/// drivers never decide anything. Scope: notes + categories (the PRD cloud
-/// layout); the todo cloud layout is unspecified (PRD open question a), so
-/// attachment entries inside note containers are logged + skipped.
+/// drivers never decide anything. Notes/categories and TODO aggregates share
+/// the same cycle, transport, target and preflight listing safety gate.
 ///
-/// Cycle shape (design, 2026-10-21): three listings first (any truncated listing
+/// Cycle shape: list all supported folders first (any truncated listing
 /// aborts the cycle BEFORE any mutation — PRD decision 10 block-and-warn), then
 /// UPLOAD (cloud has neither container nor tombstone) → DELETE_REMOTE (local
 /// tombstone not older than the cloud container) → DELTA (everything else,
@@ -49,6 +48,8 @@ public sealed class SyncEngine
 
     public const string NotesFolder = "notes";
     public const string CategoriesFolder = "categories";
+    public const string TodoListsFolder = "todo_lists";
+    public const string TodoTasksFolder = "todo_tasks";
     public const string TombstonesFolder = "tombstones";
     public const string ManifestPath = "manifest.json";
     public const string NoteContainerExtension = ".qnote";
@@ -70,6 +71,7 @@ public sealed class SyncEngine
     private readonly ILogger<SyncEngine> _log;
     private readonly DisplayImageGenerator? _displayImageGenerator;
     private readonly string _conflictCopyTitleSuffix;
+    private readonly ITodoSyncRepository? _todos;
 
     /// <summary>Per-cycle read cache: files downloaded for probes, reused for the apply.</summary>
     private readonly Dictionary<string, byte[]> _downloadCache = new(StringComparer.Ordinal);
@@ -81,12 +83,14 @@ public sealed class SyncEngine
         AppPaths paths,
         ILogger<SyncEngine> log,
         DisplayImageGenerator? displayImageGenerator = null,
-        string? conflictCopyTitleSuffix = null)
+        string? conflictCopyTitleSuffix = null,
+        ITodoSyncRepository? todos = null)
     {
         _notes = notes;
         _syncState = syncState;
         _driver = driver;
         _paths = paths;
+        _todos = todos;
         _log = log;
         _displayImageGenerator = displayImageGenerator;
         _conflictCopyTitleSuffix = string.IsNullOrEmpty(conflictCopyTitleSuffix)
@@ -112,7 +116,10 @@ public sealed class SyncEngine
             var notesListing = await _driver.ListAsync(NotesFolder, ct);
             var categoriesListing = await _driver.ListAsync(CategoriesFolder, ct);
             var tombstonesListing = await _driver.ListAsync(TombstonesFolder, ct);
-            if (notesListing.IsTruncated || categoriesListing.IsTruncated || tombstonesListing.IsTruncated)
+            var todoLists = _todos is null ? new DriverListing([], false) : await _driver.ListAsync(TodoListsFolder, ct);
+            var todoTasks = _todos is null ? new DriverListing([], false) : await _driver.ListAsync(TodoTasksFolder, ct);
+            if (notesListing.IsTruncated || categoriesListing.IsTruncated || tombstonesListing.IsTruncated
+                || todoLists.IsTruncated || todoTasks.IsTruncated)
             {
                 _log.LogWarning("A cloud listing is incomplete; the sync cycle was blocked before any mutation.");
                 return SyncCycleResult.Aborted(
@@ -157,6 +164,17 @@ public sealed class SyncEngine
 
             // ----- phase 3: DELTA (cloud presence exists; per-entry LWW) -----
             await RunDeltaAsync(ctx, ct);
+            if (_todos is not null)
+            {
+                var todo = await new TodoSyncEngine(_todos, _syncState, _driver, _paths, _log, _conflictCopyTitleSuffix)
+                    .RunAsync(todoLists, todoTasks, tombstonesListing, e2eeKey, ct);
+                ctx.Uploaded += todo.Uploaded;
+                ctx.Downloaded += todo.Downloaded;
+                ctx.DeletedRemote += todo.DeletedRemote;
+                ctx.TombstonesApplied += todo.TombstonesApplied;
+                ctx.ConflictCopies += todo.ConflictCopies;
+                ctx.Errors.AddRange(todo.Errors);
+            }
         }
         catch (SyncDriverException ex)
         {
@@ -1406,7 +1424,8 @@ public sealed class SyncEngine
         foreach (var file in listing.Files)
         {
             var name = file.Path.StartsWith(prefix, StringComparison.Ordinal) ? file.Path[prefix.Length..] : file.Path;
-            if (name.Length == 0)
+            if (name.Length == 0 || name.StartsWith(SyncTodoPaths.ListDeletionPrefix, StringComparison.Ordinal)
+                || name.StartsWith(SyncTodoPaths.TaskDeletionPrefix, StringComparison.Ordinal))
                 continue;
             map[name] = file;
         }

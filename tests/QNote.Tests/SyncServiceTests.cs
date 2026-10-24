@@ -718,6 +718,64 @@ public sealed class SyncServiceTests
         Assert.DoesNotContain(await peer.NewNoteService().GetAllAsync(), n => n.Uuid == remote);
     }
 
+    [Theory]
+    [InlineData(SyncPairingChoice.Merge)]
+    [InlineData(SyncPairingChoice.CloudReplacesLocal)]
+    [InlineData(SyncPairingChoice.LocalReplacesCloud)]
+    public async Task TodoOnly_FirstPairingHonorsAllThreeChoices(SyncPairingChoice choice)
+    {
+        using var local = new TestDatabase(); using var remote = new TestDatabase();
+        var localTask = await local.NewTodoService().CreateTaskAsync(QNote.Data.Schema.SchemaInitializer.WorkListUuid, "local task");
+        var remoteTask = await remote.NewTodoService().CreateTaskAsync(QNote.Data.Schema.SchemaInitializer.WorkListUuid, "remote task");
+        var cloud = new FakeSyncDriver();
+        var peer = new SyncEngine(remote.NewRepository(), new SyncStateStore(remote.Factory), cloud, remote.Paths,
+            NullLogger<SyncEngine>.Instance, todos: remote.NewTodoRepository());
+        Assert.True((await peer.RunAsync()).Ok);
+        cloud.Writes.Clear(); cloud.Deletes.Clear();
+        var store = new SyncConfigurationStore(local.Paths); await store.SaveAsync(WebDav());
+        using var sync = Service(local, store, new TestTokens(), _ => cloud, todoSync: true);
+        var pending = await sync.RunAsync();
+        Assert.Equal(SyncCycleAbortKind.PairingRequired, pending!.AbortKind);
+        Assert.Empty(cloud.Writes); Assert.Empty(cloud.Deletes);
+        var result = await sync.RunAsync(choice, pairingTarget: pending.PairingTarget);
+        Assert.True(result!.Ok, string.Join(";", result.Errors));
+        var localRows = await local.NewTodoRepository().GetAllAsync(includeCompleted: true);
+        if (choice == SyncPairingChoice.CloudReplacesLocal)
+        {
+            Assert.DoesNotContain(localRows, t => t.Uuid == localTask.Uuid);
+            Assert.Contains(localRows, t => t.Uuid == remoteTask.Uuid);
+            Assert.NotEmpty(Directory.GetFiles(local.Paths.BackupsDir, "*.qns"));
+        }
+        else if (choice == SyncPairingChoice.LocalReplacesCloud)
+        {
+            Assert.Contains(localRows, t => t.Uuid == localTask.Uuid);
+            Assert.DoesNotContain(cloud.Files.Keys, p => p == SyncTodoPaths.FilePath(QNote.Models.SyncEntryKind.TodoTask, remoteTask.Uuid));
+            Assert.Contains(SyncTodoPaths.DeletionPath(QNote.Models.SyncEntryKind.TodoTask, remoteTask.Uuid), cloud.Files.Keys);
+            Assert.True((await peer.RunAsync()).Ok);
+            Assert.Null(await remote.NewTodoRepository().GetTaskByUuidAsync(remoteTask.Uuid));
+            Assert.NotNull(await remote.NewTodoRepository().GetTaskByUuidAsync(localTask.Uuid));
+        }
+        else Assert.Equal(2, localRows.Count);
+        var second = await sync.RunAsync();
+        Assert.True(second!.Ok);
+    }
+
+    [Theory]
+    [InlineData(SyncEngine.TodoListsFolder)]
+    [InlineData(SyncEngine.TodoTasksFolder)]
+    public async Task TodoPairing_IncompleteListingDoesNotReplaceLocalOrCloud(string folder)
+    {
+        using var db = new TestDatabase();
+        var task = await db.NewTodoService().CreateTaskAsync(QNote.Data.Schema.SchemaInitializer.WorkListUuid, "local");
+        var store = new SyncConfigurationStore(db.Paths); await store.SaveAsync(WebDav());
+        var cloud = new FakeSyncDriver(); cloud.TruncatedFolders.Add(folder);
+        using var sync = Service(db, store, new TestTokens(), _ => cloud, todoSync: true);
+        var result = await sync.RunAsync();
+        Assert.Equal(SyncCycleAbortKind.ListingIncomplete, result!.AbortKind);
+        Assert.NotNull(await db.NewTodoRepository().GetTaskByIdAsync(task.Id));
+        Assert.Empty(cloud.Writes); Assert.Empty(cloud.Deletes);
+    }
+
     private static SyncConfiguration WebDav() => new()
     {
         Provider = SyncProvider.WebDav, FolderUrl = "https://dav.example.com/sync/",
@@ -725,13 +783,13 @@ public sealed class SyncServiceTests
     };
 
     private static SyncService Service(TestDatabase db, SyncConfigurationStore store,
-        TestTokens tokens, Func<SyncConfiguration, ISyncDriver> factory) => new(
+        TestTokens tokens, Func<SyncConfiguration, ISyncDriver> factory, bool todoSync = false) => new(
             store, tokens, db.NewRepository(), new SyncStateStore(db.Factory), db.Paths,
             NullLoggerFactory.Instance, new ThrottleGate(600, TimeSpan.FromMinutes(30)),
             new BackupService(db.Paths, db.Factory, db.NewRepository(), db.NewTodoRepository(),
                 db.NewSearchService(), db.NewSettingsService(), db.NewImageService(),
                 new QNote.Data.Schema.SchemaInitializer(db.Factory), NullLogger<BackupService>.Instance),
-            driverFactory: factory);
+            driverFactory: factory, todos: todoSync ? db.NewTodoRepository() : null);
 
     private static string SeedCloud(FakeSyncDriver cloud)
     {

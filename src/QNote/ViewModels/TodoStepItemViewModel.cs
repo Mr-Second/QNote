@@ -27,4 +27,7 @@ public partial class TodoStepItemViewModel : ObservableObject
 
     [ObservableProperty]
     public partial bool IsCompleted { get; set; }
+
+    /// <summary>Step text/check brushes depend on theme as well as completion.</summary>
+    public void RefreshThemeBrushes() => OnPropertyChanged(nameof(IsCompleted));
 }

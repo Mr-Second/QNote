@@ -59,6 +59,9 @@ public interface ITodoService
     /// </summary>
     Task<TodoTask?> UpdateTaskAsync(long id, string title, string notes, CancellationToken ct = default);
 
+    /// <summary>Saves editor text while preserving a concurrently downloaded version.</summary>
+    Task<TodoTask> SaveTaskDraftAsync(TodoTaskDetail baseline, string title, string notes, CancellationToken ct = default);
+
     /// <summary>Deletes a task by id (no-op when it does not exist).</summary>
     Task DeleteTaskAsync(long id, CancellationToken ct = default);
 

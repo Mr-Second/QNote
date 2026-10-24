@@ -16,10 +16,16 @@ namespace QNote.Data;
 /// <c>UPDATE ... RETURNING</c> so one statement both writes and yields the updated
 /// row — a <c>null</c> result means "id not found", never an exception.
 /// </summary>
-public sealed class TodoRepository : ITodoRepository
+public sealed partial class TodoRepository : ITodoRepository, ITodoSyncRepository
 {
     /// <summary>Marks a row as live — appended to every synced-table WHERE clause.</summary>
     private const string NotDeleted = "DeletedAt IS NULL";
+
+    // Older databases may have children newer than the stored parent clock.
+    // Every user mutation must advance beyond that complete aggregate version.
+    private const string TaskMutationClock = "MAX(UpdatedAt + 1, $updated, " +
+        "COALESCE((SELECT MAX(s.UpdatedAt) FROM todo_steps s WHERE s.TaskId = todo_tasks.Id), 0) + 1, " +
+        "COALESCE((SELECT MAX(a.UpdatedAt) FROM todo_attachments a WHERE a.TaskId = todo_tasks.Id), 0) + 1)";
 
     private const string TaskColumns =
         "Id, Uuid, ListUuid, Title, Notes, DueAt, IsAllDay, ReminderOn, IsImportant, CompletedAt, CatchUpFiredAt, RecurrenceRule, CreatedAt, UpdatedAt, DeletedAt";
@@ -89,7 +95,7 @@ public sealed class TodoRepository : ITodoRepository
         // sort mode) — the rename dialog and the ⋯ menu share this one entry point.
         cmd.CommandText =
             "UPDATE todo_lists SET Name = $name, Color = $color, " +
-            "Theme = $theme, HideCompleted = $hide, SortMode = $sortMode, UpdatedAt = $updated " +
+            "Theme = $theme, HideCompleted = $hide, SortMode = $sortMode, UpdatedAt = MAX(UpdatedAt + 1, $updated) " +
             $"WHERE Id = $id AND {NotDeleted} RETURNING {ListColumns};";
         cmd.Parameters.AddWithValue("$name", list.Name);
         cmd.Parameters.AddWithValue("$color", list.Color);
@@ -137,7 +143,7 @@ public sealed class TodoRepository : ITodoRepository
         // a task that was already tombstoned" would otherwise leave a step or an
         // attachment live under a dead parent — a row a peer would resurrect as
         // the only surviving child of a list nobody has.
-        var now = ToDbMs(DateTimeOffset.UtcNow);
+        var now = await NextDeletionClockAsync(conn, tx, id, uuid, ct);
         var cascaded = new List<string>();
         await using (var cmd = conn.CreateCommand())
         {
@@ -225,7 +231,7 @@ public sealed class TodoRepository : ITodoRepository
         await using var conn = _factory.OpenWrite();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "UPDATE todo_tasks SET Title = $title, Notes = $notes, UpdatedAt = $updated " +
+            "UPDATE todo_tasks SET Title = $title, Notes = $notes, UpdatedAt = " + TaskMutationClock + " " +
             $"WHERE Id = $id AND {NotDeleted} RETURNING {TaskColumns};";
         cmd.Parameters.AddWithValue("$title", title);
         cmd.Parameters.AddWithValue("$notes", notes);
@@ -253,7 +259,7 @@ public sealed class TodoRepository : ITodoRepository
             return [];
         }
 
-        var now = ToDbMs(DateTimeOffset.UtcNow);
+        var now = await NextDeletionClockAsync(conn, tx, id, null, ct);
         await using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -301,7 +307,7 @@ public sealed class TodoRepository : ITodoRepository
         await using var conn = _factory.OpenWrite();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "UPDATE todo_tasks SET CompletedAt = NULL, UpdatedAt = $updated " +
+            "UPDATE todo_tasks SET CompletedAt = NULL, UpdatedAt = " + TaskMutationClock + " " +
             $"WHERE Id = $id AND {NotDeleted} RETURNING {TaskColumns};";
         cmd.Parameters.AddWithValue("$updated", ToDbMs(DateTimeOffset.UtcNow));
         cmd.Parameters.AddWithValue("$id", id);
@@ -316,7 +322,7 @@ public sealed class TodoRepository : ITodoRepository
         await using var conn = _factory.OpenWrite();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "UPDATE todo_tasks SET DueAt = $due, IsAllDay = $allDay, ReminderOn = $reminder, UpdatedAt = $updated " +
+            "UPDATE todo_tasks SET DueAt = $due, IsAllDay = $allDay, ReminderOn = $reminder, UpdatedAt = " + TaskMutationClock + " " +
             $"WHERE Id = $id AND {NotDeleted} RETURNING {TaskColumns};";
         cmd.Parameters.AddWithValue("$due", dueUtc is { } due ? ToDbMs(due) : DBNull.Value);
         cmd.Parameters.AddWithValue("$allDay", isAllDay);
@@ -333,7 +339,7 @@ public sealed class TodoRepository : ITodoRepository
         await using var conn = _factory.OpenWrite();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "UPDATE todo_tasks SET IsImportant = $important, UpdatedAt = $updated " +
+            "UPDATE todo_tasks SET IsImportant = $important, UpdatedAt = " + TaskMutationClock + " " +
             $"WHERE Id = $id AND {NotDeleted} RETURNING {TaskColumns};";
         cmd.Parameters.AddWithValue("$important", isImportant);
         cmd.Parameters.AddWithValue("$updated", ToDbMs(DateTimeOffset.UtcNow));
@@ -348,7 +354,7 @@ public sealed class TodoRepository : ITodoRepository
         await using var conn = _factory.OpenWrite();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "UPDATE todo_tasks SET ReminderOn = $reminder, UpdatedAt = $updated " +
+            "UPDATE todo_tasks SET ReminderOn = $reminder, UpdatedAt = " + TaskMutationClock + " " +
             $"WHERE Id = $id AND {NotDeleted} RETURNING {TaskColumns};";
         cmd.Parameters.AddWithValue("$reminder", reminderOn);
         cmd.Parameters.AddWithValue("$updated", ToDbMs(DateTimeOffset.UtcNow));
@@ -363,7 +369,7 @@ public sealed class TodoRepository : ITodoRepository
         await using var conn = _factory.OpenWrite();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "UPDATE todo_tasks SET RecurrenceRule = $rule, UpdatedAt = $updated " +
+            "UPDATE todo_tasks SET RecurrenceRule = $rule, UpdatedAt = " + TaskMutationClock + " " +
             $"WHERE Id = $id AND {NotDeleted} RETURNING {TaskColumns};";
         cmd.Parameters.AddWithValue("$rule", (object?)rule ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$updated", ToDbMs(DateTimeOffset.UtcNow));
@@ -393,7 +399,9 @@ public sealed class TodoRepository : ITodoRepository
     public async Task<TodoStep> CreateStepAsync(TodoStep step, CancellationToken ct = default)
     {
         await using var conn = _factory.OpenWrite();
+        await using var tx = conn.BeginTransaction();
         await using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
         // TaskUuid is derived here, not passed in: the caller only knows the local
         // TaskId, and a child without its parent's uuid cannot be synced. The
         // parent lookup also gates the insert — a live step/attachment row under a
@@ -416,8 +424,12 @@ public sealed class TodoRepository : ITodoRepository
         if (!await reader.ReadAsync(ct))
             throw new InvalidOperationException(
                 $"INSERT INTO todo_steps ... RETURNING returned no row (no live todo_tasks row with Id={step.TaskId}).");
-        var parentUuid = await ParentUuidAsync(conn, step.TaskId, ct);
-        return step with { Id = reader.GetInt64(0), SortOrder = reader.GetInt32(1), TaskUuid = parentUuid };
+        var result = step with { Id = reader.GetInt64(0), SortOrder = reader.GetInt32(1) };
+        await reader.DisposeAsync();
+        var parentUuid = await ParentUuidAsync(conn, step.TaskId, ct, tx);
+        await AdvanceParentClockAsync(conn, tx, step.TaskId, ct);
+        await tx.CommitAsync(ct);
+        return result with { TaskUuid = parentUuid };
     }
 
     /// <summary>
@@ -427,9 +439,10 @@ public sealed class TodoRepository : ITodoRepository
     /// tombstoned parent still answers, which is what an undo needs to see.
     /// </summary>
     private static async Task<string> ParentUuidAsync(
-        SqliteConnection conn, long taskId, CancellationToken ct)
+        SqliteConnection conn, long taskId, CancellationToken ct, SqliteTransaction? tx = null)
     {
         await using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
         cmd.CommandText = "SELECT Uuid FROM todo_tasks WHERE Id = $id;";
         cmd.Parameters.AddWithValue("$id", taskId);
         return (string?)(await cmd.ExecuteScalarAsync(ct)) ?? string.Empty;
@@ -438,32 +451,42 @@ public sealed class TodoRepository : ITodoRepository
     public async Task<TodoStep?> SetStepCompletedAsync(long id, DateTimeOffset? completedAt, CancellationToken ct = default)
     {
         await using var conn = _factory.OpenWrite();
+        await using var tx = conn.BeginTransaction();
         await using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
         // Same stamping rule as task completion: the completion instant doubles
         // as the mutation time; uncheck stamps write-time.
         var at = ToDbMs(DateTimeOffset.UtcNow);
         cmd.CommandText =
-            "UPDATE todo_steps SET CompletedAt = $completed, UpdatedAt = $updated " +
+            "UPDATE todo_steps SET CompletedAt = $completed, UpdatedAt = MAX(UpdatedAt + 1, $updated) " +
             $"WHERE Id = $id AND {NotDeleted} RETURNING {StepColumns};";
         cmd.Parameters.AddWithValue("$completed", completedAt is { } done ? ToDbMs(done) : DBNull.Value);
         cmd.Parameters.AddWithValue("$updated", at);
         cmd.Parameters.AddWithValue("$id", id);
 
         await using var reader = await cmd.ExecuteReaderAsync(ct);
-        return await reader.ReadAsync(ct) ? MapStep(reader) : null;
+        var result = await reader.ReadAsync(ct) ? MapStep(reader) : null;
+        await reader.DisposeAsync();
+        if (result is not null) await AdvanceParentClockAsync(conn, tx, result.TaskId, ct);
+        await tx.CommitAsync(ct);
+        return result;
     }
 
     /// <summary>Soft-deletes a step (no-op when it does not exist) — tombstone + UpdatedAt bump.</summary>
     public async Task DeleteStepAsync(long id, CancellationToken ct = default)
     {
         await using var conn = _factory.OpenWrite();
+        await using var tx = conn.BeginTransaction();
         await using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
         cmd.CommandText =
-            $"UPDATE todo_steps SET DeletedAt = $now, UpdatedAt = $now WHERE Id = $id AND {NotDeleted};";
+            $"UPDATE todo_steps SET DeletedAt = $now, UpdatedAt = $now WHERE Id = $id AND {NotDeleted} RETURNING TaskId;";
         var now = ToDbMs(DateTimeOffset.UtcNow);
         cmd.Parameters.AddWithValue("$now", now);
         cmd.Parameters.AddWithValue("$id", id);
-        await cmd.ExecuteNonQueryAsync(ct);
+        var parent = await cmd.ExecuteScalarAsync(ct);
+        if (parent is long taskId) await AdvanceParentClockAsync(conn, tx, taskId, ct);
+        await tx.CommitAsync(ct);
     }
 
     // ---------- attachments (PRD Decision 11) ----------
@@ -486,7 +509,9 @@ public sealed class TodoRepository : ITodoRepository
     public async Task<TodoAttachment> CreateAttachmentAsync(TodoAttachment attachment, CancellationToken ct = default)
     {
         await using var conn = _factory.OpenWrite();
+        await using var tx = conn.BeginTransaction();
         await using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
         // TaskUuid is derived from the local parent, same as CreateStepAsync —
         // including the gate: no live parent row, no attachment row.
         cmd.CommandText =
@@ -505,10 +530,13 @@ public sealed class TodoRepository : ITodoRepository
         var result = await cmd.ExecuteScalarAsync(ct)
             ?? throw new InvalidOperationException(
                 $"INSERT INTO todo_attachments ... RETURNING Id returned no value (no live todo_tasks row with Id={attachment.TaskId}).");
+        var parentUuid = await ParentUuidAsync(conn, attachment.TaskId, ct, tx);
+        await AdvanceParentClockAsync(conn, tx, attachment.TaskId, ct);
+        await tx.CommitAsync(ct);
         return attachment with
         {
             Id = (long)result,
-            TaskUuid = await ParentUuidAsync(conn, attachment.TaskId, ct),
+            TaskUuid = parentUuid,
         };
     }
 
@@ -551,6 +579,7 @@ public sealed class TodoRepository : ITodoRepository
             await upd.ExecuteNonQueryAsync(ct);
         }
 
+        await AdvanceParentClockAsync(conn, tx, removed.TaskId, ct);
         var refs = await CountLiveRefsAsync(conn, tx, removed.Sha, ct);
         await tx.CommitAsync(ct);
         return (removed, refs);
@@ -759,7 +788,14 @@ public sealed class TodoRepository : ITodoRepository
     public async Task<TodoList> ImportListAsync(TodoList list, CancellationToken ct = default)
     {
         await using var conn = _factory.OpenWrite();
+        return await ImportListWithinAsync(conn, null, list, ct);
+    }
+
+    private static async Task<TodoList> ImportListWithinAsync(
+        SqliteConnection conn, SqliteTransaction? tx, TodoList list, CancellationToken ct)
+    {
         await using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
         // Upsert by uuid (the merge LWW decision lives in the caller): the
         // conflict branch rewrites the live row whole — keeping its Id — so the
         // archived SortOrder/timestamps AND list-options state survive exactly
@@ -793,7 +829,14 @@ public sealed class TodoRepository : ITodoRepository
     public async Task<TodoTask> ImportTaskAsync(TodoTask task, CancellationToken ct = default)
     {
         await using var conn = _factory.OpenWrite();
+        return await ImportTaskWithinAsync(conn, null, task, ct);
+    }
+
+    private static async Task<TodoTask> ImportTaskWithinAsync(
+        SqliteConnection conn, SqliteTransaction? tx, TodoTask task, CancellationToken ct)
+    {
         await using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
         // Upsert by uuid (the merge LWW decision lives in the caller). The whole
         // row travels — CompletedAt for the completion state, CatchUpFiredAt so
         // a restored archive cannot re-fire an already catch-up-fired reminder,
@@ -844,7 +887,14 @@ public sealed class TodoRepository : ITodoRepository
     public async Task<TodoStep> ImportStepAsync(TodoStep step, CancellationToken ct = default)
     {
         await using var conn = _factory.OpenWrite();
+        return await ImportStepWithinAsync(conn, null, step, ct);
+    }
+
+    private static async Task<TodoStep> ImportStepWithinAsync(
+        SqliteConnection conn, SqliteTransaction? tx, TodoStep step, CancellationToken ct)
+    {
         await using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
         cmd.CommandText =
             // TaskUuid is re-derived from the (already relinked) TaskId: a restored
             // archive carries a STAGED TaskUuid, which names a row this device does
@@ -899,7 +949,14 @@ public sealed class TodoRepository : ITodoRepository
     public async Task<TodoAttachment> ImportAttachmentAsync(TodoAttachment attachment, CancellationToken ct = default)
     {
         await using var conn = _factory.OpenWrite();
+        return await ImportAttachmentWithinAsync(conn, null, attachment, ct);
+    }
+
+    private static async Task<TodoAttachment> ImportAttachmentWithinAsync(
+        SqliteConnection conn, SqliteTransaction? tx, TodoAttachment attachment, CancellationToken ct)
+    {
         await using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
         cmd.CommandText =
             // TaskUuid re-derived from the relinked TaskId, same as ImportStepAsync.
             "INSERT INTO todo_attachments (Uuid, TaskId, TaskUuid, FileName, Sha, ByteSize, CreatedAt, UpdatedAt, DeletedAt) " +

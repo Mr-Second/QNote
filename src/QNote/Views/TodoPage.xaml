@@ -743,24 +743,32 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <!--  便签/待办 segmented switch (same control as NotesPage's sidebar)  -->
-                <SelectorBar
-                    x:Name="ModeSelector"
-                    Grid.Row="0"
-                    Margin="2,0"
-                    SelectionChanged="ModeSelector_SelectionChanged">
-                    <SelectorBarItem
-                        x:Name="NotesModeItem"
-                        x:Uid="ModeNotesItem"
-                        Text="便签"/>
-                    <SelectorBarItem
-                        x:Name="TodoModeItem"
-                        x:Uid="ModeTodoItem"
-                        IsSelected="True"
-                        Text="待办"/>
-                </SelectorBar>
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <SelectorBar x:Name="ModeSelector" Grid.Column="0" Margin="2,0"
+                                 SelectionChanged="ModeSelector_SelectionChanged">
+                        <SelectorBarItem x:Name="NotesModeItem" x:Uid="ModeNotesItem" Text="便签" />
+                        <SelectorBarItem x:Name="TodoModeItem" x:Uid="ModeTodoItem" IsSelected="True" Text="待办" />
+                    </SelectorBar>
+                    <Button x:Name="TodoSyncNowButton" x:Uid="SyncNowButton" Grid.Column="1"
+                            HorizontalAlignment="Right" VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="TodoSyncNowButton"
+                            Style="{StaticResource NoteHeaderActionButtonStyle}"
+                            IsEnabled="False" Click="TodoSyncNow_Click" ToolTipService.ToolTip="立即同步">
+                        <FontIcon FontSize="16" Glyph="&#xE72C;">
+                            <FontIcon.RenderTransform>
+                                <RotateTransform x:Name="TodoSyncNowRotate" Angle="0" CenterX="8" CenterY="8" />
+                            </FontIcon.RenderTransform>
+                        </FontIcon>
+                    </Button>
+                </Grid>
                 <!--  Search (debounced in the VM; filters tasks by title)  -->
                 <AutoSuggestBox
                     x:Uid="TodoSearch"
+                    AutomationProperties.AutomationId="TodoSearch"
                     Grid.Row="1"
                     Padding="10,6"
                     PlaceholderText="搜索任务"

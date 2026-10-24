@@ -67,6 +67,13 @@ public partial class TodoNavItemViewModel : ObservableObject
 
     public string CountText => IncompleteCount.ToString();
 
+    /// <summary>Re-evaluate selection brushes and the theme-dependent color fallback.</summary>
+    public void RefreshThemeBrushes()
+    {
+        OnPropertyChanged(nameof(IsSelected));
+        OnPropertyChanged(nameof(ColorHex));
+    }
+
     public static TodoNavItemViewModel CreateSmart(TodoNavKind kind, string titleKey, string glyph) => new()
     {
         Kind = kind,

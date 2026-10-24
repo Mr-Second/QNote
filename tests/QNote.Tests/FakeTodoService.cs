@@ -183,6 +183,9 @@ internal sealed class FakeTodoService : ITodoService
         return Task.FromResult<TodoTaskDetail?>(new TodoTaskDetail(task, steps, attachments));
     }
 
+    public async Task<TodoTask> SaveTaskDraftAsync(TodoTaskDetail baseline, string title, string notes, CancellationToken ct = default) =>
+        await UpdateTaskAsync(baseline.Task.Id, title, notes, ct) ?? throw new InvalidOperationException("Missing task.");
+
     public Task<TodoTask?> UpdateTaskAsync(long id, string title, string notes, CancellationToken ct = default)
     {
         Calls.Add($"UpdateTask:{id}:{title}");

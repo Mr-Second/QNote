@@ -32,6 +32,7 @@ public sealed partial class TodoPage : Page
     private bool _dataDialogOpen;
     private readonly Dictionary<int, FontIcon> _themeChecks = new();
     private readonly Dictionary<int, FontIcon> _sortChecks = new();
+    private readonly List<FontIcon> _sortIcons = [];
 
     /// <summary>
     /// Completes when the initial <see cref="ViewModel.LoadAsync"/> finished —
@@ -64,7 +65,7 @@ public sealed partial class TodoPage : Page
 
         // x:Bind functions do not re-run when only the theme changed — re-raise
         // the brush-feeding properties on every card (see TodoTaskItemViewModel).
-        ActualThemeChanged += (_, _) => ViewModel.RefreshTheme();
+        ActualThemeChanged += OnActualThemeChanged;
 
         // List-options ⋯ menu (user 2026-10-16): swatch grid + sort rows are
         // built in code-behind (15 tiny cells beat a templated ItemsRepeater;
@@ -106,7 +107,9 @@ public sealed partial class TodoPage : Page
             {
                 Glyph = "\uE73E",
                 FontSize = 14,
-                Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.White),
+                Foreground = option.Id == 0
+                    ? HexToBrushConverter.ResolveThemeBrush("TextFillColorPrimaryBrush")
+                    : new SolidColorBrush(Microsoft.UI.Colors.White),
                 Visibility = Visibility.Collapsed,
             };
             _themeChecks[option.Id] = check;
@@ -179,6 +182,7 @@ public sealed partial class TodoPage : Page
                 FontSize = 15,
                 Foreground = HexToBrushConverter.ResolveThemeBrush("TextFillColorSecondaryBrush"),
             };
+            _sortIcons.Add(icon);
             var label = new TextBlock
             {
                 Text = AppStrings.GetString(labelKey),
@@ -247,18 +251,44 @@ public sealed partial class TodoPage : Page
 
     private void OnPageUnloaded(object sender, RoutedEventArgs e)
     {
+        ActualThemeChanged -= OnActualThemeChanged;
         ViewModel.TaskDeleted -= OnTaskDeleted;
         RootGrid.SizeChanged -= OnRootResized;
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        if (_syncSubscribed) _syncPolling.CycleCompleted -= OnSyncCycleCompleted;
+        _syncSubscribed = false;
+        _syncSpin?.Stop(); _syncSpin = null;
         ViewModel.Detach();
         ResultTip.Dismiss();
+    }
+
+    private void OnActualThemeChanged(FrameworkElement sender, object args)
+    {
+        // Finish the theme propagation before resolving brushes against the
+        // window root. Keep existing rows and pending text edits in place.
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!IsLoaded) return;
+            ViewModel.RefreshTheme();
+            foreach (var icon in _sortIcons)
+                icon.Foreground = HexToBrushConverter.ResolveThemeBrush("TextFillColorSecondaryBrush");
+            foreach (var check in _sortChecks.Values)
+                check.Foreground = HexToBrushConverter.ResolveThemeBrush("BrandAccentBrush");
+            if (_themeChecks.TryGetValue(0, out var defaultCheck))
+                defaultCheck.Foreground = HexToBrushConverter.ResolveThemeBrush("TextFillColorPrimaryBrush");
+            foreach (var cell in ThemeSwatchGrid.Children.OfType<Button>())
+                if (cell.Tag is 0 && cell.Content is Grid grid && grid.Children.FirstOrDefault() is Border preview)
+                    preview.Background = TodoTheme.CellPreviewBrush(0);
+        });
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         try
         {
+            if (!_syncSubscribed) { _syncPolling.CycleCompleted += OnSyncCycleCompleted; _syncSubscribed = true; }
             await RestorePaneWidthsAsync();
+            await RefreshSyncButtonStateAsync();
             await ViewModel.LoadAsync();
         }
         finally
@@ -1032,15 +1062,13 @@ public sealed partial class TodoPage : Page
 
             // Live-follow theme switches while the dialog is open (the settings panel
             // is where the theme gets changed — reopening to see it would be silly).
-            void OnThemeChanged(FrameworkElement sender2, object args) => dialog.RequestedTheme = ActualTheme;
-            ActualThemeChanged += OnThemeChanged;
+            using var dialogTheme = new DialogThemeScope(dialog, (FrameworkElement)XamlRoot.Content);
             try
             {
                 await dialog.ShowAsync();
             }
             finally
             {
-                ActualThemeChanged -= OnThemeChanged;
                 settingsDialogOpen = false;
             }
         }
@@ -1052,6 +1080,7 @@ public sealed partial class TodoPage : Page
         finally
         {
             _settingsOpen = false;
+            await RefreshSyncButtonStateAsync();
         }
 
         if (pending == PendingDataDialog.Backup)

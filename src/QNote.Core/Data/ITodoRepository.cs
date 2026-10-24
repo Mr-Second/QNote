@@ -12,6 +12,9 @@ namespace QNote.Data;
 /// </summary>
 public interface ITodoRepository
 {
+    /// <summary>Preserves a draft as a copy when remote text/deletion superseded its baseline.</summary>
+    Task<TodoTask> SaveTaskDraftAsync(TodoTaskDetail baseline, string title, string notes,
+        string conflictSuffix, CancellationToken ct = default);
     // ---------- lists ----------
 
     /// <summary>All lists ordered by <see cref="TodoList.SortOrder"/>.</summary>

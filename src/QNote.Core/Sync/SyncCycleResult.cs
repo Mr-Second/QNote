@@ -46,7 +46,7 @@ public sealed record SyncCycleResult
     /// <summary>Cloud tombstones applied onto local rows (live-apply or re-stamp).</summary>
     public required int TombstonesApplied { get; init; }
 
-    /// <summary>Conflict copies created (notes only — PRD says note-level LWW).</summary>
+    /// <summary>Conflict copies created for competing note or task aggregates.</summary>
     public required int ConflictCopies { get; init; }
 
     public SyncCycleAbortKind AbortKind { get; init; } = SyncCycleAbortKind.None;

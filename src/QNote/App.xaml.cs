@@ -222,14 +222,21 @@ public partial class App : Application
         // reconcile below), the Presentation scheduler executes over raw WinRT
         // scheduling + the app's own COM activator (one code path, both
         // channels, NativeAOT-safe — see ScheduledToastScheduler).
-        services.AddSingleton<ITodoRepository, TodoRepository>();
+        services.AddSingleton<TodoRepository>();
+        services.AddSingleton<ITodoRepository>(sp => sp.GetRequiredService<TodoRepository>());
+        services.AddSingleton<ITodoSyncRepository>(sp => sp.GetRequiredService<TodoRepository>());
         services.AddSingleton<IToastScheduler, ScheduledToastScheduler>();
         services.AddSingleton<ITodoReminderCoordinator, TodoReminderCoordinator>();
         // Attachment byte store (stage ⑤, PRD Decision 11) — registered BEFORE
         // the service so its optional ctor param resolves.
         services.AddSingleton<TodoAttachmentStore>();
         services.AddSingleton<ITodoAttachmentStore>(sp => sp.GetRequiredService<TodoAttachmentStore>());
-        services.AddSingleton<ITodoService, TodoService>();
+        services.AddSingleton<ITodoService>(sp => new TodoService(
+            sp.GetRequiredService<ITodoRepository>(), sp.GetRequiredService<ILogger<TodoService>>(),
+            reminders: sp.GetRequiredService<ITodoReminderCoordinator>(),
+            attachments: sp.GetRequiredService<ITodoAttachmentStore>(),
+            onLocalChange: (kind, uuid) => sp.GetRequiredService<PushQueue>().Enqueue(kind, uuid),
+            conflictSuffix: AppStrings.GetString("SyncConflictCopySuffix")));
         // Presentation-side impl of the Core abstraction (window-level Win32 hotkey).
         services.AddSingleton<IGlobalHotkey, GlobalHotkeyService>();
         // Presentation-side impl of the Core abstraction (the OS state is the
@@ -285,7 +292,9 @@ public partial class App : Application
             sp.GetRequiredService<ThrottleGate>(),
             sp.GetRequiredService<IBackupService>(),
             WicDisplayImageGenerator.Generate,
-            AppStrings.GetString("SyncConflictCopySuffix")));
+            AppStrings.GetString("SyncConflictCopySuffix"),
+            todos: sp.GetRequiredService<ITodoSyncRepository>(),
+            reminders: sp.GetRequiredService<ITodoReminderCoordinator>()));
         services.AddSingleton<PushQueue>();
         // The tiered polling loop (decision 7): the composition root owns the
         // run delegate — the account gate first (a signed-out device skips

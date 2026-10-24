@@ -62,13 +62,15 @@ public sealed class SyncStateStore : ISyncStateStore
         await using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "UPDATE notes SET UpdatedAt = MAX(UpdatedAt, $updated) WHERE DeletedAt IS NULL; " +
-            "UPDATE categories SET UpdatedAt = MAX(UpdatedAt, $updated) WHERE DeletedAt IS NULL;";
+            "UPDATE categories SET UpdatedAt = MAX(UpdatedAt, $updated) WHERE DeletedAt IS NULL; " +
+            "UPDATE todo_lists SET UpdatedAt = MAX(UpdatedAt, $updated) WHERE DeletedAt IS NULL; " +
+            "UPDATE todo_tasks SET UpdatedAt = MAX(UpdatedAt, $updated) WHERE DeletedAt IS NULL;";
         cmd.Parameters.AddWithValue("$updated", updatedMs);
         await cmd.ExecuteNonQueryAsync(ct);
         await tx.CommitAsync(ct);
     }
 
-    /// <summary>Only an explicit first-pairing choice may discard the local note domain.</summary>
+    /// <summary>Only an explicit first-pairing choice may discard the local synchronized domains.</summary>
     public async Task ReplaceLocalNotesAsync(CancellationToken ct = default)
     {
         await using var conn = _factory.OpenWrite();
@@ -77,7 +79,8 @@ public sealed class SyncStateStore : ISyncStateStore
         cmd.Transaction = tx;
         // Keep content-addressed image files: todo and other notes may share them.
         cmd.CommandText = "DELETE FROM notes_fts; DELETE FROM note_images; DELETE FROM notes; " +
-            "DELETE FROM categories; DELETE FROM sync_state;";
+            "DELETE FROM categories; DELETE FROM todo_steps; DELETE FROM todo_attachments; " +
+            "DELETE FROM todo_tasks; DELETE FROM todo_lists; DELETE FROM sync_state;";
         await cmd.ExecuteNonQueryAsync(ct);
         await tx.CommitAsync(ct);
     }

@@ -24,6 +24,7 @@ internal sealed class FakeSyncDriver : ISyncDriver
 
     /// <summary>Every listing reports IsTruncated (the 坚果云 750-cap abort signal).</summary>
     public bool Truncated { get; set; }
+    public HashSet<string> TruncatedFolders { get; } = new(StringComparer.Ordinal);
 
     public bool SupportsRangeRead { get; set; } = true;
 
@@ -45,7 +46,7 @@ internal sealed class FakeSyncDriver : ISyncDriver
             .Where(kv => kv.Key.StartsWith(prefix, StringComparison.Ordinal))
             .Select(kv => new DriverFile(kv.Key, Etags.GetValueOrDefault(kv.Key, string.Empty), kv.Value.LongLength))
             .ToList();
-        return Task.FromResult(new DriverListing(files, Truncated));
+        return Task.FromResult(new DriverListing(files, Truncated || TruncatedFolders.Contains(folderPath)));
     }
 
     public async Task<byte[]?> ReadFileAsync(string path, CancellationToken ct = default)

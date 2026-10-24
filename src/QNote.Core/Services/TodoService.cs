@@ -28,6 +28,8 @@ public sealed class TodoService : ITodoService
     private readonly ITodoReminderCoordinator? _reminders;
     private readonly ITodoAttachmentStore? _attachments;
     private readonly Func<DateTimeOffset>? _clock;
+    private readonly Action<SyncEntryKind, string>? _onLocalChange;
+    private readonly string _conflictSuffix;
 
     /// <param name="clock">
     /// Test hook: pins "now" for the local-day boundary math and creation
@@ -47,13 +49,17 @@ public sealed class TodoService : ITodoService
         ILogger<TodoService> log,
         Func<DateTimeOffset>? clock = null,
         ITodoReminderCoordinator? reminders = null,
-        ITodoAttachmentStore? attachments = null)
+        ITodoAttachmentStore? attachments = null,
+        Action<SyncEntryKind, string>? onLocalChange = null,
+        string conflictSuffix = " (conflict)")
     {
         _repo = repo;
         _log = log;
         _clock = clock;
         _reminders = reminders;
         _attachments = attachments;
+        _onLocalChange = onLocalChange;
+        _conflictSuffix = conflictSuffix;
     }
 
     private DateTimeOffset UtcNow => _clock?.Invoke() ?? DateTimeOffset.UtcNow;
@@ -73,6 +79,7 @@ public sealed class TodoService : ITodoService
             CreatedAt = now,
             UpdatedAt = now,
         }, ct);
+        _onLocalChange?.Invoke(SyncEntryKind.TodoList, created.Uuid);
         _log.LogInformation("Created todo list '{Name}' ({Id})", created.Name, created.Id);
         return created;
     }
@@ -81,7 +88,10 @@ public sealed class TodoService : ITodoService
     {
         var updated = await _repo.UpdateListAsync(list with { Name = ValidateName(list.Name) }, ct);
         if (updated is not null)
+        {
+            _onLocalChange?.Invoke(SyncEntryKind.TodoList, updated.Uuid);
             _log.LogInformation("Updated todo list {Id}", list.Id);
+        }
         return updated;
     }
 
@@ -91,7 +101,10 @@ public sealed class TodoService : ITodoService
         // NO attachment shas on purpose — the bytes are still referenced by the
         // tombstones, so running the file-GC here would destroy data that a purge-
         // free undo (or a peer still holding the rows live) still needs.
+        var list = (await _repo.GetListsAsync(ct)).FirstOrDefault(l => l.Id == id);
         var (taskUuids, _) = await _repo.DeleteListAsync(id, ct);
+        if (list is not null) _onLocalChange?.Invoke(SyncEntryKind.TodoList, list.Uuid);
+        foreach (var uuid in taskUuids) _onLocalChange?.Invoke(SyncEntryKind.TodoTask, uuid);
         await CancelRemindersAsync(taskUuids, ct);
         _log.LogInformation("Soft-deleted todo list {Id} ({Count} tasks tombstoned)", id, taskUuids.Count);
     }
@@ -109,6 +122,7 @@ public sealed class TodoService : ITodoService
             CreatedAt = now,
             UpdatedAt = now,
         }, ct);
+        _onLocalChange?.Invoke(SyncEntryKind.TodoTask, created.Uuid);
         _log.LogInformation("Created todo task {Id} in list {ListUuid}", created.Id, listUuid);
         return created;
     }
@@ -148,8 +162,18 @@ public sealed class TodoService : ITodoService
         var task = await _repo.GetTaskByIdAsync(id, ct);
         await _repo.DeleteTaskAsync(id, ct);
         if (task is not null)
+        {
+            _onLocalChange?.Invoke(SyncEntryKind.TodoTask, task.Uuid);
             await CancelReminderAsync(task.Uuid, ct);
+        }
         _log.LogInformation("Soft-deleted todo task {Id}", id);
+    }
+
+    public async Task<TodoTask> SaveTaskDraftAsync(TodoTaskDetail baseline, string title, string notes, CancellationToken ct = default)
+    {
+        var saved = await _repo.SaveTaskDraftAsync(baseline, ValidateTitle(title), notes, _conflictSuffix, ct);
+        await SyncReminderAsync(saved, ct);
+        return saved;
     }
 
     public async Task<TodoTask?> CompleteTaskAsync(long id, CancellationToken ct = default)
@@ -255,10 +279,12 @@ public sealed class TodoService : ITodoService
         return updated;
     }
 
-    public Task<TodoTask?> SetImportantAsync(long id, bool isImportant, CancellationToken ct = default) =>
-        // Not reminder-synced: importance is not part of the toast payload
-        // (title + due), so a pending toast stays valid across a star toggle.
-        _repo.SetTaskImportantAsync(id, isImportant, ct);
+    public async Task<TodoTask?> SetImportantAsync(long id, bool isImportant, CancellationToken ct = default)
+    {
+        var updated = await _repo.SetTaskImportantAsync(id, isImportant, ct);
+        if (updated is not null) _onLocalChange?.Invoke(SyncEntryKind.TodoTask, updated.Uuid);
+        return updated;
+    }
 
     public async Task<TodoTask?> SetReminderAsync(long id, bool reminderOn, CancellationToken ct = default)
     {
@@ -274,7 +300,10 @@ public sealed class TodoService : ITodoService
             throw new ArgumentException($"Unknown recurrence rule '{rule}'.", nameof(rule));
         var updated = await _repo.SetTaskRecurrenceAsync(id, rule, ct);
         if (updated is not null)
+        {
+            _onLocalChange?.Invoke(SyncEntryKind.TodoTask, updated.Uuid);
             _log.LogInformation("Set recurrence '{Rule}' on task {Id}", rule ?? "never", id);
+        }
         return updated;
     }
 
@@ -292,15 +321,24 @@ public sealed class TodoService : ITodoService
             CreatedAt = now,
             UpdatedAt = now,
         }, ct);
+        _onLocalChange?.Invoke(SyncEntryKind.TodoTask, created.TaskUuid);
         _log.LogInformation("Added step {StepId} to task {TaskId}", created.Id, taskId);
         return created;
     }
 
-    public Task<TodoStep?> SetStepCompletedAsync(long stepId, bool completed, CancellationToken ct = default) =>
-        _repo.SetStepCompletedAsync(stepId, completed ? UtcNow : null, ct);
+    public async Task<TodoStep?> SetStepCompletedAsync(long stepId, bool completed, CancellationToken ct = default)
+    {
+        var updated = await _repo.SetStepCompletedAsync(stepId, completed ? UtcNow : null, ct);
+        if (updated is not null) _onLocalChange?.Invoke(SyncEntryKind.TodoTask, updated.TaskUuid);
+        return updated;
+    }
 
-    public Task DeleteStepAsync(long stepId, CancellationToken ct = default) =>
-        _repo.DeleteStepAsync(stepId, ct);
+    public async Task DeleteStepAsync(long stepId, CancellationToken ct = default)
+    {
+        var step = (await _repo.GetAllStepsAsync(ct)).FirstOrDefault(s => s.Id == stepId);
+        await _repo.DeleteStepAsync(stepId, ct);
+        if (step is not null) _onLocalChange?.Invoke(SyncEntryKind.TodoTask, step.TaskUuid);
+    }
 
     // ---------- attachments (PRD Decision 11) ----------
 
@@ -343,6 +381,7 @@ public sealed class TodoService : ITodoService
             CreatedAt = now,
             UpdatedAt = now,
         }, ct);
+        _onLocalChange?.Invoke(SyncEntryKind.TodoTask, created.TaskUuid);
         _log.LogInformation("Attached '{File}' ({Size} B, {Sha}) to task {TaskId}", fileName, size, sha[..12], taskId);
         return created;
     }
@@ -355,7 +394,9 @@ public sealed class TodoService : ITodoService
         // would make the soft delete irreversible. File reclamation belongs to the
         // explicit tombstone-purge path, never to a user-facing delete.
         // RemainingRefs counts LIVE rows only, so it is diagnostics, not a GC signal.
-        return await _repo.DeleteAttachmentAsync(attachmentId, ct);
+        var result = await _repo.DeleteAttachmentAsync(attachmentId, ct);
+        if (result.Removed is { } removed) _onLocalChange?.Invoke(SyncEntryKind.TodoTask, removed.TaskUuid);
+        return result;
     }
 
     public Task<IReadOnlyList<TodoTaskSummary>> GetTodayAsync(
@@ -402,6 +443,7 @@ public sealed class TodoService : ITodoService
 
     private async Task SyncReminderAsync(TodoTask task, CancellationToken ct)
     {
+        _onLocalChange?.Invoke(SyncEntryKind.TodoTask, task.Uuid);
         if (_reminders is null)
             return;
         try

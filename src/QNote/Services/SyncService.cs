@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using QNote.Data;
 using QNote.Data.Schema;
 using QNote.Infrastructure;
+using QNote.Models;
 using QNote.Sync;
 
 namespace QNote.Services;
@@ -29,15 +30,19 @@ public sealed class SyncService : IDisposable
     private SyncEngine? _engine;
     private string? _target;
     private SyncConfiguration? _activeConfiguration;
+    private readonly ITodoSyncRepository? _todos;
+    private readonly ITodoReminderCoordinator? _reminders;
 
     public SyncService(SyncConfigurationStore configuration, ITokenProvider tokens,
         INoteRepository notes, SyncStateStore state, AppPaths paths, ILoggerFactory logs,
         ThrottleGate throttle, IBackupService backups, SyncEngine.DisplayImageGenerator? displayImages = null,
-        string conflictSuffix = " (conflict)", Func<SyncConfiguration, ISyncDriver>? driverFactory = null)
+        string conflictSuffix = " (conflict)", Func<SyncConfiguration, ISyncDriver>? driverFactory = null,
+        ITodoSyncRepository? todos = null, ITodoReminderCoordinator? reminders = null)
     {
         _configuration = configuration; _tokens = tokens; _notes = notes; _state = state;
         _paths = paths; _logs = logs; _throttle = throttle;
         _backups = backups;
+        _todos = todos; _reminders = reminders;
         _displayImages = displayImages; _conflictSuffix = conflictSuffix; _driverFactory = driverFactory;
     }
 
@@ -108,7 +113,7 @@ public sealed class SyncService : IDisposable
                     ? new OneDriveDriver(_tokens, _logs.CreateLogger<OneDriveDriver>(), _throttle)
                     : new WebDavDriver(configuration.FolderUrl, configuration.Username, configuration.Password, _throttle));
                 _engine = new SyncEngine(_notes, _state, _driver, _paths,
-                    _logs.CreateLogger<SyncEngine>(), _displayImages, _conflictSuffix);
+                    _logs.CreateLogger<SyncEngine>(), _displayImages, _conflictSuffix, _todos);
                 _target = target;
                 _activeConfiguration = configuration;
             }
@@ -121,12 +126,20 @@ public sealed class SyncService : IDisposable
                     await _driver!.ListAsync(SyncEngine.NotesFolder, ct),
                     await _driver.ListAsync(SyncEngine.CategoriesFolder, ct),
                     await _driver.ListAsync(SyncEngine.TombstonesFolder, ct),
+                    _todos is null ? new DriverListing([], false) : await _driver.ListAsync(SyncEngine.TodoListsFolder, ct),
+                    _todos is null ? new DriverListing([], false) : await _driver.ListAsync(SyncEngine.TodoTasksFolder, ct),
                 };
                 if (listings.Any(l => l.IsTruncated))
                     return Complete(SyncCycleResult.Aborted(SyncCycleAbortKind.ListingIncomplete, "The first-pairing listing is incomplete."));
                 var managedFiles = listings.SelectMany(l => l.Files).Where(IsManagedFile).ToList();
                 var hasLocal = (await _notes.GetAllUuidTimestampsAsync(ct)).Count > 0
                     || (await _notes.GetCategoriesAsync(ct)).Any(c => !IsBuiltin(c.Uuid) || c.UpdatedAt > c.CreatedAt);
+                if (_todos is not null)
+                {
+                    var todo = await _todos.ReadSyncSnapshotAsync(ct);
+                    hasLocal |= todo.Tasks.Count > 0 || todo.Lists.Any(l =>
+                        l.Uuid is not (SchemaInitializer.WorkListUuid or SchemaInitializer.LifeListUuid) || l.UpdatedAt > l.CreatedAt);
+                }
                 var hasCloud = managedFiles.Count > 0;
                 if (hasLocal && hasCloud)
                 {
@@ -156,6 +169,13 @@ public sealed class SyncService : IDisposable
                 }
             }
             var result = await _engine!.RunAsync(ct: ct);
+            if (_reminders is not null && (result.Downloaded + result.TombstonesApplied + result.ConflictCopies > 0
+                || pairingChoice == SyncPairingChoice.CloudReplacesLocal))
+            {
+                try { await _reminders.ReconcileAsync(ct); }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                { _logs.CreateLogger<SyncService>().LogWarning(ex, "Reminder reconciliation after sync failed."); }
+            }
             if (result.Ok && needsPairing)
                 await _state.MarkTargetPairedAsync(target, ct);
             return Complete(result);
@@ -186,6 +206,20 @@ public sealed class SyncService : IDisposable
         var live = local.Where(s => s.DeletedAt is null).Select(s => s.Uuid).ToHashSet(StringComparer.Ordinal);
         var newest = local.Select(s => s.UpdatedAt.ToUnixTimeMilliseconds())
             .Append(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()).Max();
+        if (_todos is not null)
+        {
+            var todo = await _todos.ReadSyncSnapshotAsync(ct);
+            foreach (var list in todo.Lists)
+            {
+                newest = Math.Max(newest, list.UpdatedAt.ToUnixTimeMilliseconds());
+                if (list.DeletedAt is null) live.Add(SyncTodoPaths.ListDeletionPrefix + list.Uuid);
+            }
+            foreach (var detail in todo.Tasks)
+            {
+                newest = Math.Max(newest, detail.Task.UpdatedAt.ToUnixTimeMilliseconds());
+                if (detail.Task.DeletedAt is null) live.Add(SyncTodoPaths.TaskDeletionPrefix + detail.Task.Uuid);
+            }
+        }
         // Read every version before the first replacement. The explicit choice
         // supersedes these versions, including clocks ahead of this device.
         foreach (var file in files)
@@ -199,8 +233,12 @@ public sealed class SyncService : IDisposable
                     throw new SyncDriverException(SyncDriverErrorKind.ServiceError, "A cloud deletion record is invalid.");
                 updated = BinaryPrimitives.ReadInt64LittleEndian(bytes);
             }
-            else if (file.Path.StartsWith(SyncEngine.NotesFolder + "/", StringComparison.Ordinal))
+            else if (file.Path.StartsWith(SyncEngine.NotesFolder + "/", StringComparison.Ordinal)
+                || file.Path.StartsWith(SyncEngine.TodoTasksFolder + "/", StringComparison.Ordinal))
                 updated = QnoteContainerCodec.ReadHeader(bytes).UpdatedAtMs;
+            else if (file.Path.StartsWith(SyncEngine.TodoListsFolder + "/", StringComparison.Ordinal))
+                updated = (JsonSerializer.Deserialize(bytes, SyncTodoJsonContext.Default.TodoList)
+                    ?? throw new SyncDriverException(SyncDriverErrorKind.ServiceError, "A cloud TODO list is invalid.")).UpdatedAt.ToUnixTimeMilliseconds();
             else
                 updated = JsonSerializer.Deserialize(bytes, SyncCategoryFileJsonContext.Default.SyncCategoryFile)?.UpdatedAtMs
                     ?? throw new SyncDriverException(SyncDriverErrorKind.ServiceError, "A cloud category is invalid.");
@@ -215,6 +253,12 @@ public sealed class SyncService : IDisposable
             var name = file.Path[(file.Path.IndexOf('/') + 1)..];
             var isTombstone = file.Path.StartsWith(SyncEngine.TombstonesFolder + "/", StringComparison.Ordinal);
             var uuid = isTombstone ? name : name[..name.LastIndexOf('.')];
+            var deletionPath = SyncEngine.TombstonesFolder + "/" + uuid;
+            if (SyncTodoPaths.TryDescribe(file.Path, out var kind, out var todoUuid, out _))
+            {
+                uuid = SyncTodoPaths.DeletionPrefix(kind) + todoUuid;
+                deletionPath = SyncTodoPaths.DeletionPath(kind, todoUuid);
+            }
             if (isTombstone)
             {
                 if (live.Contains(uuid))
@@ -222,7 +266,7 @@ public sealed class SyncService : IDisposable
                 continue;
             }
             if (!live.Contains(uuid))
-                await _driver!.WriteFileAsync(SyncEngine.TombstonesFolder + "/" + uuid, tombstone, ct: ct);
+                await _driver!.WriteFileAsync(deletionPath, tombstone, ct: ct);
             await _driver!.DeleteFileAsync(file.Path, ct);
         }
     }
@@ -233,6 +277,7 @@ public sealed class SyncService : IDisposable
 
     private static bool IsManagedFile(DriverFile file)
     {
+        if (SyncTodoPaths.TryDescribe(file.Path, out _, out _, out _)) return true;
         var parts = file.Path.Split('/');
         if (parts.Length != 2)
             return false;
